@@ -4,7 +4,7 @@ import {
   eachDayOfInterval, format, parseISO,
   differenceInDays, max, min, isToday,
 } from 'date-fns'
-import { STATUS_CONFIG } from '../constants'
+import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 
 const ROW_PAD = 8
 const UNIT_H = 26
@@ -59,6 +59,9 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
       ? visible.filter(j => j.units?.some(u => u.status !== 'complete'))
       : visible
 
+  const allUnits = filtered.flatMap(j => j.units || [])
+  const totalUnits = allUnits.length
+
   function barBounds(job) {
     const s = max([parseISO(job.drop_off_date), anchor])
     const e = min([parseISO(job.pickup_date), weekEnd])
@@ -88,6 +91,27 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
           onClick={() => setAnchor(w => addWeeks(w, 1))}
           className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 text-lg"
         >›</button>
+      </div>
+
+      {/* Status key */}
+      <div className="bg-white border-b border-slate-100 px-4 py-2 shrink-0">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-center">
+          {STATUS_ORDER.map(s => {
+            const cfg = STATUS_CONFIG[s]
+            const count = allUnits.filter(u => u.status === s).length
+            return (
+              <div key={s} className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cfg.bg }} />
+                <span className="text-[11px] text-slate-600 font-medium">{cfg.label}</span>
+                <span className="text-[11px] font-bold text-slate-800">{count}</span>
+              </div>
+            )
+          })}
+          <div className="flex items-center gap-1.5 ml-auto pl-3 border-l border-slate-200">
+            <span className="text-[11px] text-slate-500 font-medium">Total units</span>
+            <span className="text-[11px] font-bold text-slate-900">{totalUnits}</span>
+          </div>
+        </div>
       </div>
 
       {/* Chart — full width, no label column */}

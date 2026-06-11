@@ -41,4 +41,4 @@ export const STATUS_CONFIG = {
   },
 }
 
-export const STATUS_ORDER = ['booked_in', 'in_progress', 'awaiting_parts', 'ready', 'complete']
+export const STATUS_ORDER = ['booked_in', 'awaiting_parts', 'ready', 'in_progress', 'complete']
