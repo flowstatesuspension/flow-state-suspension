@@ -50,7 +50,14 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
   const chartW = days.length * colW
 
   const visible = jobs.filter(j => {
-    if (!j.drop_off_date || !j.pickup_date) return false
+    if (!j.drop_off_date) return false
+    if (viewMode === 'booking') {
+      // Booking view: only show jobs whose drop-off falls in this week
+      const d = parseISO(j.drop_off_date)
+      return d >= anchor && d <= weekEnd
+    }
+    // Work view: show jobs whose span overlaps this week
+    if (!j.pickup_date) return false
     return parseISO(j.drop_off_date) <= weekEnd && parseISO(j.pickup_date) >= anchor
   })
 
@@ -63,6 +70,13 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
   const totalUnits = allUnits.length
 
   function barBounds(job) {
+    if (viewMode === 'booking') {
+      // Single-day bar on drop-off date
+      const d = parseISO(job.drop_off_date)
+      const left = differenceInDays(d, anchor) * colW + 2
+      const width = colW - 4
+      return { left, width }
+    }
     const s = max([parseISO(job.drop_off_date), anchor])
     const e = min([parseISO(job.pickup_date), weekEnd])
     const left = differenceInDays(s, anchor) * colW + 2
@@ -107,8 +121,8 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
               </div>
             )
           })}
-          <div className="flex items-center gap-1.5 ml-auto pl-3 border-l border-slate-200">
-            <span className="text-[11px] text-slate-500 font-medium">Total units</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-slate-500 font-medium">Total</span>
             <span className="text-[11px] font-bold text-slate-900">{totalUnits}</span>
           </div>
         </div>

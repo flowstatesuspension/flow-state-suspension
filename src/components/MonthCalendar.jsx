@@ -25,9 +25,12 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
   const totalUnits = allVisibleUnits.length
 
   function jobsOnDay(day) {
-    return visibleJobs.filter(j =>
-      isWithinInterval(day, { start: parseISO(j.drop_off_date), end: parseISO(j.pickup_date) })
-    )
+    const dayStr = format(day, 'yyyy-MM-dd')
+    return visibleJobs.filter(j => {
+      if (viewMode === 'booking') return j.drop_off_date === dayStr
+      if (!j.pickup_date) return j.drop_off_date === dayStr
+      return isWithinInterval(day, { start: parseISO(j.drop_off_date), end: parseISO(j.pickup_date) })
+    })
   }
 
   function jobColor(job) {
@@ -66,8 +69,8 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
               </div>
             )
           })}
-          <div className="flex items-center gap-1.5 ml-auto pl-3 border-l border-slate-200">
-            <span className="text-[11px] text-slate-500 font-medium">Total units</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-slate-500 font-medium">Total</span>
             <span className="text-[11px] font-bold text-slate-900">{totalUnits}</span>
           </div>
         </div>
