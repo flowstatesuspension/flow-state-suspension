@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from './lib/supabase'
 import { useData } from './hooks/useData'
 import BottomNav from './components/BottomNav'
 import JobsScreen from './screens/JobsScreen'
 import CustomersScreen from './screens/CustomersScreen'
 import DashboardScreen from './screens/DashboardScreen'
 import AnalyticsScreen from './screens/AnalyticsScreen'
+import LoginScreen from './screens/LoginScreen'
 
-export default function App() {
+function MainApp() {
   const [activeTab, setActiveTab] = useState('jobs')
   const data = useData()
 
@@ -21,4 +23,35 @@ export default function App() {
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   )
+}
+
+export default function App() {
+  const [session, setSession] = useState(undefined) // undefined = loading
+
+  useEffect(() => {
+    // Get existing session immediately (from localStorage)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
+
+    // Listen for sign-in / sign-out
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Still checking localStorage for existing session
+  if (session === undefined) {
+    return (
+      <div className="flex items-center justify-center h-full bg-slate-900">
+        <div className="animate-spin w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (!session) return <LoginScreen />
+
+  return <MainApp />
 }

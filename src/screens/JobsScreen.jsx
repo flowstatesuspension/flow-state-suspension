@@ -19,7 +19,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
       <div className="bg-slate-900 safe-top shrink-0">
         <div className="px-4 pt-3 pb-3">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-white font-bold text-lg tracking-tight">Flow State</h1>
+            <h1 className="text-white font-bold text-lg tracking-tight">Flow State Suspension : Workflow</h1>
             <span className="text-slate-400 text-xs">{jobs.length} jobs</span>
           </div>
 

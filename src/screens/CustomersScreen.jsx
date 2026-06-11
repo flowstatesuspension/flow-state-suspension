@@ -116,7 +116,7 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
       <div className="bg-slate-900 safe-top shrink-0">
         <div className="px-4 pt-3 pb-4">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-white font-bold text-lg">Customers</h1>
+            <h1 className="text-white font-bold text-lg">Flow State Suspension : Workflow</h1>
             <span className="text-slate-400 text-xs">{customers.length} total</span>
           </div>
           <div className="relative">

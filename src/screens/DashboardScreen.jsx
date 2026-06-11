@@ -13,7 +13,7 @@ export default function DashboardScreen({ jobs, loading }) {
   return (
     <div className="flex flex-col h-full">
       <div className="bg-slate-900 safe-top shrink-0 px-4 pt-3 pb-4">
-        <h1 className="text-white font-bold text-lg">Dashboard</h1>
+        <h1 className="text-white font-bold text-lg">Flow State Suspension : Workflow</h1>
         <p className="text-slate-400 text-xs mt-0.5">Workshop overview</p>
       </div>
 
