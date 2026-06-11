@@ -4,7 +4,7 @@ import {
   eachDayOfInterval, format, parseISO,
   addMonths, subMonths, isSameMonth, isToday, isWithinInterval,
 } from 'date-fns'
-import { STATUS_CONFIG } from '../constants'
+import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 
 export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
   const [anchor, setAnchor] = useState(new Date())
@@ -19,9 +19,7 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
     return jobs.filter(j => {
       if (!j.drop_off_date || !j.pickup_date) return false
       if (viewMode === 'work' && j.units?.every(u => u.status === 'complete')) return false
-      const s = parseISO(j.drop_off_date)
-      const e = parseISO(j.pickup_date)
-      return isWithinInterval(day, { start: s, end: e })
+      return isWithinInterval(day, { start: parseISO(j.drop_off_date), end: parseISO(j.pickup_date) })
     })
   }
 
@@ -47,6 +45,19 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
         >›</button>
       </div>
 
+      {/* Colour key */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 bg-white border-b border-slate-100 shrink-0">
+        {STATUS_ORDER.map(s => {
+          const cfg = STATUS_CONFIG[s]
+          return (
+            <div key={s} className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cfg.bg }} />
+              <span className="text-[11px] text-slate-500 font-medium">{cfg.label}</span>
+            </div>
+          )
+        })}
+      </div>
+
       {/* Weekday headers */}
       <div className="grid grid-cols-7 bg-white border-b border-slate-200 shrink-0">
         {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => (
@@ -70,11 +81,7 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
               >
                 <span
                   className={`text-xs font-semibold w-5 h-5 flex items-center justify-center rounded-full mb-0.5 ${
-                    today
-                      ? 'bg-sky-500 text-white'
-                      : inMonth
-                      ? 'text-slate-700'
-                      : 'text-slate-300'
+                    today ? 'bg-sky-500 text-white' : inMonth ? 'text-slate-700' : 'text-slate-300'
                   }`}
                 >
                   {format(day, 'd')}
@@ -87,7 +94,7 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
                       className="text-left rounded px-1 py-0.5 text-[9px] font-semibold text-white leading-tight truncate"
                       style={{ backgroundColor: jobColor(job) }}
                     >
-                      {job.customers?.name || '—'}
+                      {job.customers?.name?.split(' ')[0] || '—'}
                     </button>
                   ))}
                   {dayJobs.length > 3 && (

@@ -6,28 +6,37 @@ import {
 } from 'date-fns'
 import { STATUS_CONFIG } from '../constants'
 
-const LABEL_W = 120
 const ROW_PAD = 8
-const UNIT_H = 22
+const UNIT_H = 26
 const UNIT_GAP = 3
-const MIN_COL_W = 52
+const MIN_COL_W = 80
 
 function rowHeight(job) {
   const n = job.units?.length || 1
   return ROW_PAD * 2 + n * UNIT_H + (n - 1) * UNIT_GAP
 }
 
+function firstNames(name) {
+  return name ? name.split(' ')[0] : '—'
+}
+
+function copyToClipboard(text, e) {
+  e.stopPropagation()
+  navigator.clipboard.writeText(text).catch(() => {})
+}
+
 export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
   const [anchor, setAnchor] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   )
+  const [copied, setCopied] = useState(null)
   const containerRef = useRef(null)
   const [colW, setColW] = useState(MIN_COL_W)
 
   useLayoutEffect(() => {
     function measure() {
       if (!containerRef.current) return
-      const available = containerRef.current.clientWidth - LABEL_W
+      const available = containerRef.current.clientWidth
       setColW(Math.max(MIN_COL_W, Math.floor(available / 7)))
     }
     measure()
@@ -58,134 +67,143 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
     return { left, width }
   }
 
+  function handleCopy(serial, unitId, e) {
+    copyToClipboard(serial, e)
+    setCopied(unitId)
+    setTimeout(() => setCopied(c => c === unitId ? null : c), 1500)
+  }
+
   return (
-    <div className="flex flex-col h-full" ref={containerRef}>
+    <div className="flex flex-col h-full">
       {/* Week navigator */}
       <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 shrink-0">
         <button
           onClick={() => setAnchor(w => subWeeks(w, 1))}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 text-lg font-light"
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 text-lg"
         >‹</button>
         <div className="text-sm font-semibold text-slate-700">
           {format(anchor, 'd MMM')} – {format(weekEnd, 'd MMM yyyy')}
         </div>
         <button
           onClick={() => setAnchor(w => addWeeks(w, 1))}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 text-lg font-light"
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-600 text-lg"
         >›</button>
       </div>
 
-      {/* Chart area */}
-      <div className="flex-1 overflow-auto scrollbar-none">
-        <div className="flex min-h-full">
-          {/* Sticky label column */}
-          <div
-            className="sticky left-0 z-20 bg-white border-r border-slate-200 shrink-0 flex flex-col"
-            style={{ width: LABEL_W, minWidth: LABEL_W }}
-          >
-            <div className="h-10 border-b border-slate-200 flex items-center px-3">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Customer</span>
-            </div>
-            {filtered.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-slate-300 text-xs px-2 text-center">
-                No jobs this week
-              </div>
-            ) : (
-              filtered.map(job => (
-                <button
-                  key={job.id}
-                  onClick={() => onJobClick(job)}
-                  style={{ height: rowHeight(job) }}
-                  className="border-b border-slate-100 flex items-center px-3 text-left w-full hover:bg-sky-50 transition-colors"
-                >
-                  <span className="text-xs font-semibold text-slate-700 truncate leading-tight">
-                    {job.customers?.name || '—'}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-
-          {/* Chart columns — fills remaining width */}
-          <div className="flex-1 overflow-x-auto scrollbar-none">
-            {/* Day headers */}
+      {/* Chart — full width, no label column */}
+      <div className="flex-1 overflow-auto scrollbar-none" ref={containerRef}>
+        {/* Day headers */}
+        <div
+          className="sticky top-0 z-10 flex bg-white border-b border-slate-200"
+          style={{ height: 40, width: chartW }}
+        >
+          {days.map(day => (
             <div
-              className="sticky top-0 z-10 flex bg-white border-b border-slate-200"
-              style={{ height: 40, width: chartW }}
+              key={day.toISOString()}
+              style={{ width: colW }}
+              className="border-r border-slate-100 flex flex-col items-center justify-center"
             >
-              {days.map(day => (
-                <div
-                  key={day.toISOString()}
-                  style={{ width: colW }}
-                  className="border-r border-slate-100 flex flex-col items-center justify-center"
-                >
-                  <span className="text-[10px] text-slate-400 font-medium">{format(day, 'EEE')}</span>
-                  <span
-                    className={`text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ${
-                      isToday(day) ? 'bg-sky-500 text-white' : 'text-slate-700'
-                    }`}
-                  >
-                    {format(day, 'd')}
-                  </span>
-                </div>
-              ))}
+              <span className="text-[10px] text-slate-400 font-medium">{format(day, 'EEE')}</span>
+              <span
+                className={`text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ${
+                  isToday(day) ? 'bg-sky-500 text-white' : 'text-slate-700'
+                }`}
+              >
+                {format(day, 'd')}
+              </span>
             </div>
+          ))}
+        </div>
 
-            {/* Job rows */}
-            <div style={{ width: chartW }}>
-              {filtered.map(job => {
-                const { left, width } = barBounds(job)
-                const h = rowHeight(job)
-                return (
+        {/* Job rows */}
+        <div style={{ width: chartW }}>
+          {filtered.length === 0 && (
+            <div className="flex items-center justify-center h-32 text-slate-300 text-sm">
+              No jobs this week
+            </div>
+          )}
+
+          {filtered.map(job => {
+            const { left, width } = barBounds(job)
+            const h = rowHeight(job)
+            const firstName = firstNames(job.customers?.name)
+            return (
+              <div
+                key={job.id}
+                className="relative border-b border-slate-100"
+                style={{ height: h }}
+              >
+                {/* Grid lines */}
+                {days.map((_, i) => (
                   <div
-                    key={job.id}
-                    className="relative border-b border-slate-100"
-                    style={{ height: h }}
-                  >
-                    {days.map((_, i) => (
-                      <div
-                        key={i}
-                        className="absolute top-0 bottom-0 border-r border-slate-100"
-                        style={{ left: i * colW, width: colW }}
-                      />
-                    ))}
+                    key={i}
+                    className="absolute top-0 bottom-0 border-r border-slate-100"
+                    style={{ left: i * colW, width: colW }}
+                  />
+                ))}
 
-                    {(job.units || []).map((unit, idx) => {
-                      const cfg = STATUS_CONFIG[unit.status] || STATUS_CONFIG.booked_in
-                      return (
-                        <button
-                          key={unit.id}
-                          onClick={() => onJobClick(job)}
-                          style={{
-                            left,
-                            width: Math.max(width, 4),
-                            top: ROW_PAD + idx * (UNIT_H + UNIT_GAP),
-                            height: UNIT_H,
-                            backgroundColor: cfg.bg,
-                          }}
-                          className="absolute rounded flex items-center px-1.5 overflow-hidden hover:opacity-90 transition-opacity"
-                        >
-                          <span className="text-white text-[10px] font-semibold truncate leading-none">
-                            {unit.brand} {unit.model}
-                          </span>
-                        </button>
-                      )
-                    })}
-
-                    {(!job.units || job.units.length === 0) && (
+                {/* Unit bars */}
+                {(job.units || []).map((unit, idx) => {
+                  const cfg = STATUS_CONFIG[unit.status] || STATUS_CONFIG.booked_in
+                  const label = `${firstName}: ${unit.brand}${unit.model ? ' ' + unit.model : ''}`
+                  const hasCopied = copied === unit.id
+                  return (
+                    <div
+                      key={unit.id}
+                      style={{
+                        left,
+                        width: Math.max(width, 4),
+                        top: ROW_PAD + idx * (UNIT_H + UNIT_GAP),
+                        height: UNIT_H,
+                        backgroundColor: cfg.bg,
+                      }}
+                      className="absolute rounded flex items-center overflow-hidden group"
+                    >
+                      {/* Main clickable area */}
                       <button
                         onClick={() => onJobClick(job)}
-                        style={{ left, width: Math.max(width, 4), top: ROW_PAD, height: UNIT_H, backgroundColor: '#94a3b8' }}
-                        className="absolute rounded flex items-center px-1.5 overflow-hidden hover:opacity-90"
+                        className="flex-1 flex items-center px-2 h-full text-left overflow-hidden hover:opacity-90 transition-opacity"
                       >
-                        <span className="text-white text-[10px] font-semibold">No units</span>
+                        <span className="text-white text-[11px] font-semibold truncate leading-none">
+                          {label}
+                        </span>
                       </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+
+                      {/* Copy serial button */}
+                      {unit.serial_number && (
+                        <button
+                          onClick={e => handleCopy(unit.serial_number, unit.id, e)}
+                          className="shrink-0 w-7 h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/10"
+                          title={`Copy serial: ${unit.serial_number}`}
+                        >
+                          {hasCopied ? (
+                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* No units fallback */}
+                {(!job.units || job.units.length === 0) && (
+                  <button
+                    onClick={() => onJobClick(job)}
+                    style={{ left, width: Math.max(width, 4), top: ROW_PAD, height: UNIT_H, backgroundColor: '#94a3b8' }}
+                    className="absolute rounded flex items-center px-2 overflow-hidden hover:opacity-90"
+                  >
+                    <span className="text-white text-[11px] font-semibold">{firstNames(job.customers?.name)}: no units</span>
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
