@@ -25,9 +25,9 @@ export default function AnalyticsScreen({ jobs }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-slate-900 safe-top shrink-0 px-4 pt-3 pb-4">
-        <h1 className="text-white font-bold text-lg">Analytics</h1>
-        <p className="text-slate-400 text-xs mt-0.5">Business insights</p>
+      <div className="safe-top shrink-0 px-4 pt-3 pb-4" style={{ backgroundColor: '#0a0a0a' }}>
+        <h1 className="font-bold text-lg" style={{ color: '#b5ce3a' }}>Analytics</h1>
+        <p className="text-slate-500 text-xs mt-0.5">Business insights</p>
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-4">

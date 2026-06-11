@@ -11,9 +11,9 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob 
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-slate-900 safe-top shrink-0">
+      <div className="safe-top shrink-0" style={{ backgroundColor: '#0a0a0a' }}>
         <div className="px-4 pt-3 pb-4 flex items-center gap-3">
-          <button onClick={onBack} className="text-sky-400 text-sm font-medium flex items-center gap-1">
+          <button onClick={onBack} className="text-sm font-medium flex items-center gap-1" style={{ color: '#b5ce3a' }}>
             <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
@@ -21,7 +21,7 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob 
           </button>
         </div>
         <div className="px-4 pb-4">
-          <div className="w-12 h-12 rounded-full bg-sky-500 flex items-center justify-center text-white font-bold text-xl mb-2">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl mb-2" style={{ backgroundColor: '#b5ce3a', color: '#0a0a0a' }}>
             {customer.name[0].toUpperCase()}
           </div>
           <h2 className="text-white font-bold text-xl">{customer.name}</h2>
@@ -113,21 +113,22 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-slate-900 safe-top shrink-0">
+      <div className="safe-top shrink-0" style={{ backgroundColor: '#0a0a0a' }}>
         <div className="px-4 pt-3 pb-4">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-white font-bold text-lg">Customers</h1>
-            <span className="text-slate-400 text-xs">{customers.length} total</span>
+            <h1 className="font-bold text-lg" style={{ color: '#b5ce3a' }}>Customers</h1>
+            <span className="text-slate-500 text-xs">{customers.length} total</span>
           </div>
           <div className="relative">
-            <svg viewBox="0 0 24 24" className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2}>
+            <svg viewBox="0 0 24 24" className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
             </svg>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search customers…"
-              className="w-full bg-slate-800 text-white placeholder-slate-500 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-1 focus:ring-sky-500"
+              className="w-full text-white placeholder-slate-500 rounded-lg pl-9 pr-3 py-2 text-sm outline-none"
+              style={{ backgroundColor: '#1a1a1a' }}
             />
           </div>
         </div>
@@ -152,7 +153,7 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
                 onClick={() => setSelected(c)}
                 className="w-full bg-white rounded-xl border border-slate-200 p-3 text-left hover:border-sky-300 transition-colors flex items-center gap-3"
               >
-                <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-base shrink-0">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-base shrink-0" style={{ backgroundColor: '#b5ce3a22', color: '#8fa82a' }}>
                   {c.name[0].toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">

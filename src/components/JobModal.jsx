@@ -97,16 +97,17 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-t-2xl flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
-          <button onClick={onClose} className="text-sky-600 font-medium text-sm">Cancel</button>
+    <div className="fixed inset-0 z-50 flex md:justify-end justify-end flex-col md:flex-row bg-black/50" onClick={e => e.target === e.currentTarget && onClose()}>
+      {/* Panel — bottom sheet on mobile, right sidebar on desktop */}
+      <div className="bg-white md:rounded-l-2xl rounded-t-2xl flex flex-col md:max-h-full max-h-[92vh] md:w-[420px] md:shadow-2xl">
+        {/* Header — safe-top on mobile, normal on desktop */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0 safe-top md:pt-4">
+          <button onClick={onClose} className="text-brand font-medium text-sm">Cancel</button>
           <h2 className="font-bold text-slate-900">{isNew ? 'New Job' : 'Edit Job'}</h2>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="text-sky-600 font-semibold text-sm disabled:opacity-40"
+            className="text-brand font-semibold text-sm disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
