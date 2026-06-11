@@ -23,18 +23,17 @@ const TABS = [
 
 export default function BottomNav({ activeTab, onTabChange }) {
   return (
-    <nav className="flex border-t border-slate-800 pb-safe" style={{ backgroundColor: '#0a0a0a' }}>
+    <nav className="flex bg-white border-t border-slate-200 pb-safe">
       {TABS.map(tab => {
         const active = activeTab === tab.id
         return (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className="flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors"
-            style={{ color: active ? '#b5ce3a' : '#4b5563' }}
+            className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors ${active ? 'text-sky-600' : 'text-slate-400'}`}
           >
             {tab.icon(active)}
-            <span className="text-[10px] font-medium" style={{ color: active ? '#b5ce3a' : '#4b5563' }}>
+            <span className={`text-[10px] font-medium ${active ? 'text-sky-600' : 'text-slate-400'}`}>
               {tab.label}
             </span>
           </button>

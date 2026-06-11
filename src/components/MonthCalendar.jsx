@@ -15,12 +15,19 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
   const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: calStart, end: calEnd })
 
+  const visibleJobs = jobs.filter(j => {
+    if (!j.drop_off_date || !j.pickup_date) return false
+    if (viewMode === 'work' && j.units?.every(u => u.status === 'complete')) return false
+    return true
+  })
+
+  const allVisibleUnits = visibleJobs.flatMap(j => j.units || [])
+  const totalUnits = allVisibleUnits.length
+
   function jobsOnDay(day) {
-    return jobs.filter(j => {
-      if (!j.drop_off_date || !j.pickup_date) return false
-      if (viewMode === 'work' && j.units?.every(u => u.status === 'complete')) return false
-      return isWithinInterval(day, { start: parseISO(j.drop_off_date), end: parseISO(j.pickup_date) })
-    })
+    return visibleJobs.filter(j =>
+      isWithinInterval(day, { start: parseISO(j.drop_off_date), end: parseISO(j.pickup_date) })
+    )
   }
 
   function jobColor(job) {
@@ -45,17 +52,25 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
         >›</button>
       </div>
 
-      {/* Colour key */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 bg-white border-b border-slate-100 shrink-0">
-        {STATUS_ORDER.map(s => {
-          const cfg = STATUS_CONFIG[s]
-          return (
-            <div key={s} className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cfg.bg }} />
-              <span className="text-[11px] text-slate-500 font-medium">{cfg.label}</span>
-            </div>
-          )
-        })}
+      {/* Colour key with counts */}
+      <div className="bg-white border-b border-slate-100 px-4 py-2 shrink-0">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-center">
+          {STATUS_ORDER.map(s => {
+            const cfg = STATUS_CONFIG[s]
+            const count = allVisibleUnits.filter(u => u.status === s).length
+            return (
+              <div key={s} className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cfg.bg }} />
+                <span className="text-[11px] text-slate-600 font-medium">{cfg.label}</span>
+                <span className="text-[11px] font-bold text-slate-800">{count}</span>
+              </div>
+            )
+          })}
+          <div className="flex items-center gap-1.5 ml-auto pl-3 border-l border-slate-200">
+            <span className="text-[11px] text-slate-500 font-medium">Total units</span>
+            <span className="text-[11px] font-bold text-slate-900">{totalUnits}</span>
+          </div>
+        </div>
       </div>
 
       {/* Weekday headers */}
