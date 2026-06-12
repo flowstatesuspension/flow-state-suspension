@@ -142,11 +142,21 @@ export default function AnalyticsScreen({ jobs, customers }) {
     const avgJobValue = jobs.length ? totalRevenue / jobs.length : 0
     const avgCompletedValue = completedJobs.length ? completedRevenue / completedJobs.length : 0
 
-    // 7 months: Dec 2025 → Jun 2026 (adjusts if we're past Jun)
-    // Always show from 6 months back to current month
-    const NUM_MONTHS = 7
-    const months = Array.from({ length: NUM_MONTHS }, (_, i) => {
-      const start = startOfMonth(subMonths(today, NUM_MONTHS - 1 - i))
+    // Window: 6 months back → furthest future job drop_off month (min 2 months ahead)
+    const windowStart = startOfMonth(subMonths(today, 6))
+    const latestJobMonth = jobs.reduce((max, j) => {
+      if (!j.drop_off_date) return max
+      const m = startOfMonth(parseISO(j.drop_off_date))
+      return m > max ? m : max
+    }, startOfMonth(today))
+    const minFutureEnd = startOfMonth(subMonths(today, -2)) // 2 months ahead
+    const windowEnd = latestJobMonth > minFutureEnd ? latestJobMonth : minFutureEnd
+
+    // Build month array from windowStart to windowEnd
+    const months = []
+    let cursor = windowStart
+    while (cursor <= windowEnd) {
+      const start = cursor
       const end = endOfMonth(start)
       const label = format(start, 'MMM')
       const monthJobs = jobs.filter(j => {
@@ -160,11 +170,14 @@ export default function AnalyticsScreen({ jobs, customers }) {
         .map(j => differenceInDays(parseISO(j.pickup_date), parseISO(j.drop_off_date)))
       const avgTurnaround = turonarounds.length
         ? turonarounds.reduce((a, b) => a + b, 0) / turonarounds.length : 0
-      return { label, start, end, jobCount: monthJobs.length, revenue, avgTurnaround }
-    })
+      months.push({ label, start, end, jobCount: monthJobs.length, revenue, avgTurnaround })
+      cursor = startOfMonth(subMonths(cursor, -1))
+    }
 
-    const thisMonth = months[NUM_MONTHS - 1]
-    const lastMonth = months[NUM_MONTHS - 2]
+    const currentMonthStart = startOfMonth(today)
+    const thisMonthIdx = months.findIndex(m => m.start.getTime() === currentMonthStart.getTime())
+    const thisMonth = months[thisMonthIdx] ?? months[months.length - 1]
+    const lastMonth = months[thisMonthIdx - 1] ?? months[0]
     const targetGap = REVENUE_TARGET - thisMonth.revenue
     const targetPct = Math.min((thisMonth.revenue / REVENUE_TARGET) * 100, 100).toFixed(0)
 
