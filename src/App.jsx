@@ -14,7 +14,7 @@ function MainApp() {
 
   return (
     <div className="flex flex-col bg-slate-50" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 'calc(-1 * env(safe-area-inset-bottom))' }}>
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0" style={{ overflow: 'clip' }}>
         {activeTab === 'jobs'      && <JobsScreen      {...data} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
         {activeTab === 'dashboard' && <DashboardScreen {...data} />}
