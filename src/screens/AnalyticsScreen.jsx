@@ -48,6 +48,14 @@ function DeltaBadge({ current, previous }) {
   )
 }
 
+function Insight({ text }) {
+  return (
+    <div className="bg-sky-50 border border-sky-100 rounded-xl p-3 mt-2">
+      <p className="text-xs text-sky-800 leading-relaxed">{text}</p>
+    </div>
+  )
+}
+
 // SVG line chart. data = [{ label, value }], target = optional horizontal line value
 function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => String(v) }) {
   const H = 90
@@ -175,7 +183,8 @@ export default function AnalyticsScreen({ jobs, customers }) {
         .map(j => differenceInDays(parseISO(j.pickup_date), parseISO(j.drop_off_date)))
       const avgTurnaround = turonarounds.length
         ? turonarounds.reduce((a, b) => a + b, 0) / turonarounds.length : 0
-      months.push({ label, start, end, jobCount: monthJobs.length, revenue, avgTurnaround })
+      const unitCount = monthJobs.flatMap(j => j.units || []).length
+      months.push({ label, start, end, jobCount: monthJobs.length, unitCount, revenue, avgTurnaround })
       cursor = startOfMonth(subMonths(cursor, -1))
     }
 
@@ -271,6 +280,8 @@ export default function AnalyticsScreen({ jobs, customers }) {
     const overdueRate = jobs.length ? ((overdueJobs.length / jobs.length) * 100).toFixed(0) : 0
     const partsBlockRate = jobs.length ? ((awaitingPartsJobs.length / jobs.length) * 100).toFixed(0) : 0
 
+    const unitsChartData = months.map(m => ({ label: m.label, value: m.unitCount || 0 }))
+
     return {
       totalRevenue, completedRevenue, activeRevenue, avgJobValue, avgCompletedValue,
       months, thisMonth, lastMonth, targetGap, targetPct,
@@ -280,6 +291,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
       repeatCustomers, custSpend, topCustomers, maxCustSpend, newCustMonths,
       topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
       overdueJobs, awaitingPartsJobs, readyJobs, oldestActiveDays, overdueRate, partsBlockRate,
+      unitsChartData,
     }
   }, [jobs, customers])
 
@@ -292,7 +304,104 @@ export default function AnalyticsScreen({ jobs, customers }) {
     repeatCustomers, custSpend, topCustomers, maxCustSpend, newCustMonths,
     topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
     overdueJobs, awaitingPartsJobs, readyJobs, oldestActiveDays, overdueRate, partsBlockRate,
+    unitsChartData,
   } = data
+
+  function revenueInsight() {
+    const activeMonths = months.filter(m => m.revenue > 0)
+    if (activeMonths.length < 2) return "Revenue data is building — insights will appear once you have a few months of history."
+    const recent3 = activeMonths.slice(-3)
+    const trend = recent3.length >= 2 ? recent3[recent3.length-1].revenue - recent3[0].revenue : 0
+    const trendDir = trend > 0 ? 'upward' : trend < 0 ? 'downward' : 'flat'
+    const pipelineRatio = totalRevenue > 0 ? Math.round((activeRevenue / totalRevenue) * 100) : 0
+    const hitTarget = Number(targetPct) >= 100
+    let txt = `Your revenue shows a ${trendDir} trend over recent months. `
+    if (hitTarget) txt += `This month you've hit ${targetPct}% of your £${REVENUE_TARGET.toLocaleString()} target — a strong result. `
+    else txt += `This month you're at ${targetPct}% of your £${REVENUE_TARGET.toLocaleString()} target with £${Math.abs(targetGap).toFixed(0)} remaining. `
+    txt += `Average job value is £${avgJobValue.toFixed(0)}, and ${pipelineRatio}% of total revenue is still in active pipeline. `
+    if (pipelineRatio > 40) txt += `A high pipeline ratio suggests strong forward bookings but focus on converting work to invoiced revenue.`
+    else txt += `Converting pipeline to invoiced revenue is tracking well.`
+    return txt
+  }
+
+  function jobVolumeInsight() {
+    const completionRate = Math.round((completedJobs.length / Math.max(jobs.length, 1)) * 100)
+    const activeMonths = months.filter(m => m.jobCount > 0)
+    const peakMonth = activeMonths.reduce((a, b) => b.jobCount > a.jobCount ? b : a, activeMonths[0] || months[0])
+    let txt = `You've taken on ${jobs.length} jobs in total with a ${completionRate}% completion rate. `
+    txt += `Peak booking month was ${peakMonth.label} with ${peakMonth.jobCount} jobs. `
+    txt += `At ${avgUnitsPerJob.toFixed(1)} units per job on average, `
+    if (avgUnitsPerJob >= 2) txt += `customers are regularly bringing in multiple items — a positive sign for revenue per visit.`
+    else txt += `there's an opportunity to encourage multi-unit bookings to increase revenue per customer visit.`
+    return txt
+  }
+
+  function unitsInsight() {
+    const totalUnits = allUnits.length
+    const completedUnits = allUnits.filter(u => u.status === 'complete').length
+    const completionRate = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0
+    const awaitingPartsUnits = allUnits.filter(u => u.status === 'awaiting_parts').length
+    const activeMonths = months.filter(m => m.unitCount > 0)
+    const peakMonth = activeMonths.reduce((a, b) => (b.unitCount || 0) > (a.unitCount || 0) ? b : a, activeMonths[0] || months[0])
+    let txt = `${totalUnits} units have passed through the workshop, with ${completionRate}% completed. `
+    if (peakMonth) txt += `Peak unit volume was in ${peakMonth.label}. `
+    if (awaitingPartsUnits > 0) {
+      const pct = Math.round((awaitingPartsUnits / totalUnits) * 100)
+      txt += `${awaitingPartsUnits} units (${pct}%) are currently blocked on parts — this is your primary throughput constraint and worth addressing with suppliers proactively.`
+    } else {
+      txt += `No units are currently blocked on parts, indicating good supply chain management.`
+    }
+    return txt
+  }
+
+  function turnaroundInsight() {
+    if (avgTurnaround === null) return "Turnaround data will appear once jobs have both drop-off and pickup dates recorded."
+    const recent = months.filter(m => m.avgTurnaround > 0).slice(-3)
+    const trendUp = recent.length >= 2 && recent[recent.length-1].avgTurnaround > recent[0].avgTurnaround
+    let txt = `Average turnaround is ${avgTurnaround} days, ranging from ${minTurnaround} to ${maxTurnaround} days. `
+    if (trendUp) txt += `Turnaround time has been increasing recently — this may indicate growing demand outpacing capacity or parts delays. `
+    else txt += `Turnaround times are stable or improving — a positive sign for capacity management. `
+    if (maxTurnaround > avgTurnaround * 2) txt += `The gap between fastest (${minTurnaround}d) and slowest (${maxTurnaround}d) is significant, suggesting some jobs encounter delays. Review what's driving outlier durations.`
+    return txt
+  }
+
+  function operationalInsight() {
+    const issues = []
+    if (overdueJobs.length > 0) issues.push(`${overdueJobs.length} overdue job${overdueJobs.length > 1 ? 's' : ''} past their promised pickup date`)
+    if (awaitingPartsJobs.length > 0) issues.push(`${awaitingPartsJobs.length} job${awaitingPartsJobs.length > 1 ? 's' : ''} blocked on parts`)
+    if (readyJobs.length > 0) issues.push(`${readyJobs.length} job${readyJobs.length > 1 ? 's' : ''} ready and waiting for customer collection`)
+    if (issues.length === 0) return `Workshop pipeline is clean — no overdue jobs, no parts blocks, and nothing waiting for collection. Strong operational position.`
+    let txt = `Current workshop flags: ${issues.join('; ')}. `
+    if (overdueJobs.length > 0) txt += `Overdue jobs damage customer trust — contact those customers today. `
+    if (readyJobs.length > 0) txt += `Ready jobs represent revenue already earned but not yet collected; proactive notification reduces storage pressure.`
+    return txt
+  }
+
+  function customerInsight() {
+    const retentionRate = customers.length ? Math.round((repeatCustomers.length / customers.length) * 100) : 0
+    const top3spend = custSpend.slice(0, 3).reduce((s, c) => s + c.spend, 0)
+    const top3pct = totalRevenue > 0 ? Math.round((top3spend / totalRevenue) * 100) : 0
+    let txt = `Your retention rate is ${retentionRate}% — `
+    if (retentionRate >= 60) txt += `strong repeat business that reduces acquisition cost. `
+    else if (retentionRate >= 30) txt += `moderate repeat business; consider follow-up communications after job completion to encourage returns. `
+    else txt += `low repeat rate suggests customers aren't returning — consider post-service follow-ups and loyalty incentives. `
+    if (top3pct > 50) txt += `Your top 3 customers account for ${top3pct}% of total revenue — high concentration creates vulnerability if any one of them leaves. Prioritise broadening your customer base.`
+    else txt += `Revenue is reasonably distributed across your customer base, reducing dependency on any single customer.`
+    return txt
+  }
+
+  function brandInsight() {
+    if (topBrandsByCount.length === 0) return "Brand data will appear as you log units on jobs."
+    const top = topBrandsByCount[0]
+    const topPct = allUnits.length > 0 ? Math.round((top[1].count / allUnits.length) * 100) : 0
+    const perUnitValues = topBrandsByRevenue.map(([b, d]) => ({ brand: b, perUnit: d.count ? d.revenue / d.count : 0 }))
+    const highestPU = perUnitValues.sort((a, b) => b.perUnit - a.perUnit)[0]
+    let txt = `${top[0]} is your dominant brand at ${topPct}% of units. `
+    if (topPct > 70) txt += `This heavy concentration means your business is closely tied to one manufacturer's service cycle and parts ecosystem — worth monitoring as a risk. `
+    else txt += `Brand mix is reasonably spread, which reduces dependency on any single manufacturer's demand cycle. `
+    txt += `${highestPU.brand} generates the highest revenue per unit at £${highestPU.perUnit.toFixed(0)}, making it your most valuable service line.`
+    return txt
+  }
 
   if (!jobs.length) {
     return (
@@ -389,6 +498,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
               <KPICard value={`£${avgCompletedValue.toFixed(0)}`} label="Avg Completed" sub="invoiced" />
             </div>
           </div>
+          <Insight text={revenueInsight()} />
         </Section>
 
         {/* ── JOB VOLUME ── */}
@@ -417,6 +527,27 @@ export default function AnalyticsScreen({ jobs, customers }) {
               accentColor="#22c55e"
             />
           </div>
+          <Insight text={jobVolumeInsight()} />
+        </Section>
+
+        {/* ── UNITS VOLUME ── */}
+        <Section title="Units Volume">
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <KPICard value={allUnits.length} label="Total Units" accentColor="#64748b" />
+            <KPICard value={activeUnits.length} label="Active" accentColor="#f97316" />
+            <KPICard value={allUnits.filter(u => u.status === 'complete').length} label="Completed" accentColor="#22c55e" />
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-slate-700">Units Booked per Month</p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold text-slate-700">{thisMonth.unitCount || 0}</span>
+                <DeltaBadge current={thisMonth.unitCount || 0} previous={lastMonth.unitCount || 0} />
+              </div>
+            </div>
+            <LineChart data={unitsChartData} color="#f97316" valueFormat={v => String(v)} />
+          </div>
+          <Insight text={unitsInsight()} />
         </Section>
 
         {/* ── TURNAROUND ── */}
@@ -438,6 +569,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
               Appears once jobs have completed pickup dates
             </div>
           )}
+          <Insight text={turnaroundInsight()} />
         </Section>
 
         {/* ── WORKSHOP PIPELINE ── */}
@@ -490,6 +622,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
             <KPICard value={oldestActiveDays > 0 ? `${oldestActiveDays}d` : '—'} label="Oldest Active" sub="days in workshop"
               accentColor={oldestActiveDays > 14 ? '#ef4444' : oldestActiveDays > 7 ? '#f97316' : '#64748b'} />
           </div>
+          <Insight text={operationalInsight()} />
         </Section>
 
         {/* ── CUSTOMERS ── */}
@@ -528,6 +661,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
               )}
             </div>
           )}
+          <Insight text={customerInsight()} />
         </Section>
 
         {/* ── BRANDS ── */}
@@ -586,6 +720,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
               Brand data appears as you log units on jobs
             </div>
           )}
+          <Insight text={brandInsight()} />
         </Section>
 
         {/* ── MODELS ── */}
