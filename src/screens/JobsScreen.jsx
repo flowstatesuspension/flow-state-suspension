@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import GanttWeekView from '../components/GanttWeekView'
 import MonthCalendar from '../components/MonthCalendar'
+import DayView from '../components/DayView'
 import JobModal from '../components/JobModal'
 
 export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJob }) {
@@ -29,7 +30,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
 
           <div className="flex gap-2">
             <div className="flex bg-white/10 rounded-lg p-0.5">
-              {[['week', 'Week'], ['month', 'Month']].map(([id, label]) => (
+              {[['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(([id, label]) => (
                 <button
                   key={id}
                   onClick={() => setCalView(id)}
@@ -65,6 +66,8 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full" />
           </div>
+        ) : calView === 'day' ? (
+          <DayView jobs={jobs} onJobClick={openJob} viewMode={viewMode} />
         ) : calView === 'week' ? (
           <GanttWeekView jobs={jobs} onJobClick={openJob} viewMode={viewMode} />
         ) : (
