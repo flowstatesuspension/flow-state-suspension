@@ -212,7 +212,12 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
 
                   {/* 2×2 grid: Brand | Model / Serial | £Price — all cells same height */}
                   <div className="grid grid-cols-2 gap-2">
-                    <input value={unit.brand} onChange={e => setUnitField(idx, 'brand', e.target.value)} placeholder="Brand *" className="input" />
+                    <select value={unit.brand} onChange={e => setUnitField(idx, 'brand', e.target.value)} className="input">
+                      <option value="">Brand *</option>
+                      <option value="Fox">Fox</option>
+                      <option value="Rockshox">Rockshox</option>
+                      <option value="Other">Other</option>
+                    </select>
                     <input value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} placeholder="Model" className="input" />
                     <div className="relative">
                       <input value={unit.serial_number} onChange={e => setUnitField(idx, 'serial_number', e.target.value)} placeholder="Serial" className="input w-full pr-8" />
