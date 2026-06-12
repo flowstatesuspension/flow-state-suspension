@@ -216,6 +216,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                       <option value="">Brand *</option>
                       <option value="Fox">Fox</option>
                       <option value="Rockshox">Rockshox</option>
+                      <option value="Postage">Postage</option>
                       <option value="Other">Other</option>
                     </select>
                     <input value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} placeholder="Model" className="input" />
