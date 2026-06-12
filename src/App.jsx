@@ -22,7 +22,7 @@ function MainApp() {
         {activeTab === 'analytics' && <AnalyticsScreen {...data} />}
       </div>
       {/* Fixed nav pinned to physical bottom */}
-      <div className="fixed bottom-0 left-0 right-0 z-40">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white">
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
     </div>
