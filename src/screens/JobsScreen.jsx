@@ -78,7 +78,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
       {/* FAB */}
       <button
         onClick={openNew}
-        className="fixed right-5 bottom-24 flex items-center justify-center rounded-full shadow-lg z-30 bg-sky-500 hover:bg-sky-600 transition-colors"
+        className="fixed right-5 bottom-6 flex items-center justify-center rounded-full shadow-lg z-30 bg-sky-500 hover:bg-sky-600 transition-colors"
         style={{ width: 52, height: 52 }}
         aria-label="Add job"
       >
