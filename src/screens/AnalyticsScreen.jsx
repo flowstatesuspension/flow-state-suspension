@@ -179,7 +179,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
     const thisMonth = months[thisMonthIdx] ?? months[months.length - 1]
     const lastMonth = months[thisMonthIdx - 1] ?? months[0]
     const targetGap = REVENUE_TARGET - thisMonth.revenue
-    const targetPct = Math.min((thisMonth.revenue / REVENUE_TARGET) * 100, 100).toFixed(0)
+    const targetPct = ((thisMonth.revenue / REVENUE_TARGET) * 100).toFixed(0)
 
     // Turnaround stats
     const allTurnarounds = completedJobs
@@ -366,13 +366,13 @@ export default function AnalyticsScreen({ jobs, customers }) {
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-semibold text-slate-700">This Month vs Target</p>
-              <span className={`text-sm font-bold ${Number(targetPct) >= 100 ? 'text-emerald-600' : 'text-slate-700'}`}>
+              <span className={`text-sm font-bold ${Number(targetPct) >= 100 ? 'text-emerald-600' : Number(targetPct) >= 75 ? 'text-orange-500' : 'text-red-500'}`}>
                 {targetPct}%
               </span>
             </div>
             <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all"
-                style={{ width: `${targetPct}%`, backgroundColor: Number(targetPct) >= 100 ? '#22c55e' : Number(targetPct) >= 75 ? '#f97316' : '#ef4444' }} />
+                style={{ width: `${Math.min(Number(targetPct), 100)}%`, backgroundColor: Number(targetPct) >= 100 ? '#22c55e' : Number(targetPct) >= 75 ? '#f97316' : '#ef4444' }} />
             </div>
             <div className="flex justify-between mt-1.5 text-[10px] text-slate-400">
               <span>£0</span>
