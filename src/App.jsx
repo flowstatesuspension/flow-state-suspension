@@ -14,15 +14,17 @@ function MainApp() {
 
   return (
     <div className="flex flex-col bg-slate-50" style={{ height: '100%' }}>
-      {/* Screen content fills all space above the nav */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* Content scrolls above the fixed nav */}
+      <div className="flex-1 overflow-hidden" style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
         {activeTab === 'jobs'      && <JobsScreen      {...data} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
         {activeTab === 'dashboard' && <DashboardScreen {...data} />}
         {activeTab === 'analytics' && <AnalyticsScreen {...data} />}
       </div>
-      {/* Nav sits at the physical bottom as a flex item — no fixed positioning */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      {/* Fixed nav pinned to physical bottom */}
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
     </div>
   )
 }
