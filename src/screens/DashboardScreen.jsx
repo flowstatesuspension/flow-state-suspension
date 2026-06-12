@@ -121,10 +121,10 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-black safe-top shrink-0 px-4 py-3">
-        <div className="flex items-center gap-3">
+      <div className="bg-black safe-top shrink-0">
+        <div className="px-4 py-3 flex items-center gap-3">
           <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
-          <div className="">
+          <div>
             <h1 className="text-white font-bold text-lg leading-none">Work Flow</h1>
             <p className="text-slate-400 text-xs mt-1">Workshop overview</p>
           </div>
