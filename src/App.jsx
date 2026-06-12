@@ -13,7 +13,7 @@ function MainApp() {
   const data = useData()
 
   return (
-    <div className="flex flex-col bg-slate-50 overflow-hidden" style={{ height: '100%' }}>
+    <div className="flex flex-col bg-slate-50" style={{ height: '100%' }}>
       {/* Screen content fills all space above the nav */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeTab === 'jobs'      && <JobsScreen      {...data} />}
