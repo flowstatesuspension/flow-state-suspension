@@ -27,7 +27,7 @@ export default function DayView({ jobs, onJobClick, viewMode }) {
   const today = isToday(date)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Day nav */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0 bg-white">
         <button onClick={() => setDate(d => subDays(d, 1))}
