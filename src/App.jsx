@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { useData } from './hooks/useData'
 import BottomNav from './components/BottomNav'
@@ -11,6 +11,22 @@ import LoginScreen from './screens/LoginScreen'
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const data = useData()
+  const navRef = useRef(null)
+
+  useEffect(() => {
+    const el = navRef.current
+    if (!el) return
+    // iOS PWA bug: on screens without page-level scroll, position:fixed bottom:0
+    // anchors to the layout viewport (excludes safe area) not the visual viewport.
+    // Fix: measure the gap between nav bottom and physical screen bottom, then
+    // nudge the nav down by that amount. Skip if gap is large (keyboard open).
+    el.style.bottom = '0px'
+    requestAnimationFrame(() => {
+      const rect = el.getBoundingClientRect()
+      const diff = window.screen.height - rect.bottom
+      if (diff > 0.5 && diff < 80) el.style.bottom = `-${diff}px`
+    })
+  }, [activeTab])
 
   return (
     <div className="flex flex-col bg-slate-50" style={{ height: '100%' }}>
@@ -22,7 +38,7 @@ function MainApp() {
         {activeTab === 'analytics' && <AnalyticsScreen {...data} />}
       </div>
       {/* Fixed nav pinned to physical bottom */}
-      <div className="fixed bottom-0 left-0 right-0 z-40">
+      <div ref={navRef} className="fixed bottom-0 left-0 right-0 z-40">
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
     </div>
