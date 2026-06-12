@@ -191,26 +191,10 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
         {allUnits.length > 0 && (
           <div>
             <SectionLabel>Brand Split</SectionLabel>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex gap-3 mb-3">
-                <button onClick={() => open('Fox Jobs', foxJobs)} className="flex-1 text-left active:bg-slate-50 rounded-lg p-2 -m-2 transition-colors">
-                  <p className="text-2xl font-bold text-slate-900">{foxPct}%</p>
-                  <p className="text-xs font-medium text-slate-500 mt-0.5">Fox · {foxJobs.length} jobs</p>
-                </button>
-                <button onClick={() => open('Rockshox Jobs', rockshoxJobs)} className="flex-1 text-left active:bg-slate-50 rounded-lg p-2 -m-2 transition-colors">
-                  <p className="text-2xl font-bold text-slate-900">{rockshoxPct}%</p>
-                  <p className="text-xs font-medium text-slate-500 mt-0.5">Rockshox · {rockshoxJobs.length} jobs</p>
-                </button>
-                <div className="flex-1">
-                  <p className="text-2xl font-bold text-slate-900">{100 - foxPct - rockshoxPct}%</p>
-                  <p className="text-xs font-medium text-slate-500 mt-0.5">Other</p>
-                </div>
-              </div>
-              <div className="flex rounded-full overflow-hidden h-2 gap-px">
-                <div style={{ width: `${foxPct}%`, backgroundColor: '#f97316' }} />
-                <div style={{ width: `${rockshoxPct}%`, backgroundColor: '#3b82f6' }} />
-                <div style={{ width: `${Math.max(0, 100 - foxPct - rockshoxPct)}%`, backgroundColor: '#e2e8f0' }} />
-              </div>
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard value={`${foxPct}%`} label="Fox" sub={`${foxJobs.length} jobs`} accent="#f97316" onClick={() => open('Fox Jobs', foxJobs)} />
+              <StatCard value={`${rockshoxPct}%`} label="Rockshox" sub={`${rockshoxJobs.length} jobs`} accent="#3b82f6" onClick={() => open('Rockshox Jobs', rockshoxJobs)} />
+              <StatCard value={`${100 - foxPct - rockshoxPct}%`} label="Other" />
             </div>
           </div>
         )}
