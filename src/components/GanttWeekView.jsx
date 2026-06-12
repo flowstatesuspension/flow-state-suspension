@@ -25,10 +25,12 @@ function copyToClipboard(text, e) {
   navigator.clipboard.writeText(text).catch(() => {})
 }
 
-export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
-  const [anchor, setAnchor] = useState(
+export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange }) {
+  const [anchorLocal, setAnchorLocal] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   )
+  const anchor    = anchorProp    ?? anchorLocal
+  const setAnchor = onAnchorChange ?? setAnchorLocal
   const [copied, setCopied] = useState(null)
   const containerRef = useRef(null)
   const [colW, setColW] = useState(MIN_COL_W)

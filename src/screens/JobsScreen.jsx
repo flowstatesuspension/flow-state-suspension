@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { startOfWeek, format } from 'date-fns'
 import GanttWeekView from '../components/GanttWeekView'
 import MonthCalendar from '../components/MonthCalendar'
 import DayView from '../components/DayView'
@@ -9,8 +10,15 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const [viewMode, setViewMode] = useState('work')
   const [selectedJob, setSelectedJob] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [weekAnchor, setWeekAnchor] = useState(
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  )
 
-  function openNew() { setSelectedJob(null); setShowModal(true) }
+  function openNew() {
+    const defaultDate = calView === 'week' ? format(weekAnchor, 'yyyy-MM-dd') : undefined
+    setSelectedJob(defaultDate ? { drop_off_date: defaultDate } : null)
+    setShowModal(true)
+  }
   function openJob(job) { setSelectedJob(job); setShowModal(true) }
   function closeModal() { setShowModal(false); setSelectedJob(null) }
 
@@ -69,7 +77,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
         ) : calView === 'day' ? (
           <DayView jobs={jobs} onJobClick={openJob} viewMode={viewMode} />
         ) : calView === 'week' ? (
-          <GanttWeekView jobs={jobs} onJobClick={openJob} viewMode={viewMode} />
+          <GanttWeekView jobs={jobs} onJobClick={openJob} viewMode={viewMode} anchor={weekAnchor} onAnchorChange={setWeekAnchor} />
         ) : (
           <MonthCalendar jobs={jobs} onJobClick={openJob} viewMode={viewMode} />
         )}
