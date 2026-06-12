@@ -9,7 +9,7 @@ import AnalyticsScreen from './screens/AnalyticsScreen'
 import LoginScreen from './screens/LoginScreen'
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState('jobs')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const data = useData()
 
   return (
