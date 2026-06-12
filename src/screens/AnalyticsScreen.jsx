@@ -74,7 +74,7 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
   const lastIdx = n - 1
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" style={{ height: 90 }} preserveAspectRatio="none">
       <defs>
         <linearGradient id={`grad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
@@ -330,7 +330,8 @@ export default function AnalyticsScreen({ jobs, customers }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-5">
+      <div className="flex-1 overflow-y-auto scrollbar-none">
+      <div className="max-w-2xl mx-auto p-4 space-y-5">
 
         {/* ── REVENUE ── */}
         <Section title="Revenue">
@@ -614,6 +615,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
           </Section>
         )}
 
+      </div>
       </div>
     </div>
   )
