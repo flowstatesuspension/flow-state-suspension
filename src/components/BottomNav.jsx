@@ -1,7 +1,15 @@
 const TABS = [
   { id: 'jobs', label: 'Jobs', icon: (active) => (
-    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25c.03-.772-.23-1.54-.706-2.15L14.5 9.5M11.42 15.17l-3.43 3.43a2.652 2.652 0 0 1-3.752-3.752l3.43-3.43m3.752 3.752L7.5 11.5M3 3l18 18" />
+    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+      {/* Shock absorber: top mount, shaft, body, spring coils, bottom mount */}
+      <line x1="12" y1="2" x2="12" y2="4" />
+      <rect x="10" y="4" width="4" height="2" rx="0.5" />
+      <line x1="12" y1="6" x2="12" y2="9" />
+      <path d="M10 9 Q8 10 10 11 Q12 12 10 13 Q8 14 10 15 Q12 16 10 17" />
+      <path d="M14 9 Q16 10 14 11 Q12 12 14 13 Q16 14 14 15 Q12 16 14 17" />
+      <rect x="9.5" y="17" width="5" height="3" rx="0.5" />
+      <line x1="12" y1="20" x2="12" y2="22" />
+      <rect x="10" y="22" width="4" height="1.5" rx="0.5" />
     </svg>
   )},
   { id: 'customers', label: 'Customers', icon: (active) => (

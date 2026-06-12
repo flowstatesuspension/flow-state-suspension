@@ -6,7 +6,7 @@ const TODAY = format(new Date(), 'yyyy-MM-dd')
 const DEFAULT_PICKUP = format(addDays(new Date(), 3), 'yyyy-MM-dd')
 
 function blankUnit() {
-  return { id: null, brand: '', model: '', serial_number: '', status: 'booked_in', parts_notes: '', price: '' }
+  return { id: null, brand: '', model: '', serial_number: '', status: 'booked_in', parts_notes: '', price: '120' }
 }
 
 function formatPhone(raw) {
@@ -43,6 +43,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
     })) : [blankUnit()]
   )
   const [nameSuggestions, setNameSuggestions] = useState([])
+  const [hasTypedName, setHasTypedName] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -51,14 +52,15 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
   const [noPhoneWarning, setNoPhoneWarning] = useState(false)
 
   useEffect(() => {
-    if (!form.customer_name.trim()) { setNameSuggestions([]); return }
+    if (!hasTypedName || !form.customer_name.trim()) { setNameSuggestions([]); return }
     const q = form.customer_name.toLowerCase()
     setNameSuggestions(customers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 5))
-  }, [form.customer_name, customers])
+  }, [form.customer_name, customers, hasTypedName])
 
   function pickCustomer(c) {
     setForm(f => ({ ...f, customer_name: c.name, customer_email: c.email || '', customer_phone: c.phone || '' }))
     setNameSuggestions([])
+    setHasTypedName(false)
   }
 
   function setField(key, val) {
@@ -141,7 +143,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                 <input
                   ref={nameRef}
                   value={form.customer_name}
-                  onChange={e => setField('customer_name', e.target.value)}
+                  onChange={e => { setHasTypedName(true); setField('customer_name', e.target.value) }}
                   placeholder="Customer name *"
                   className="input w-full"
                 />
@@ -227,7 +229,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                     <input value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} placeholder="Model" className="input" />
                   </div>
 
-                  {/* Serial + copy */}
+                  {/* Serial + price on same row */}
                   <div className="flex gap-2 items-center">
                     <input value={unit.serial_number} onChange={e => setUnitField(idx, 'serial_number', e.target.value)} placeholder="Serial number" className="input flex-1" />
                     {unit.serial_number && (
@@ -242,6 +244,18 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                         }
                       </button>
                     )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-xs text-slate-500">£</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={unit.price}
+                        onChange={e => setUnitField(idx, 'price', e.target.value)}
+                        placeholder="0"
+                        className="input w-20"
+                      />
+                    </div>
                   </div>
 
                   {/* Status */}
@@ -259,20 +273,6 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                         )
                       })}
                     </div>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 shrink-0">Price £</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={unit.price}
-                      onChange={e => setUnitField(idx, 'price', e.target.value)}
-                      placeholder="0.00"
-                      className="input flex-1"
-                    />
                   </div>
 
                   <textarea value={unit.parts_notes} onChange={e => setUnitField(idx, 'parts_notes', e.target.value)} placeholder="Parts / notes…" rows={2} className="input w-full resize-none text-xs" />
