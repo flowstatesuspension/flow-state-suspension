@@ -208,7 +208,8 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-5">
+      <div className="flex-1 overflow-y-auto scrollbar-none">
+      <div className="max-w-2xl mx-auto p-4 space-y-5">
 
         {/* Revenue */}
         <div>
@@ -316,6 +317,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
           </div>
         </div>
 
+      </div>
       </div>
 
       {sheet && (
