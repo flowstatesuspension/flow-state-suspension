@@ -6,8 +6,10 @@ import {
 } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 
-export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
-  const [anchor, setAnchor] = useState(new Date())
+export default function MonthCalendar({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange }) {
+  const [anchorLocal, setAnchorLocal] = useState(new Date())
+  const anchor    = anchorProp    ?? anchorLocal
+  const setAnchor = onAnchorChange ?? setAnchorLocal
 
   const monthStart = startOfMonth(anchor)
   const monthEnd = endOfMonth(anchor)

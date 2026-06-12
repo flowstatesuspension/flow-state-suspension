@@ -21,8 +21,10 @@ function jobsOnDay(jobs, date, viewMode) {
   })
 }
 
-export default function DayView({ jobs, onJobClick, viewMode }) {
-  const [date, setDate] = useState(new Date())
+export default function DayView({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange }) {
+  const [dateLocal, setDateLocal] = useState(new Date())
+  const date    = anchorProp    ?? dateLocal
+  const setDate = onAnchorChange ?? setDateLocal
   const dayJobs = jobsOnDay(jobs, date, viewMode)
   const today = isToday(date)
 
@@ -55,7 +57,8 @@ export default function DayView({ jobs, onJobClick, viewMode }) {
       )}
 
       {/* Job list */}
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-2" style={{ overscrollBehavior: 'none' }}>
+      <div className="flex-1 overflow-y-auto scrollbar-none" style={{ overscrollBehavior: 'none' }}>
+      <div className="max-w-2xl mx-auto p-4 space-y-2">
         {dayJobs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-center">
             <p className="text-slate-400 font-medium text-sm">No jobs {viewMode === 'booking' ? 'booked in' : 'open'} on this day</p>
@@ -87,6 +90,7 @@ export default function DayView({ jobs, onJobClick, viewMode }) {
             </button>
           ))
         )}
+      </div>
       </div>
     </div>
   )
