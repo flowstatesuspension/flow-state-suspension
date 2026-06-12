@@ -55,7 +55,7 @@ export default function DayView({ jobs, onJobClick, viewMode }) {
       )}
 
       {/* Job list */}
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-2" style={{ overscrollBehavior: 'none' }}>
         {dayJobs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-center">
             <p className="text-slate-400 font-medium text-sm">No jobs {viewMode === 'booking' ? 'booked in' : 'open'} on this day</p>

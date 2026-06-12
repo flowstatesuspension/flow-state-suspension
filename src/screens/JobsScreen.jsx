@@ -61,7 +61,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
       </div>
 
       {/* Chart area */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white">
+      <div className="flex-1 min-h-0 flex flex-col bg-white">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full" />

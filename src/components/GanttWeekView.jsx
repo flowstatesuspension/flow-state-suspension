@@ -129,7 +129,7 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
       </div>
 
       {/* Chart — full width, no label column */}
-      <div className="flex-1 overflow-auto scrollbar-none" ref={containerRef}>
+      <div className="flex-1 overflow-auto scrollbar-none" ref={containerRef} style={{ overscrollBehavior: 'none' }}>
         {/* Day headers */}
         <div
           className="sticky top-0 z-10 flex bg-white border-b border-slate-200"

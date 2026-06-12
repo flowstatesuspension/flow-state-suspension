@@ -86,7 +86,7 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
       </div>
 
       {/* Day grid */}
-      <div className="flex-1 overflow-auto scrollbar-none">
+      <div className="flex-1 overflow-auto scrollbar-none" style={{ overscrollBehavior: 'none' }}>
         <div className="grid grid-cols-7 h-full" style={{ gridAutoRows: 'minmax(64px, 1fr)' }}>
           {days.map(day => {
             const dayJobs = jobsOnDay(day)
