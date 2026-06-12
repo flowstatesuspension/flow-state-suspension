@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 import JobModal from '../components/JobModal'
+import PullToRefresh from '../components/PullToRefresh'
 
 function jobTotal(job) {
   return (job.units || []).reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
@@ -76,7 +77,7 @@ function JobListSheet({ title, jobs, customers, saveJob, deleteJob, onClose }) {
   )
 }
 
-export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob }) {
+export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, refresh }) {
   const [sheet, setSheet] = useState(null)
 
   const allUnits = jobs.flatMap(j => j.units || [])
@@ -131,7 +132,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-5">
+      <PullToRefresh onRefresh={refresh} className="p-4 space-y-5">
 
         {/* Revenue */}
         <div>
@@ -227,7 +228,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
           </div>
         </div>
 
-      </div>
+      </PullToRefresh>
 
       {sheet && (
         <JobListSheet

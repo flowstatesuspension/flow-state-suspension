@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { format, parseISO, differenceInDays, startOfMonth, subMonths, endOfMonth } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
+import PullToRefresh from '../components/PullToRefresh'
 
 const REVENUE_TARGET = 3000
 
@@ -128,7 +129,7 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
   )
 }
 
-export default function AnalyticsScreen({ jobs, customers }) {
+export default function AnalyticsScreen({ jobs, customers, refresh }) {
   const data = useMemo(() => {
     const today = new Date()
     const allUnits = jobs.flatMap(j => j.units || [])
@@ -311,7 +312,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-5">
+      <PullToRefresh onRefresh={refresh} className="p-4 space-y-5">
 
         {/* ── REVENUE ── */}
         <Section title="Revenue">
@@ -563,7 +564,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
           )}
         </Section>
 
-      </div>
+      </PullToRefresh>
     </div>
   )
 }

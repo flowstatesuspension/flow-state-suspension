@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { format, addDays, subDays, isToday, parseISO } from 'date-fns'
 import { STATUS_CONFIG } from '../constants'
+import PullToRefresh from './PullToRefresh'
 
 function jobTotal(job) {
   return (job.units || []).reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
@@ -21,7 +22,7 @@ function jobsOnDay(jobs, date, viewMode) {
   })
 }
 
-export default function DayView({ jobs, onJobClick, viewMode }) {
+export default function DayView({ jobs, onJobClick, viewMode, onRefresh }) {
   const [date, setDate] = useState(new Date())
   const dayJobs = jobsOnDay(jobs, date, viewMode)
   const today = isToday(date)
@@ -55,7 +56,7 @@ export default function DayView({ jobs, onJobClick, viewMode }) {
       )}
 
       {/* Job list */}
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-2">
+      <PullToRefresh onRefresh={onRefresh} className="p-4 space-y-2">
         {dayJobs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-center">
             <p className="text-slate-400 font-medium text-sm">No jobs {viewMode === 'booking' ? 'booked in' : 'open'} on this day</p>
@@ -87,7 +88,7 @@ export default function DayView({ jobs, onJobClick, viewMode }) {
             </button>
           ))
         )}
-      </div>
+      </PullToRefresh>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import StatusBadge from '../components/StatusBadge'
 import JobModal from '../components/JobModal'
+import PullToRefresh from '../components/PullToRefresh'
 
 function jobTotal(job) {
   return (job.units || []).reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
@@ -156,7 +157,7 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
   )
 }
 
-export default function CustomersScreen({ customers, jobs, loading, saveJob, deleteJob, deleteCustomer, updateCustomer }) {
+export default function CustomersScreen({ customers, jobs, loading, saveJob, deleteJob, deleteCustomer, updateCustomer, refresh }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
 
@@ -208,9 +209,9 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-2">
+      <PullToRefresh onRefresh={refresh} className="p-4 space-y-2">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-48">
             <div className="animate-spin w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full" />
           </div>
         ) : filtered.length === 0 ? (
@@ -243,7 +244,7 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
             )
           })
         )}
-      </div>
+      </PullToRefresh>
     </div>
   )
 }
