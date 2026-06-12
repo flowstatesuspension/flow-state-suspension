@@ -64,7 +64,7 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-slate-900 safe-top shrink-0">
+      <div className="bg-black safe-top shrink-0">
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">
           <button onClick={onBack} className="text-sky-400 text-sm font-medium flex items-center gap-1">
             <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -188,18 +188,19 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-slate-900 safe-top shrink-0">
+      <div className="bg-black safe-top shrink-0">
         <div className="px-4 pt-3 pb-4">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-white font-bold text-lg">Flow State Suspension : Work Flow</h1>
-            <span className="text-slate-400 text-xs">{customers.length} customers</span>
+          <div className="flex items-center gap-3 mb-3">
+            <img src="/icons/apple-touch-icon.png" alt="logo" className="h-9 w-9 rounded-lg shrink-0" />
+            <h1 className="text-white font-bold text-lg flex-1">Work Flow</h1>
+            <span className="text-slate-400 text-xs shrink-0">{customers.length} customers</span>
           </div>
           <div className="relative">
             <svg viewBox="0 0 24 24" className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
             </svg>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers…"
-              className="w-full bg-slate-800 text-white placeholder-slate-500 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-1 focus:ring-sky-500" />
+              className="w-full bg-white/10 text-white placeholder-slate-500 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-1 focus:ring-sky-500" />
           </div>
         </div>
       </div>

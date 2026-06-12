@@ -121,9 +121,14 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-slate-900 safe-top shrink-0 px-4 pt-3 pb-4">
-        <h1 className="text-white font-bold text-lg">Flow State Suspension : Work Flow</h1>
-        <p className="text-slate-400 text-xs mt-0.5">Workshop overview</p>
+      <div className="bg-black safe-top shrink-0 px-4 pt-3 pb-4">
+        <div className="flex items-center gap-3">
+          <img src="/icons/apple-touch-icon.png" alt="logo" className="h-9 w-9 rounded-lg shrink-0" />
+          <div>
+            <h1 className="text-white font-bold text-lg leading-tight">Work Flow</h1>
+            <p className="text-slate-400 text-xs">Workshop overview</p>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-5">

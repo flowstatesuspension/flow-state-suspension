@@ -16,15 +16,16 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-slate-900 safe-top shrink-0">
+      <div className="bg-black safe-top shrink-0">
         <div className="px-4 pt-3 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-white font-bold text-lg tracking-tight">Flow State Suspension : Work Flow</h1>
-            <span className="text-slate-400 text-xs">{jobs.length} jobs</span>
+          <div className="flex items-center gap-3 mb-3">
+            <img src="/icons/apple-touch-icon.png" alt="logo" className="h-9 w-9 rounded-lg shrink-0" />
+            <h1 className="text-white font-bold text-lg tracking-tight flex-1">Work Flow</h1>
+            <span className="text-slate-400 text-xs shrink-0">{jobs.length} jobs</span>
           </div>
 
           <div className="flex gap-2">
-            <div className="flex bg-slate-800 rounded-lg p-0.5">
+            <div className="flex bg-white/10 rounded-lg p-0.5">
               {[['week', 'Week'], ['month', 'Month']].map(([id, label]) => (
                 <button
                   key={id}
@@ -38,7 +39,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
               ))}
             </div>
 
-            <div className="flex bg-slate-800 rounded-lg p-0.5">
+            <div className="flex bg-white/10 rounded-lg p-0.5">
               {[['work', 'Work'], ['booking', 'Booking']].map(([id, label]) => (
                 <button
                   key={id}
