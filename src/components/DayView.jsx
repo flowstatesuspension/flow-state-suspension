@@ -9,6 +9,7 @@ function jobTotal(job) {
 function jobsOnDay(jobs, date, viewMode) {
   const d = format(date, 'yyyy-MM-dd')
   return jobs.filter(job => {
+    if (job.units?.length && job.units.every(u => u.status === 'complete')) return false
     if (viewMode === 'booking') {
       return job.drop_off_date === d
     }
