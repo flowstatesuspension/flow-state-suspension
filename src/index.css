@@ -31,6 +31,8 @@
   .pb-safe     { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
   .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
+  /* Prevent iOS scroll propagation to parent when inner container hits boundary */
+  .overflow-y-auto, .overflow-auto { overscroll-behavior: none; }
   .text-brand  { color: var(--brand); }
   .bg-brand    { background-color: var(--brand); }
   .border-brand { border-color: var(--brand); }
