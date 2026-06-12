@@ -8,6 +8,22 @@ import MonthCalendar from '../components/MonthCalendar'
 import DayView from '../components/DayView'
 import JobModal from '../components/JobModal'
 
+function jobsInPeriod(jobs, calView, dayAnchor, weekAnchor, monthAnchor) {
+  const d = format(dayAnchor, 'yyyy-MM-dd')
+  const wo = { weekStartsOn: 1 }
+  if (calView === 'day') {
+    return jobs.filter(j => j.drop_off_date === d)
+  }
+  if (calView === 'week') {
+    const weekStart = startOfWeek(weekAnchor, wo)
+    const weekEnd   = endOfWeek(weekAnchor, wo)
+    return jobs.filter(j => j.drop_off_date && parseISO(j.drop_off_date) >= weekStart && parseISO(j.drop_off_date) <= weekEnd)
+  }
+  const monthStart = startOfMonth(monthAnchor)
+  const monthEnd   = endOfMonth(monthAnchor)
+  return jobs.filter(j => j.drop_off_date && isWithinInterval(parseISO(j.drop_off_date), { start: monthStart, end: monthEnd }))
+}
+
 function visibleJobs(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor) {
   const d = format(dayAnchor, 'yyyy-MM-dd')
   const wo = { weekStartsOn: 1 }
@@ -58,7 +74,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const [weekAnchor, setWeekAnchor] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [monthAnchor, setMonthAnchor] = useState(new Date())
 
-  const currentJobs  = visibleJobs(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
+  const currentJobs  = jobsInPeriod(jobs, calView, dayAnchor, weekAnchor, monthAnchor)
   const currentUnits = currentJobs.flatMap(j => j.units || []).length
 
   function openNew() {
