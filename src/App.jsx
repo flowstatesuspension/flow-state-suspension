@@ -13,18 +13,14 @@ function MainApp() {
   const data = useData()
 
   return (
-    <div className="flex flex-col bg-slate-50" style={{ height: '100%' }}>
-      {/* Content scrolls above the fixed nav */}
-      <div className="flex-1 overflow-hidden" style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
+    <div className="flex flex-col bg-slate-50" style={{ height: '100svh' }}>
+      <div className="flex-1 min-h-0 overflow-hidden">
         {activeTab === 'jobs'      && <JobsScreen      {...data} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
         {activeTab === 'dashboard' && <DashboardScreen {...data} />}
         {activeTab === 'analytics' && <AnalyticsScreen {...data} />}
       </div>
-      {/* Fixed nav pinned to physical bottom */}
-      <div className="fixed bottom-0 left-0 right-0 z-40">
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   )
 }
