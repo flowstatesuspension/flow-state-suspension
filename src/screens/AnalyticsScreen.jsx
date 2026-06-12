@@ -46,12 +46,12 @@ export default function AnalyticsScreen({ jobs }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-black safe-top shrink-0 px-4 pt-3 pb-4">
-        <div className="flex items-center gap-3 py-0.5">
+      <div className="bg-black safe-top shrink-0 px-4 py-3">
+        <div className="flex items-center gap-3">
           <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
-          <div className="flex flex-col justify-between self-stretch">
+          <div className="">
             <h1 className="text-white font-bold text-lg leading-none">Work Flow</h1>
-            <p className="text-slate-400 text-xs leading-none">Business insights</p>
+            <p className="text-slate-400 text-xs mt-1">Business insights</p>
           </div>
         </div>
       </div>

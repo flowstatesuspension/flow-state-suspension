@@ -192,9 +192,9 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
         <div className="px-4 pt-3 pb-4">
           <div className="flex items-center gap-3 mb-3">
             <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
-            <div className="flex flex-col justify-between self-stretch flex-1">
+            <div className="flex-1">
               <h1 className="text-white font-bold text-lg leading-none">Work Flow</h1>
-              <p className="text-slate-400 text-xs leading-none">Customer Records</p>
+              <p className="text-slate-400 text-xs mt-1">Customer Records</p>
             </div>
             <span className="text-slate-400 text-xs shrink-0">{customers.length} customers</span>
           </div>
