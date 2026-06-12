@@ -233,6 +233,25 @@ export default function AnalyticsScreen({ jobs, customers }) {
     const maxBrandCount = topBrandsByCount[0]?.[1].count || 1
     const maxBrandRevenue = topBrandsByRevenue[0]?.[1].revenue || 1
 
+    // Model breakdown grouped by brand
+    const modelData = {}
+    allUnits.forEach(u => {
+      if (!u.brand) return
+      const model = u.model?.trim() || 'Unknown'
+      const key = `${u.brand}||${model}`
+      if (!modelData[key]) modelData[key] = { brand: u.brand, model, count: 0, revenue: 0 }
+      modelData[key].count++
+      modelData[key].revenue += parseFloat(u.price) || 0
+    })
+    const modelsByBrand = {}
+    Object.values(modelData).forEach(m => {
+      if (!modelsByBrand[m.brand]) modelsByBrand[m.brand] = []
+      modelsByBrand[m.brand].push(m)
+    })
+    Object.keys(modelsByBrand).forEach(b => {
+      modelsByBrand[b].sort((a, z) => z.count - a.count)
+    })
+
     // Operational
     const overdueJobs = activeJobs.filter(j => j.pickup_date && parseISO(j.pickup_date) < today)
     const awaitingPartsJobs = jobs.filter(j => j.units?.some(u => u.status === 'awaiting_parts'))
@@ -254,7 +273,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
       allUnits, activeUnits, avgUnitsPerJob, unitStatusCounts,
       completedJobs, activeJobs,
       repeatCustomers, custSpend, topCustomers, maxCustSpend, newCustMonths,
-      topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue,
+      topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
       overdueJobs, awaitingPartsJobs, readyJobs, oldestActiveDays, overdueRate, partsBlockRate,
     }
   }, [jobs, customers])
@@ -266,7 +285,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
     allUnits, activeUnits, avgUnitsPerJob, unitStatusCounts,
     completedJobs, activeJobs,
     repeatCustomers, custSpend, topCustomers, maxCustSpend, newCustMonths,
-    topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue,
+    topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
     overdueJobs, awaitingPartsJobs, readyJobs, oldestActiveDays, overdueRate, partsBlockRate,
   } = data
 
@@ -562,6 +581,38 @@ export default function AnalyticsScreen({ jobs, customers }) {
             </div>
           )}
         </Section>
+
+        {/* ── MODELS ── */}
+        {Object.keys(modelsByBrand).length > 0 && (
+          <Section title="Models by Brand">
+            <div className="space-y-4">
+              {Object.entries(modelsByBrand)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([brand, models]) => {
+                  const maxCount = models[0]?.count || 1
+                  return (
+                    <div key={brand} className="bg-white rounded-xl border border-slate-200 p-4">
+                      <p className="text-sm font-bold text-slate-800 mb-3">{brand}</p>
+                      <div className="space-y-2.5">
+                        {models.map(m => (
+                          <div key={m.model}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-slate-600 font-medium truncate pr-2">{m.model}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs font-semibold text-slate-700">{m.count}</span>
+                                <span className="text-[10px] text-slate-400">£{m.revenue.toFixed(0)}</span>
+                              </div>
+                            </div>
+                            <HBar value={m.count} max={maxCount} color="#f97316" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          </Section>
+        )}
 
       </div>
     </div>

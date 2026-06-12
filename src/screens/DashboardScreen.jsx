@@ -113,6 +113,12 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
   // Avg job value (active)
   const avgActiveValue = activeJobs.length ? activeRevenue / activeJobs.length : 0
 
+  // Brand splits
+  const foxJobs      = jobs.filter(j => j.units?.some(u => u.brand === 'Fox'))
+  const rockshoxJobs = jobs.filter(j => j.units?.some(u => u.brand === 'Rockshox'))
+  const foxPct       = allUnits.length ? Math.round(allUnits.filter(u => u.brand === 'Fox').length / allUnits.length * 100) : 0
+  const rockshoxPct  = allUnits.length ? Math.round(allUnits.filter(u => u.brand === 'Rockshox').length / allUnits.length * 100) : 0
+
   function jobsForStatus(status) {
     return jobs.filter(j => j.units?.some(u => u.status === status))
   }
@@ -180,6 +186,34 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
             })}
           </div>
         </div>
+
+        {/* Brand split */}
+        {allUnits.length > 0 && (
+          <div>
+            <SectionLabel>Brand Split</SectionLabel>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex gap-3 mb-3">
+                <button onClick={() => open('Fox Jobs', foxJobs)} className="flex-1 text-left active:bg-slate-50 rounded-lg p-2 -m-2 transition-colors">
+                  <p className="text-2xl font-bold text-slate-900">{foxPct}%</p>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">Fox · {foxJobs.length} jobs</p>
+                </button>
+                <button onClick={() => open('Rockshox Jobs', rockshoxJobs)} className="flex-1 text-left active:bg-slate-50 rounded-lg p-2 -m-2 transition-colors">
+                  <p className="text-2xl font-bold text-slate-900">{rockshoxPct}%</p>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">Rockshox · {rockshoxJobs.length} jobs</p>
+                </button>
+                <div className="flex-1">
+                  <p className="text-2xl font-bold text-slate-900">{100 - foxPct - rockshoxPct}%</p>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">Other</p>
+                </div>
+              </div>
+              <div className="flex rounded-full overflow-hidden h-2 gap-px">
+                <div style={{ width: `${foxPct}%`, backgroundColor: '#f97316' }} />
+                <div style={{ width: `${rockshoxPct}%`, backgroundColor: '#3b82f6' }} />
+                <div style={{ width: `${Math.max(0, 100 - foxPct - rockshoxPct)}%`, backgroundColor: '#e2e8f0' }} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Workshop alerts */}
         <div>
