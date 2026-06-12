@@ -15,7 +15,7 @@ function MainApp() {
   return (
     <div className="flex flex-col bg-slate-50" style={{ height: '100%' }}>
       {/* Content scrolls above the fixed nav */}
-      <div className="flex-1 overflow-hidden" style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
+      <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom))', overscrollBehavior: 'none' }}>
         {activeTab === 'jobs'      && <JobsScreen      {...data} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
         {activeTab === 'dashboard' && <DashboardScreen {...data} />}
