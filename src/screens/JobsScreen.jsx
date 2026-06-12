@@ -12,16 +12,27 @@ function jobsInPeriod(jobs, calView, dayAnchor, weekAnchor, monthAnchor) {
   const d = format(dayAnchor, 'yyyy-MM-dd')
   const wo = { weekStartsOn: 1 }
   if (calView === 'day') {
-    return jobs.filter(j => j.drop_off_date === d)
+    return jobs.filter(j => {
+      if (!j.drop_off_date) return false
+      if (j.drop_off_date > d) return false
+      if (j.pickup_date && j.pickup_date < d) return false
+      return true
+    })
   }
   if (calView === 'week') {
     const weekStart = startOfWeek(weekAnchor, wo)
     const weekEnd   = endOfWeek(weekAnchor, wo)
-    return jobs.filter(j => j.drop_off_date && parseISO(j.drop_off_date) >= weekStart && parseISO(j.drop_off_date) <= weekEnd)
+    return jobs.filter(j => {
+      if (!j.drop_off_date || !j.pickup_date) return false
+      return parseISO(j.drop_off_date) <= weekEnd && parseISO(j.pickup_date) >= weekStart
+    })
   }
   const monthStart = startOfMonth(monthAnchor)
   const monthEnd   = endOfMonth(monthAnchor)
-  return jobs.filter(j => j.drop_off_date && isWithinInterval(parseISO(j.drop_off_date), { start: monthStart, end: monthEnd }))
+  return jobs.filter(j => {
+    if (!j.drop_off_date || !j.pickup_date) return false
+    return parseISO(j.drop_off_date) <= monthEnd && parseISO(j.pickup_date) >= monthStart
+  })
 }
 
 function visibleJobs(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor) {
