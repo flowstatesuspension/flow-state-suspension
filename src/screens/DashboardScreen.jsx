@@ -123,7 +123,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
     <div className="flex flex-col h-full">
       <div className="bg-black safe-top shrink-0 px-4 pt-3 pb-4">
         <div className="flex items-center gap-3">
-          <img src="/icons/apple-touch-icon.png" alt="logo" className="h-9 w-9 rounded-lg shrink-0" />
+          <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
           <div>
             <h1 className="text-white font-bold text-lg leading-tight">Work Flow</h1>
             <p className="text-slate-400 text-xs">Workshop overview</p>

@@ -191,7 +191,7 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
       <div className="bg-black safe-top shrink-0">
         <div className="px-4 pt-3 pb-4">
           <div className="flex items-center gap-3 mb-3">
-            <img src="/icons/apple-touch-icon.png" alt="logo" className="h-9 w-9 rounded-lg shrink-0" />
+            <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
             <h1 className="text-white font-bold text-lg flex-1">Work Flow</h1>
             <span className="text-slate-400 text-xs shrink-0">{customers.length} customers</span>
           </div>
