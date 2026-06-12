@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useRef, useLayoutEffect } from 'react'
 import { format, parseISO, differenceInDays, startOfMonth, subMonths, endOfMonth } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 
@@ -49,82 +49,87 @@ function DeltaBadge({ current, previous }) {
 }
 
 // SVG line chart. data = [{ label, value }], target = optional horizontal line value
-function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => String(v), showZeroLine = false }) {
-  const W = 300, H = 90
+function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => String(v) }) {
+  const H = 90
   const padT = 14, padB = 18, padL = 2, padR = 2
+  const wrapRef = useRef(null)
+  const [W, setW] = useState(300)
+
+  useLayoutEffect(() => {
+    function measure() {
+      if (wrapRef.current) setW(wrapRef.current.clientWidth || 300)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (wrapRef.current) ro.observe(wrapRef.current)
+    return () => ro.disconnect()
+  }, [])
+
   const cW = W - padL - padR
   const cH = H - padT - padB
 
   const values = data.map(d => d.value)
-  const maxVal = Math.max(target ?? 0, ...values, 1) * 1.08 // 8% headroom
+  const maxVal = Math.max(target ?? 0, ...values, 1) * 1.08
   const n = data.length
 
   const toX = i => padL + (n > 1 ? (i / (n - 1)) * cW : cW / 2)
   const toY = v => padT + cH - Math.max(0, Math.min(v / maxVal, 1)) * cH
 
-  // Build path for line and area
   const pts = data.map((d, i) => [toX(i), toY(d.value)])
   const linePath = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
   const areaPath = `${linePath} L${pts[pts.length - 1][0].toFixed(1)},${(padT + cH).toFixed(1)} L${padL},${(padT + cH).toFixed(1)} Z`
 
   const targetY = target != null ? toY(target) : null
-
-  // Find max point for annotation
-  const maxIdx = values.indexOf(Math.max(...values))
   const lastIdx = n - 1
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" style={{ height: 90 }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={`grad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.01" />
-        </linearGradient>
-      </defs>
+    <div ref={wrapRef} style={{ height: H }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} overflow="visible">
+        <defs>
+          <linearGradient id={`grad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
 
-      {/* Area fill */}
-      <path d={areaPath} fill={`url(#grad-${color.replace('#','')})`} />
+        <path d={areaPath} fill={`url(#grad-${color.replace('#','')})`} />
 
-      {/* Target line */}
-      {targetY != null && (
-        <>
-          <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
-            stroke="#ef4444" strokeWidth="1.2" strokeDasharray="5 3" />
-          <text x={W - padR - 1} y={targetY - 2} textAnchor="end" fontSize="6.5" fill="#ef4444" fontWeight="600">
-            £{target.toLocaleString()} target
+        {targetY != null && (
+          <>
+            <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
+              stroke="#ef4444" strokeWidth="1.2" strokeDasharray="5 3" />
+            <text x={W - padR - 1} y={targetY - 2} textAnchor="end" fontSize="8" fill="#ef4444" fontWeight="600">
+              £{target.toLocaleString()} target
+            </text>
+          </>
+        )}
+
+        <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+        {data.map((d, i) => {
+          if (d.value === 0) return null
+          const [x, y] = pts[i]
+          const isLast = i === lastIdx
+          return (
+            <circle key={i} cx={x} cy={y} r={isLast ? 3 : 2}
+              fill={isLast ? color : '#fff'} stroke={color} strokeWidth="1.5" />
+          )
+        })}
+
+        {data[lastIdx]?.value > 0 && (
+          <text x={pts[lastIdx][0]} y={pts[lastIdx][1] - 5} textAnchor="middle"
+            fontSize="8" fill={color} fontWeight="700">
+            {valueFormat(data[lastIdx].value)}
           </text>
-        </>
-      )}
+        )}
 
-      {/* Line */}
-      <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-
-      {/* Data points — only non-zero, highlight last */}
-      {data.map((d, i) => {
-        if (d.value === 0) return null
-        const [x, y] = pts[i]
-        const isLast = i === lastIdx
-        return (
-          <circle key={i} cx={x} cy={y} r={isLast ? 3 : 2}
-            fill={isLast ? color : '#fff'} stroke={color} strokeWidth="1.5" />
-        )
-      })}
-
-      {/* Value label above last non-zero point */}
-      {data[lastIdx]?.value > 0 && (
-        <text x={pts[lastIdx][0]} y={pts[lastIdx][1] - 5} textAnchor="middle"
-          fontSize="7" fill={color} fontWeight="700">
-          {valueFormat(data[lastIdx].value)}
-        </text>
-      )}
-
-      {/* X-axis month labels */}
-      {data.map((d, i) => (
-        <text key={i} x={toX(i)} y={H - 1} textAnchor="middle" fontSize="6.5" fill="#94a3b8">
-          {d.label}
-        </text>
-      ))}
-    </svg>
+        {data.map((d, i) => (
+          <text key={i} x={toX(i)} y={H - 1} textAnchor="middle" fontSize="8" fill="#94a3b8">
+            {d.label}
+          </text>
+        ))}
+      </svg>
+    </div>
   )
 }
 
