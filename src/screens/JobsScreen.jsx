@@ -15,7 +15,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   function closeModal() { setShowModal(false); setSelectedJob(null) }
 
   return (
-    <div className="relative flex flex-col h-full">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-black safe-top shrink-0">
         <div className="px-4 pt-3 pb-3">
@@ -78,7 +78,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
       {/* FAB */}
       <button
         onClick={openNew}
-        className="absolute right-5 bottom-6 flex items-center justify-center rounded-full shadow-lg z-20 bg-sky-500 hover:bg-sky-600 transition-colors"
+        className="fixed right-5 bottom-24 flex items-center justify-center rounded-full shadow-lg z-30 bg-sky-500 hover:bg-sky-600 transition-colors"
         style={{ width: 52, height: 52 }}
         aria-label="Add job"
       >
