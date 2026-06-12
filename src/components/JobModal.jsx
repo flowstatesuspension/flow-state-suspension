@@ -1,18 +1,27 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format, addDays } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
-import StatusBadge from './StatusBadge'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 const DEFAULT_PICKUP = format(addDays(new Date(), 3), 'yyyy-MM-dd')
 
 function blankUnit() {
-  return { id: null, brand: '', model: '', serial_number: '', status: 'booked_in', parts_notes: '' }
+  return { id: null, brand: '', model: '', serial_number: '', status: 'booked_in', parts_notes: '', price: '' }
+}
+
+function formatPhone(raw) {
+  if (!raw) return null
+  return raw.replace(/[\s\-().]/g, '')
+}
+
+function jobTotal(units) {
+  return units.reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
 }
 
 export default function JobModal({ job, customers, onSave, onDelete, onClose }) {
   const isNew = !job?.id
   const nameRef = useRef(null)
+  const phoneRef = useRef(null)
 
   const [form, setForm] = useState({
     customer_name: job?.customers?.name || '',
@@ -30,20 +39,21 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
       serial_number: u.serial_number || '',
       status: u.status || 'booked_in',
       parts_notes: u.parts_notes || '',
+      price: u.price != null ? String(u.price) : '',
     })) : [blankUnit()]
   )
   const [nameSuggestions, setNameSuggestions] = useState([])
-  const [copiedSerial, setCopiedSerial] = useState(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState(null)
+  const [copiedSerial, setCopiedSerial] = useState(null)
+  const [noPhoneWarning, setNoPhoneWarning] = useState(false)
 
   useEffect(() => {
     if (!form.customer_name.trim()) { setNameSuggestions([]); return }
     const q = form.customer_name.toLowerCase()
-    const matches = customers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 5)
-    setNameSuggestions(matches)
+    setNameSuggestions(customers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 5))
   }, [form.customer_name, customers])
 
   function pickCustomer(c) {
@@ -69,12 +79,22 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
   function addUnit() { setUnits(us => [...us, blankUnit()]) }
   function removeUnit(idx) { setUnits(us => us.filter((_, i) => i !== idx)) }
 
+  function handleWhatsApp() {
+    const phone = formatPhone(form.customer_phone)
+    if (!phone) {
+      setNoPhoneWarning(true)
+      phoneRef.current?.focus()
+      return
+    }
+    setNoPhoneWarning(false)
+    window.open(`https://wa.me/${phone}`, '_blank')
+  }
+
   async function handleSave() {
     if (!form.customer_name.trim()) { setError('Customer name is required'); return }
     if (!form.drop_off_date) { setError('Drop-off date is required'); return }
     if (units.some(u => !u.brand.trim())) { setError('Each unit needs a brand'); return }
-    setSaving(true)
-    setError(null)
+    setSaving(true); setError(null)
     try {
       await onSave({ ...form, id: job?.id }, units)
       onClose()
@@ -87,79 +107,83 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
 
   async function handleDelete() {
     setDeleting(true)
-    try {
-      await onDelete(job.id)
-      onClose()
-    } catch (e) {
-      setError(e.message)
-      setDeleting(false)
-    }
+    try { await onDelete(job.id); onClose() }
+    catch (e) { setError(e.message); setDeleting(false) }
   }
+
+  const total = jobTotal(units)
 
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center bg-black/50"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      {/* Bottom sheet on mobile, centred modal on desktop */}
       <div className="bg-white rounded-t-2xl md:rounded-2xl flex flex-col max-h-[92vh] md:max-h-[88vh] w-full md:w-[480px] md:shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0 safe-top md:pt-3">
           <button onClick={onClose} className="text-sky-600 font-medium text-sm">Cancel</button>
           <h2 className="font-bold text-slate-900">{isNew ? 'New Job' : 'Edit Job'}</h2>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="text-sky-600 font-semibold text-sm disabled:opacity-40"
-          >
+          <button onClick={handleSave} disabled={saving} className="text-sky-600 font-semibold text-sm disabled:opacity-40">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-5">
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">{error}</div>
-          )}
+          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">{error}</div>}
 
           {/* Customer */}
           <section>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Customer</label>
-            <div className="relative">
-              <input
-                ref={nameRef}
-                value={form.customer_name}
-                onChange={e => setField('customer_name', e.target.value)}
-                placeholder="Customer name *"
-                className="input w-full"
-              />
-              {nameSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg mt-1 z-10 overflow-hidden">
-                  {nameSuggestions.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => pickCustomer(c)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-sky-50 flex flex-col"
-                    >
-                      <span className="font-semibold text-slate-800">{c.name}</span>
-                      {c.phone && <span className="text-xs text-slate-400">{c.phone}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
+
+            {/* Name + WhatsApp */}
+            <div className="flex gap-2 items-start">
+              <div className="flex-1 relative">
+                <input
+                  ref={nameRef}
+                  value={form.customer_name}
+                  onChange={e => setField('customer_name', e.target.value)}
+                  placeholder="Customer name *"
+                  className="input w-full"
+                />
+                {nameSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg mt-1 z-10 overflow-hidden">
+                    {nameSuggestions.map(c => (
+                      <button key={c.id} onClick={() => pickCustomer(c)} className="w-full text-left px-3 py-2 text-sm hover:bg-sky-50 flex flex-col">
+                        <span className="font-semibold text-slate-800">{c.name}</span>
+                        {c.phone && <span className="text-xs text-slate-400">{c.phone}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* WhatsApp button */}
+              <button
+                type="button"
+                onClick={handleWhatsApp}
+                title={form.customer_phone ? `WhatsApp ${form.customer_phone}` : 'Add phone number to use WhatsApp'}
+                className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-opacity hover:opacity-80"
+                style={{ backgroundColor: '#25D366' }}
+              >
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.532 5.854L.057 23.885a.5.5 0 0 0 .612.612l6.03-1.474A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.907 0-3.686-.528-5.2-1.444l-.373-.222-3.868.945.965-3.868-.241-.384A9.944 9.944 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                </svg>
+              </button>
             </div>
+
+            {noPhoneWarning && (
+              <p className="text-xs text-amber-600 mt-1 font-medium">Add a phone number below to use WhatsApp</p>
+            )}
+
+            <input value={form.customer_email} onChange={e => setField('customer_email', e.target.value)} placeholder="Email" type="email" className="input w-full mt-2" />
             <input
-              value={form.customer_email}
-              onChange={e => setField('customer_email', e.target.value)}
-              placeholder="Email"
-              type="email"
-              className="input w-full mt-2"
-            />
-            <input
+              ref={phoneRef}
               value={form.customer_phone}
-              onChange={e => setField('customer_phone', e.target.value)}
-              placeholder="Phone"
+              onChange={e => { setField('customer_phone', e.target.value); setNoPhoneWarning(false) }}
+              placeholder="Phone (e.g. +447700900000)"
               type="tel"
-              className="input w-full mt-2"
+              className={`input w-full mt-2 ${noPhoneWarning ? 'border-amber-400 ring-1 ring-amber-300' : ''}`}
             />
           </section>
 
@@ -181,13 +205,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
           {/* Notes */}
           <section>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Job Notes</label>
-            <textarea
-              value={form.notes}
-              onChange={e => setField('notes', e.target.value)}
-              placeholder="Any notes about this job…"
-              rows={2}
-              className="input w-full resize-none"
-            />
+            <textarea value={form.notes} onChange={e => setField('notes', e.target.value)} placeholder="Any notes about this job…" rows={2} className="input w-full resize-none" />
           </section>
 
           {/* Units */}
@@ -202,41 +220,31 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                 <div key={idx} className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-600">Unit {idx + 1}</span>
-                    {units.length > 1 && (
-                      <button onClick={() => removeUnit(idx)} className="text-red-400 text-xs font-medium">Remove</button>
-                    )}
+                    {units.length > 1 && <button onClick={() => removeUnit(idx)} className="text-red-400 text-xs font-medium">Remove</button>}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <input value={unit.brand} onChange={e => setUnitField(idx, 'brand', e.target.value)} placeholder="Brand *" className="input" />
                     <input value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} placeholder="Model" className="input" />
                   </div>
+
+                  {/* Serial + copy */}
                   <div className="flex gap-2 items-center">
                     <input value={unit.serial_number} onChange={e => setUnitField(idx, 'serial_number', e.target.value)} placeholder="Serial number" className="input flex-1" />
                     {unit.serial_number && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(unit.serial_number)
-                          setCopiedSerial(idx)
-                          setTimeout(() => setCopiedSerial(c => c === idx ? null : c), 1500)
-                        }}
-                        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
-                        title="Copy serial number"
-                      >
-                        {copiedSerial === idx ? (
-                          <svg viewBox="0 0 24 24" className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                          </svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                          </svg>
-                        )}
+                      <button type="button" onClick={() => {
+                        navigator.clipboard.writeText(unit.serial_number)
+                        setCopiedSerial(idx)
+                        setTimeout(() => setCopiedSerial(c => c === idx ? null : c), 1500)
+                      }} className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50" title="Copy serial">
+                        {copiedSerial === idx
+                          ? <svg viewBox="0 0 24 24" className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                          : <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" /></svg>
+                        }
                       </button>
                     )}
                   </div>
 
-                  {/* Status selector */}
+                  {/* Status */}
                   <div>
                     <label className="text-xs text-slate-500 mb-1 block">Status</label>
                     <div className="flex flex-wrap gap-1.5">
@@ -244,46 +252,48 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                         const cfg = STATUS_CONFIG[s]
                         const active = unit.status === s
                         return (
-                          <button
-                            key={s}
-                            onClick={() => setUnitField(idx, 'status', s)}
+                          <button key={s} onClick={() => setUnitField(idx, 'status', s)}
                             className="rounded-full px-2.5 py-1 text-xs font-semibold border transition-all"
-                            style={active ? {
-                              backgroundColor: cfg.bg,
-                              color: '#fff',
-                              borderColor: cfg.bg,
-                            } : {
-                              backgroundColor: '#fff',
-                              color: cfg.text,
-                              borderColor: cfg.border,
-                            }}
-                          >
-                            {cfg.label}
-                          </button>
+                            style={active ? { backgroundColor: cfg.bg, color: '#fff', borderColor: cfg.bg } : { backgroundColor: '#fff', color: cfg.text, borderColor: cfg.border }}
+                          >{cfg.label}</button>
                         )
                       })}
                     </div>
                   </div>
 
-                  <textarea
-                    value={unit.parts_notes}
-                    onChange={e => setUnitField(idx, 'parts_notes', e.target.value)}
-                    placeholder="Parts / notes for this unit…"
-                    rows={2}
-                    className="input w-full resize-none text-xs"
-                  />
+                  {/* Price */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 shrink-0">Price £</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={unit.price}
+                      onChange={e => setUnitField(idx, 'price', e.target.value)}
+                      placeholder="0.00"
+                      className="input flex-1"
+                    />
+                  </div>
+
+                  <textarea value={unit.parts_notes} onChange={e => setUnitField(idx, 'parts_notes', e.target.value)} placeholder="Parts / notes…" rows={2} className="input w-full resize-none text-xs" />
                 </div>
               ))}
             </div>
+
+            {/* Job total */}
+            {units.length > 0 && (
+              <div className="flex items-center justify-between mt-3 px-3 py-2.5 bg-slate-100 rounded-xl">
+                <span className="text-sm font-semibold text-slate-600">Job Total</span>
+                <span className="text-lg font-bold text-slate-900">£{total.toFixed(2)}</span>
+              </div>
+            )}
           </section>
 
           {/* Delete */}
           {!isNew && (
             <section className="pt-2 border-t border-slate-100">
               {!confirmDelete ? (
-                <button onClick={() => setConfirmDelete(true)} className="w-full py-2.5 text-red-500 text-sm font-medium rounded-xl border border-red-200 hover:bg-red-50">
-                  Delete Job
-                </button>
+                <button onClick={() => setConfirmDelete(true)} className="w-full py-2.5 text-red-500 text-sm font-medium rounded-xl border border-red-200 hover:bg-red-50">Delete Job</button>
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm text-red-600 text-center font-medium">Are you sure? This cannot be undone.</p>
@@ -301,22 +311,9 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
       </div>
 
       <style>{`
-        .input {
-          display: block;
-          width: 100%;
-          border: 1px solid #e2e8f0;
-          border-radius: 0.5rem;
-          padding: 0.5rem 0.625rem;
-          font-size: 0.875rem;
-          background: white;
-          color: #0f172a;
-          outline: none;
-        }
-        .input:focus {
-          border-color: #38bdf8;
-          box-shadow: 0 0 0 2px rgba(56,189,248,0.2);
-        }
-        .input::placeholder { color: #94a3b8; }
+        .input { display:block; width:100%; border:1px solid #e2e8f0; border-radius:0.5rem; padding:0.5rem 0.625rem; font-size:0.875rem; background:white; color:#0f172a; outline:none; }
+        .input:focus { border-color:#38bdf8; box-shadow:0 0 0 2px rgba(56,189,248,0.2); }
+        .input::placeholder { color:#94a3b8; }
       `}</style>
     </div>
   )

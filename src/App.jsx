@@ -16,7 +16,7 @@ function MainApp() {
     <div className="flex flex-col h-full bg-slate-50">
       <div className="flex-1 overflow-hidden">
         {activeTab === 'jobs'      && <JobsScreen      {...data} />}
-        {activeTab === 'customers' && <CustomersScreen {...data} />}
+        {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
         {activeTab === 'dashboard' && <DashboardScreen {...data} />}
         {activeTab === 'analytics' && <AnalyticsScreen {...data} />}
       </div>

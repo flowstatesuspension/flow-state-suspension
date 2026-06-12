@@ -63,6 +63,12 @@ export function useData() {
     return created.id
   }
 
+  async function updateCustomer(id, data) {
+    const { error } = await supabase.from('customers').update(data).eq('id', id)
+    if (error) throw error
+    await fetchAll()
+  }
+
   async function deleteCustomer(id) {
     const { error } = await supabase.from('customers').delete().eq('id', id)
     if (error) throw error
@@ -97,7 +103,7 @@ export function useData() {
     if (toDelete.length) await supabase.from('units').delete().in('id', toDelete)
 
     for (const unit of units) {
-      const payload = { job_id: jobId, brand: unit.brand, model: unit.model, serial_number: unit.serial_number, status: unit.status, parts_notes: unit.parts_notes }
+      const payload = { job_id: jobId, brand: unit.brand, model: unit.model, serial_number: unit.serial_number, status: unit.status, parts_notes: unit.parts_notes, price: parseFloat(unit.price) || 0 }
       if (unit.id) {
         await supabase.from('units').update(payload).eq('id', unit.id)
       } else {
@@ -122,5 +128,5 @@ export function useData() {
     await fetchAll()
   }
 
-  return { jobs, customers, loading, error, saveJob, deleteJob, deleteCustomer, updateUnitStatus, refresh: fetchAll }
+  return { jobs, customers, loading, error, saveJob, deleteJob, deleteCustomer, updateCustomer, updateUnitStatus, refresh: fetchAll }
 }
