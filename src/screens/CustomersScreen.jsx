@@ -85,7 +85,7 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
           </div>
         </div>
         <div className="px-4 pb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 py-0.5">
             <div className="w-12 h-12 rounded-full bg-sky-500 flex items-center justify-center text-white font-bold text-xl shrink-0">
               {customer.name[0].toUpperCase()}
             </div>
@@ -192,7 +192,10 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
         <div className="px-4 pt-3 pb-4">
           <div className="flex items-center gap-3 mb-3">
             <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
-            <h1 className="text-white font-bold text-lg flex-1">Work Flow</h1>
+            <div className="flex flex-col justify-between self-stretch flex-1">
+              <h1 className="text-white font-bold text-lg leading-none">Work Flow</h1>
+              <p className="text-slate-400 text-xs leading-none">Customer Records</p>
+            </div>
             <span className="text-slate-400 text-xs shrink-0">{customers.length} customers</span>
           </div>
           <div className="relative">

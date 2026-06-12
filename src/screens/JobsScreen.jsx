@@ -20,7 +20,10 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
         <div className="px-4 pt-3 pb-3">
           <div className="flex items-center gap-3 mb-3">
             <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
-            <h1 className="text-white font-bold text-lg tracking-tight flex-1">Work Flow</h1>
+            <div className="flex flex-col justify-between self-stretch flex-1">
+              <h1 className="text-white font-bold text-lg leading-none tracking-tight">Work Flow</h1>
+              <p className="text-slate-400 text-xs leading-none">Job Schedule</p>
+            </div>
             <span className="text-slate-400 text-xs shrink-0">{jobs.length} jobs</span>
           </div>
 
