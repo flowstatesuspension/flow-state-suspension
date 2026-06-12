@@ -13,7 +13,7 @@ export default defineConfig({
         short_name: 'FlowState',
         description: 'Mountain bike suspension servicing tracker',
         theme_color: '#0f172a',
-        background_color: '#ffffff',
+        background_color: '#f8fafc',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

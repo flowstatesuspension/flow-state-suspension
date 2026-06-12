@@ -20,7 +20,7 @@
     overscroll-behavior: none;
   }
   body {
-    @apply bg-white text-slate-900;
+    @apply bg-slate-50 text-slate-900;
     -webkit-tap-highlight-color: transparent;
   }
 }
