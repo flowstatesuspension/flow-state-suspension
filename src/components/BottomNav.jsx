@@ -1,15 +1,20 @@
 const TABS = [
   { id: 'jobs', label: 'Jobs', icon: (active) => (
     <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-      {/* Shock absorber: top mount, shaft, body, spring coils, bottom mount */}
-      <line x1="12" y1="2" x2="12" y2="4" />
-      <rect x="10" y="4" width="4" height="2" rx="0.5" />
-      <line x1="12" y1="6" x2="12" y2="9" />
-      <path d="M10 9 Q8 10 10 11 Q12 12 10 13 Q8 14 10 15 Q12 16 10 17" />
-      <path d="M14 9 Q16 10 14 11 Q12 12 14 13 Q16 14 14 15 Q12 16 14 17" />
-      <rect x="9.5" y="17" width="5" height="3" rx="0.5" />
-      <line x1="12" y1="20" x2="12" y2="22" />
-      <rect x="10" y="22" width="4" height="1.5" rx="0.5" />
+      <g transform="rotate(45 12 12)">
+        {/* Top eye/mount */}
+        <circle cx="12" cy="3.5" r="1.5" />
+        {/* Shaft */}
+        <line x1="12" y1="5" x2="12" y2="9" />
+        {/* Outer body (cylinder) */}
+        <rect x="9.5" y="9" width="5" height="8" rx="1" />
+        {/* Inner shaft entering body */}
+        <line x1="12" y1="9" x2="12" y2="13" />
+        {/* Bottom shaft */}
+        <line x1="12" y1="17" x2="12" y2="20.5" />
+        {/* Bottom eye/mount */}
+        <circle cx="12" cy="20.5" r="1.5" />
+      </g>
     </svg>
   )},
   { id: 'customers', label: 'Customers', icon: (active) => (
