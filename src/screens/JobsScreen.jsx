@@ -4,7 +4,7 @@ import MonthCalendar from '../components/MonthCalendar'
 import DayView from '../components/DayView'
 import JobModal from '../components/JobModal'
 
-export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJob, refresh }) {
+export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJob }) {
   const [calView, setCalView] = useState('week')
   const [viewMode, setViewMode] = useState('work')
   const [selectedJob, setSelectedJob] = useState(null)
@@ -15,7 +15,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   function closeModal() { setShowModal(false); setSelectedJob(null) }
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-black safe-top shrink-0">
         <div className="px-4 pt-3 pb-3">
@@ -67,7 +67,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
             <div className="animate-spin w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full" />
           </div>
         ) : calView === 'day' ? (
-          <DayView jobs={jobs} onJobClick={openJob} viewMode={viewMode} onRefresh={refresh} />
+          <DayView jobs={jobs} onJobClick={openJob} viewMode={viewMode} />
         ) : calView === 'week' ? (
           <GanttWeekView jobs={jobs} onJobClick={openJob} viewMode={viewMode} />
         ) : (
@@ -78,7 +78,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
       {/* FAB */}
       <button
         onClick={openNew}
-        className="absolute right-5 bottom-6 flex items-center justify-center rounded-full shadow-lg z-30 bg-sky-500 hover:bg-sky-600 transition-colors"
+        className="fixed right-5 bottom-24 flex items-center justify-center rounded-full shadow-lg z-30 bg-sky-500 hover:bg-sky-600 transition-colors"
         style={{ width: 52, height: 52 }}
         aria-label="Add job"
       >
