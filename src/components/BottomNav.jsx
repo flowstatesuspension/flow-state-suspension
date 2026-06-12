@@ -23,7 +23,7 @@ const TABS = [
 
 export default function BottomNav({ activeTab, onTabChange }) {
   return (
-    <nav className="flex bg-white border-t border-slate-200 pb-safe">
+    <nav className="flex bg-white border-t border-slate-200" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {TABS.map(tab => {
         const active = activeTab === tab.id
         return (
