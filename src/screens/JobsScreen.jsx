@@ -8,29 +8,37 @@ import MonthCalendar from '../components/MonthCalendar'
 import DayView from '../components/DayView'
 import JobModal from '../components/JobModal'
 
-function jobsInPeriod(jobs, calView, dayAnchor, weekAnchor, monthAnchor) {
+function jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor) {
   const d = format(dayAnchor, 'yyyy-MM-dd')
   const wo = { weekStartsOn: 1 }
+
   if (calView === 'day') {
     return jobs.filter(j => {
+      if (viewMode === 'booking') return j.drop_off_date === d
       if (!j.drop_off_date) return false
       if (j.drop_off_date > d) return false
       if (j.pickup_date && j.pickup_date < d) return false
       return true
     })
   }
+
   if (calView === 'week') {
     const weekStart = startOfWeek(weekAnchor, wo)
     const weekEnd   = endOfWeek(weekAnchor, wo)
     return jobs.filter(j => {
-      if (!j.drop_off_date || !j.pickup_date) return false
+      if (!j.drop_off_date) return false
+      if (viewMode === 'booking') return parseISO(j.drop_off_date) >= weekStart && parseISO(j.drop_off_date) <= weekEnd
+      if (!j.pickup_date) return false
       return parseISO(j.drop_off_date) <= weekEnd && parseISO(j.pickup_date) >= weekStart
     })
   }
+
   const monthStart = startOfMonth(monthAnchor)
   const monthEnd   = endOfMonth(monthAnchor)
   return jobs.filter(j => {
-    if (!j.drop_off_date || !j.pickup_date) return false
+    if (!j.drop_off_date) return false
+    if (viewMode === 'booking') return isWithinInterval(parseISO(j.drop_off_date), { start: monthStart, end: monthEnd })
+    if (!j.pickup_date) return false
     return parseISO(j.drop_off_date) <= monthEnd && parseISO(j.pickup_date) >= monthStart
   })
 }
@@ -85,7 +93,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const [weekAnchor, setWeekAnchor] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [monthAnchor, setMonthAnchor] = useState(new Date())
 
-  const currentJobs  = jobsInPeriod(jobs, calView, dayAnchor, weekAnchor, monthAnchor)
+  const currentJobs  = jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
   const currentUnits = currentJobs.flatMap(j => j.units || []).length
 
   function openNew() {
