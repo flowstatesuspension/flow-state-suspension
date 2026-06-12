@@ -210,28 +210,28 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                     {units.length > 1 && <button onClick={() => removeUnit(idx)} className="text-red-400 text-xs font-medium">Remove</button>}
                   </div>
 
-                  {/* 2×2 grid: Brand | Model / Serial+copy | £Price */}
+                  {/* 2×2 grid: Brand | Model / Serial | £Price — all cells same height */}
                   <div className="grid grid-cols-2 gap-2">
                     <input value={unit.brand} onChange={e => setUnitField(idx, 'brand', e.target.value)} placeholder="Brand *" className="input" />
                     <input value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} placeholder="Model" className="input" />
-                    <div className="flex gap-1.5 items-center">
-                      <input value={unit.serial_number} onChange={e => setUnitField(idx, 'serial_number', e.target.value)} placeholder="Serial" className="input flex-1 min-w-0" />
+                    <div className="relative">
+                      <input value={unit.serial_number} onChange={e => setUnitField(idx, 'serial_number', e.target.value)} placeholder="Serial" className="input w-full pr-8" />
                       {unit.serial_number && (
                         <button type="button" onClick={() => {
                           navigator.clipboard.writeText(unit.serial_number)
                           setCopiedSerial(idx)
                           setTimeout(() => setCopiedSerial(c => c === idx ? null : c), 1500)
-                        }} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white" title="Copy serial">
+                        }} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded" title="Copy serial">
                           {copiedSerial === idx
                             ? <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                            : <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" /></svg>
+                            : <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" /></svg>
                           }
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-slate-400 shrink-0">£</span>
-                      <input type="number" min="0" step="0.01" value={unit.price} onChange={e => setUnitField(idx, 'price', e.target.value)} placeholder="0" className="input flex-1 min-w-0" />
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">£</span>
+                      <input type="number" min="0" step="0.01" value={unit.price} onChange={e => setUnitField(idx, 'price', e.target.value)} placeholder="0" className="input w-full pl-6" />
                     </div>
                   </div>
 
@@ -285,7 +285,9 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
       </div>
 
       <style>{`
-        .input { display:block; width:100%; border:1px solid #e2e8f0; border-radius:0.5rem; padding:0.5rem 0.625rem; font-size:0.875rem; background:white; color:#0f172a; outline:none; }
+        .input { display:block; width:100%; border:1px solid #e2e8f0; border-radius:0.5rem; padding:0.5rem 0.625rem; font-size:0.875rem; background:white; color:#0f172a; outline:none; box-sizing:border-box; }
+        .input.pl-6 { padding-left:1.5rem; }
+        .input.pr-8 { padding-right:2rem; }
         .input:focus { border-color:#38bdf8; box-shadow:0 0 0 2px rgba(56,189,248,0.2); }
         .input::placeholder { color:#94a3b8; }
       `}</style>
