@@ -108,6 +108,7 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode }) {
                   {dayJobs.slice(0, 3).map(job => (
                     <button
                       key={job.id}
+                      onTouchEnd={e => { e.preventDefault(); onJobClick(job) }}
                       onClick={() => onJobClick(job)}
                       className="text-left rounded px-1 py-0.5 text-[9px] font-semibold text-white leading-tight truncate"
                       style={{ backgroundColor: jobColor(job) }}

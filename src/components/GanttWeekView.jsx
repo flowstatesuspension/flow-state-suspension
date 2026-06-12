@@ -199,8 +199,9 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
                     >
                       {/* Main clickable area */}
                       <button
+                        onTouchEnd={e => { e.preventDefault(); onJobClick(job) }}
                         onClick={() => onJobClick(job)}
-                        className="flex-1 flex items-center px-2 h-full text-left overflow-hidden hover:opacity-90 transition-opacity"
+                        className="flex-1 flex items-center px-2 h-full text-left overflow-hidden"
                       >
                         <span className="text-white text-[11px] font-semibold truncate leading-none">
                           {label}
@@ -232,9 +233,10 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode }) {
                 {/* No units fallback */}
                 {(!job.units || job.units.length === 0) && (
                   <button
+                    onTouchEnd={e => { e.preventDefault(); onJobClick(job) }}
                     onClick={() => onJobClick(job)}
                     style={{ left, width: Math.max(width, 4), top: ROW_PAD, height: UNIT_H, backgroundColor: '#94a3b8' }}
-                    className="absolute rounded flex items-center px-2 overflow-hidden hover:opacity-90"
+                    className="absolute rounded flex items-center px-2 overflow-hidden"
                   >
                     <span className="text-white text-[11px] font-semibold">{firstNames(job.customers?.name)}: no units</span>
                   </button>
