@@ -97,7 +97,9 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const [monthAnchor, setMonthAnchor] = useState(new Date())
 
   const currentJobs  = jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
-  const currentUnits = currentJobs.flatMap(j => j.units || []).length
+  const currentUnitsArr = currentJobs.flatMap(j => j.units || [])
+  const currentUnits = currentUnitsArr.length
+  const currentRevenue = currentUnitsArr.reduce((s, u) => s + (u.price || 0), 0)
 
   function openNew() {
     const defaultDate = calView === 'week' ? format(weekAnchor, 'yyyy-MM-dd') : undefined
@@ -121,6 +123,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
             <div className="text-right shrink-0">
               <p className="text-slate-400 text-xs">{currentJobs.length} job{currentJobs.length !== 1 ? 's' : ''}</p>
               <p className="text-slate-500 text-xs">{currentUnits} unit{currentUnits !== 1 ? 's' : ''}</p>
+              <p className="text-slate-600 text-xs font-semibold">£{currentRevenue.toFixed(0)}</p>
             </div>
           </div>
 
