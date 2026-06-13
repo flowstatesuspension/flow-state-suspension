@@ -87,7 +87,7 @@ function visibleJobs(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor
   })
 }
 
-export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJob }) {
+export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJob, settings }) {
   const [calView, setCalView]       = useState('week')
   const [viewMode, setViewMode]     = useState('work')
   const [selectedJob, setSelectedJob] = useState(null)
@@ -183,7 +183,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
 
       {showModal && (
         <JobModal job={selectedJob} customers={customers}
-          onSave={saveJob} onDelete={deleteJob} onClose={closeModal} />
+          onSave={saveJob} onDelete={deleteJob} onClose={closeModal} settings={settings} />
       )}
     </div>
   )

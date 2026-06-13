@@ -3,10 +3,9 @@ import { format, addDays } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
-const DEFAULT_PICKUP = format(addDays(new Date(), 3), 'yyyy-MM-dd')
 
 function blankUnit() {
-  return { id: null, brand: '', model: '', serial_number: '', status: 'booked_in', parts_notes: '', price: '120' }
+  return { id: null, brand: '', model: '', serial_number: '', status: 'booked_in', parts_notes: '', price: '' }
 }
 
 function formatPhone(raw) {
@@ -18,19 +17,25 @@ function jobTotal(units) {
   return units.reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
 }
 
-export default function JobModal({ job, customers, onSave, onDelete, onClose }) {
+export default function JobModal({ job, customers, onSave, onDelete, onClose, settings }) {
   const isNew = !job?.id
   const nameRef = useRef(null)
   const phoneRef = useRef(null)
+  const turnaroundDays = settings?.turnaroundDays ?? 3
+  const brands = settings?.brands?.length ? settings.brands : ['Fox', 'Rockshox', 'Postage', 'Other']
+  const servicePrices = settings?.servicePrices ?? []
+  const defaultPickup = format(addDays(new Date(), turnaroundDays), 'yyyy-MM-dd')
 
   const [form, setForm] = useState({
     customer_name: job?.customers?.name || '',
     customer_email: job?.customers?.email || '',
     customer_phone: job?.customers?.phone || '',
     drop_off_date: job?.drop_off_date || TODAY,
-    pickup_date: job?.pickup_date || DEFAULT_PICKUP,
+    pickup_date: job?.pickup_date || defaultPickup,
     notes: job?.notes || '',
   })
+  const [quickPickBrand, setQuickPickBrand] = useState('')
+  const [showQuickPick, setShowQuickPick] = useState(null) // unit idx
   const [units, setUnits] = useState(
     job?.units?.length ? job.units.map(u => ({
       id: u.id,
@@ -67,8 +72,8 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
     setForm(f => {
       const next = { ...f, [key]: val }
       if (key === 'drop_off_date') {
-        const newPickup = format(addDays(new Date(val), 3), 'yyyy-MM-dd')
-        if (f.pickup_date === DEFAULT_PICKUP || f.pickup_date <= val) next.pickup_date = newPickup
+        const newPickup = format(addDays(new Date(val), turnaroundDays), 'yyyy-MM-dd')
+        if (f.pickup_date === defaultPickup || f.pickup_date <= val) next.pickup_date = newPickup
       }
       return next
     })
@@ -207,17 +212,50 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose }) 
                 <div key={idx} className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-500">Unit {idx + 1}</span>
-                    {units.length > 1 && <button onClick={() => removeUnit(idx)} className="text-red-400 text-xs font-medium">Remove</button>}
+                    <div className="flex items-center gap-3">
+                      {servicePrices.length > 0 && (
+                        <button onClick={() => { setShowQuickPick(showQuickPick === idx ? null : idx); setQuickPickBrand(brands[0] || '') }}
+                          className="text-sky-500 text-xs font-medium">Quick-pick</button>
+                      )}
+                      {units.length > 1 && <button onClick={() => removeUnit(idx)} className="text-red-400 text-xs font-medium">Remove</button>}
+                    </div>
                   </div>
+
+                  {/* Quick-pick panel */}
+                  {showQuickPick === idx && (
+                    <div className="bg-white border border-sky-200 rounded-xl p-2 space-y-2">
+                      <div className="flex gap-1 flex-wrap">
+                        {brands.map(b => (
+                          <button key={b} onClick={() => setQuickPickBrand(b)}
+                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${quickPickBrand === b ? 'bg-sky-500 text-white border-sky-500' : 'text-slate-500 border-slate-200'}`}>
+                            {b}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="max-h-40 overflow-y-auto space-y-0.5">
+                        {servicePrices.filter(s => s.brand === quickPickBrand).map(s => (
+                          <button key={s.id} onClick={() => {
+                            setUnitField(idx, 'brand', s.brand)
+                            setUnitField(idx, 'model', s.service)
+                            setUnitField(idx, 'price', String(s.price))
+                            setShowQuickPick(null)
+                          }} className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-sky-50 text-left">
+                            <span className="text-sm text-slate-700">{s.service}</span>
+                            <span className="text-sm font-semibold text-slate-900 ml-3">£{s.price}</span>
+                          </button>
+                        ))}
+                        {servicePrices.filter(s => s.brand === quickPickBrand).length === 0 && (
+                          <p className="text-xs text-slate-400 px-2 py-2">No services for {quickPickBrand}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 2×2 grid: Brand | Model / Serial | £Price — all cells same height */}
                   <div className="grid grid-cols-2 gap-2">
                     <select value={unit.brand} onChange={e => setUnitField(idx, 'brand', e.target.value)} className="input">
                       <option value="">Brand *</option>
-                      <option value="Fox">Fox</option>
-                      <option value="Rockshox">Rockshox</option>
-                      <option value="Postage">Postage</option>
-                      <option value="Other">Other</option>
+                      {brands.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                     <input value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} placeholder="Model" className="input" />
                     <div className="relative">

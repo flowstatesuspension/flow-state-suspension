@@ -63,10 +63,7 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anch
     return parseISO(j.drop_off_date) <= weekEnd && parseISO(j.pickup_date) >= anchor
   })
 
-  const filtered =
-    viewMode === 'work'
-      ? visible.filter(j => j.units?.some(u => u.status !== 'complete'))
-      : visible
+  const filtered = visible
 
   const allUnits = filtered.flatMap(j => j.units || [])
   const totalUnits = allUnits.length

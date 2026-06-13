@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useLayoutEffect } from 'react'
 import { format, parseISO, differenceInDays, startOfMonth, subMonths, endOfMonth } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 
-const REVENUE_TARGET = 3000
+const DEFAULT_REVENUE_TARGET = 3000
 
 function jobTotal(job) {
   return (job.units || []).reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
@@ -179,7 +179,8 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
   )
 }
 
-export default function AnalyticsScreen({ jobs, customers }) {
+export default function AnalyticsScreen({ jobs, customers, settings }) {
+  const REVENUE_TARGET = settings?.revenueTarget ?? DEFAULT_REVENUE_TARGET
   const data = useMemo(() => {
     const today = new Date()
     const allUnits = jobs.flatMap(j => j.units || [])

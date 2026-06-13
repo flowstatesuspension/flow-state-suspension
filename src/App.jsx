@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { useData } from './hooks/useData'
+import { useSettings } from './hooks/useSettings'
 import BottomNav from './components/BottomNav'
 import JobsScreen from './screens/JobsScreen'
 import CustomersScreen from './screens/CustomersScreen'
@@ -12,15 +13,16 @@ import LoginScreen from './screens/LoginScreen'
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const data = useData()
+  const { settings, updateSettings } = useSettings()
 
   return (
     <div className="flex flex-col bg-slate-50" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 'calc(-1 * env(safe-area-inset-bottom))' }}>
       <div className="flex-1 min-h-0" style={{ overflow: 'clip' }}>
-        {activeTab === 'jobs'      && <JobsScreen      {...data} />}
+        {activeTab === 'jobs'      && <JobsScreen      {...data} settings={settings} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
-        {activeTab === 'dashboard' && <DashboardScreen {...data} />}
-        {activeTab === 'analytics' && <AnalyticsScreen {...data} />}
-        {activeTab === 'settings'  && <SettingsScreen  jobs={data.jobs} customers={data.customers} />}
+        {activeTab === 'dashboard' && <DashboardScreen {...data} settings={settings} />}
+        {activeTab === 'analytics' && <AnalyticsScreen {...data} settings={settings} />}
+        {activeTab === 'settings'  && <SettingsScreen  jobs={data.jobs} customers={data.customers} settings={settings} updateSettings={updateSettings} />}
       </div>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
