@@ -132,16 +132,10 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
           </text>
         )}
 
-        {todayFrac !== null && todayFrac >= 0 && todayFrac <= n - 1 && (() => {
-          const tx = toX(todayFrac)
-          return (
-            <>
-              <line x1={tx} y1={padT} x2={tx} y2={padT + cH}
-                stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
-              <text x={tx + 2} y={padT + 7} fontSize="6.5" fill="#64748b" fontWeight="600">Today</text>
-            </>
-          )
-        })()}
+        {todayFrac !== null && todayFrac >= 0 && todayFrac <= n - 1 && (
+          <line x1={toX(todayFrac)} y1={padT} x2={toX(todayFrac)} y2={padT + cH}
+            stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
+        )}
 
         {data.map((d, i) => (
           <text key={i} x={toX(i)} y={H - 1} textAnchor="middle" fontSize="8" fill="#94a3b8">
@@ -295,9 +289,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
     const unitsChartData = months.map(m => ({ label: m.label, value: m.unitCount || 0 }))
 
     // Today line position: fractional index into months array
-    const dayOfMonth = today.getDate()
-    const daysInMonth = endOfMonth(today).getDate()
-    const todayFrac = thisMonthIdx >= 0 ? thisMonthIdx + (dayOfMonth / daysInMonth) : null
+    const todayFrac = thisMonthIdx >= 0 ? thisMonthIdx : null
 
     // Split months into confirmed history vs pipeline
     const historicalMonths = thisMonthIdx > 0 ? months.slice(0, thisMonthIdx) : []
