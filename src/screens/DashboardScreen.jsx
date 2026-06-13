@@ -1,334 +1,328 @@
 import { useState } from 'react'
-import {
-  format, parseISO, differenceInDays,
-  startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear,
-  addWeeks, addMonths, isWithinInterval,
-} from 'date-fns'
-import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
+import { format, parseISO, differenceInDays, addDays, isToday, isTomorrow } from 'date-fns'
 import JobModal from '../components/JobModal'
 
+const STATUS_URGENCY = { awaiting_parts: 0, ready: 1, in_progress: 2, booked_in: 3, complete: 4 }
+
+function jobUrgency(job) {
+  const statuses = job.units?.map(u => u.status) || ['booked_in']
+  return Math.min(...statuses.map(s => STATUS_URGENCY[s] ?? 99))
+}
+
 function jobTotal(job) {
-  return (job.units || []).reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
+  return (job.units || []).reduce((s, u) => s + (parseFloat(u.price) || 0), 0)
 }
 
-function SectionLabel({ children }) {
-  return <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{children}</p>
+function daysInWorkshop(job, today) {
+  if (!job.drop_off_date) return 0
+  return differenceInDays(today, parseISO(job.drop_off_date))
 }
 
-function StatCard({ value, label, sub, accent, onClick }) {
+function isOverdue(job, today) {
+  return job.pickup_date && parseISO(job.pickup_date) < today
+}
+
+// ── Alert banner ─────────────────────────────────────────────────────────────
+function AlertBanner({ label, count, color, bg, onClick }) {
+  if (!count) return null
   return (
     <button onClick={onClick}
-      className="bg-white rounded-xl border border-slate-200 p-3 text-left active:bg-slate-50 transition-colors w-full"
-      style={accent ? { borderLeftWidth: 4, borderLeftColor: accent } : {}}>
-      <p className="text-2xl font-bold text-slate-900 leading-none">{value}</p>
-      <p className="text-xs text-slate-600 mt-1 leading-tight font-medium">{label}</p>
-      {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
+      className="flex items-center gap-2.5 w-full px-4 py-2.5 rounded-xl text-left active:opacity-80"
+      style={{ backgroundColor: bg, border: `1px solid ${color}20` }}>
+      <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+        style={{ backgroundColor: color }}>{count}</span>
+      <span className="text-sm font-semibold flex-1" style={{ color }}>{label}</span>
+      <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} style={{ color }}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
     </button>
   )
 }
 
-function RevenueCard({ value, label, sub, onClick }) {
+// ── Job card ─────────────────────────────────────────────────────────────────
+function JobCard({ job, today, onClick, statusConfig }) {
+  const overdue = isOverdue(job, today)
+  const days = daysInWorkshop(job, today)
+  const urgency = jobUrgency(job)
+  const total = jobTotal(job)
+
+  // Dominant status colour for left border
+  const dominantStatus = (job.units || []).reduce((best, u) => {
+    return (STATUS_URGENCY[u.status] ?? 99) < (STATUS_URGENCY[best] ?? 99) ? u.status : best
+  }, 'booked_in')
+  const cfg = statusConfig?.[dominantStatus] ?? { bg: '#94a3b8', light: '#f8fafc', border: '#e2e8f0', text: '#64748b' }
+
   return (
     <button onClick={onClick}
-      className="bg-white rounded-xl border border-slate-200 p-3 text-center active:bg-slate-50 transition-colors">
-      <p className="text-lg font-bold text-slate-900">{value}</p>
-      <p className="text-[10px] text-slate-500 leading-tight mt-0.5">{label}</p>
-      {sub && <p className="text-[9px] text-slate-400">{sub}</p>}
-    </button>
-  )
-}
-
-function JobListSheet({ title, jobs, customers, saveJob, deleteJob, onClose }) {
-  const [editJob, setEditJob] = useState(null)
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center bg-black/50"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-t-2xl md:rounded-2xl flex flex-col max-h-[75vh] w-full md:w-[480px] md:shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
-          <h2 className="font-bold text-slate-900">{title}</h2>
-          <button onClick={onClose} className="text-sky-600 font-medium text-sm">Done</button>
+      className="w-full bg-white rounded-xl border text-left active:bg-slate-50 transition-colors overflow-hidden"
+      style={{ borderColor: overdue ? '#fca5a5' : cfg.border, borderLeftWidth: 4, borderLeftColor: overdue ? '#ef4444' : cfg.bg }}>
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <span className="font-bold text-slate-900 text-sm leading-tight">{job.customers?.name || '—'}</span>
+          <div className="text-right shrink-0">
+            <span className="text-sm font-bold text-slate-800">£{total.toFixed(0)}</span>
+            {overdue ? (
+              <p className="text-[10px] font-bold text-red-500 mt-0.5">OVERDUE</p>
+            ) : job.pickup_date ? (
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Due {isToday(parseISO(job.pickup_date)) ? 'today' : isTomorrow(parseISO(job.pickup_date)) ? 'tomorrow' : format(parseISO(job.pickup_date), 'd MMM')}
+              </p>
+            ) : null}
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-none p-3 space-y-2">
-          {jobs.length === 0 && <p className="text-slate-400 text-sm text-center py-8">No jobs</p>}
-          {jobs.map(job => (
-            <button key={job.id} onClick={() => setEditJob(job)}
-              className="w-full bg-slate-50 rounded-xl border border-slate-200 p-3 text-left hover:border-sky-300 transition-colors">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-semibold text-slate-800 text-sm">{job.customers?.name || '—'}</span>
-                <span className="text-sm font-bold text-slate-700">£{jobTotal(job).toFixed(0)}</span>
-              </div>
-              <div className="flex gap-1 flex-wrap">
-                {job.units?.map(u => (
-                  <span key={u.id} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: STATUS_CONFIG[u.status]?.light, color: STATUS_CONFIG[u.status]?.text, border: `1px solid ${STATUS_CONFIG[u.status]?.border}` }}>
-                    {u.brand} {u.model}
-                  </span>
-                ))}
-              </div>
-              {job.drop_off_date && (
-                <p className="text-[10px] text-slate-400 mt-1">
-                  {format(parseISO(job.drop_off_date), 'd MMM yyyy')}
-                  {job.pickup_date ? ` → ${format(parseISO(job.pickup_date), 'd MMM')}` : ''}
-                </p>
-              )}
-            </button>
-          ))}
+
+        <div className="flex flex-wrap gap-1 mb-2">
+          {job.units?.map(u => {
+            const sc = statusConfig?.[u.status] ?? { light: '#f8fafc', text: '#64748b', border: '#e2e8f0' }
+            return (
+              <span key={u.id} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: sc.light, color: sc.text, border: `1px solid ${sc.border}` }}>
+                {u.brand} {u.model}
+              </span>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white"
+            style={{ backgroundColor: cfg.bg }}>
+            {statusConfig?.[dominantStatus]?.label ?? dominantStatus}
+          </span>
+          {days > 0 && (
+            <span className={`text-[10px] font-medium ${days > 14 ? 'text-red-500' : days > 7 ? 'text-amber-500' : 'text-slate-400'}`}>
+              {days}d in workshop
+            </span>
+          )}
         </div>
       </div>
-      {editJob && <JobModal job={editJob} customers={customers} onSave={saveJob} onDelete={deleteJob} onClose={() => setEditJob(null)} />}
+    </button>
+  )
+}
+
+// ── Mini schedule row (Today / Coming Up) ─────────────────────────────────────
+function ScheduleRow({ job, label, sublabel, onClick }) {
+  return (
+    <button onClick={onClick}
+      className="w-full flex items-center gap-3 bg-white rounded-xl border border-slate-100 px-3 py-2.5 text-left active:bg-slate-50">
+      {label && (
+        <div className="w-12 shrink-0 text-center">
+          <p className="text-xs font-bold text-slate-700">{label}</p>
+          {sublabel && <p className="text-[10px] text-slate-400">{sublabel}</p>}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-800 truncate">{job.customers?.name || '—'}</p>
+        <p className="text-xs text-slate-400 truncate">
+          {job.units?.map(u => `${u.brand} ${u.model}`).join(' · ')}
+        </p>
+      </div>
+      <span className="text-sm font-bold text-slate-600 shrink-0">£{jobTotal(job).toFixed(0)}</span>
+    </button>
+  )
+}
+
+function SectionHeader({ children, count, color }) {
+  return (
+    <div className="flex items-center gap-2 mb-2">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{children}</p>
+      {count != null && (
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
+          style={{ backgroundColor: color || '#94a3b8' }}>{count}</span>
+      )}
     </div>
   )
 }
 
-const MODES = [
-  { id: 'this-week',  label: 'This Week' },
-  { id: 'pick-week',  label: 'Week' },
-  { id: 'this-month', label: 'This Month' },
-  { id: 'pick-month', label: 'Month' },
-  { id: 'this-year',  label: 'This Year' },
-]
-
-function getRange(mode, ref) {
-  const now = new Date()
-  const wo = { weekStartsOn: 1 }
-  switch (mode) {
-    case 'this-week':  return { start: startOfWeek(now, wo),  end: endOfWeek(now, wo) }
-    case 'pick-week':  return { start: startOfWeek(ref, wo),  end: endOfWeek(ref, wo) }
-    case 'this-month': return { start: startOfMonth(now),     end: endOfMonth(now) }
-    case 'pick-month': return { start: startOfMonth(ref),     end: endOfMonth(ref) }
-    case 'this-year':  return { start: startOfYear(now),      end: endOfYear(now) }
-    default:           return null
-  }
+function EmptyRow({ text }) {
+  return <p className="text-sm text-slate-400 text-center py-3">{text}</p>
 }
 
-function periodLabel(mode, ref) {
-  const wo = { weekStartsOn: 1 }
-  if (mode === 'pick-week') {
-    const s = startOfWeek(ref, wo), e = endOfWeek(ref, wo)
-    return `${format(s, 'd MMM')} – ${format(e, 'd MMM')}`
-  }
-  if (mode === 'pick-month') return format(ref, 'MMM yyyy')
-  return null
-}
-
-export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob }) {
-  const [sheet, setSheet]   = useState(null)
-  const [mode, setMode]     = useState('this-week')
-  const [ref, setRef]       = useState(new Date())
-
+// ── Revenue strip ────────────────────────────────────────────────────────────
+function RevenueStrip({ jobs, settings }) {
   const today = new Date()
-  const range = getRange(mode, ref)
+  const todayStr = format(today, 'yyyy-MM-dd')
+  const wo = { weekStartsOn: 1 }
+  const startOfThisWeek = new Date(today)
+  startOfThisWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+  startOfThisWeek.setHours(0, 0, 0, 0)
+  const endOfThisWeek = new Date(startOfThisWeek)
+  endOfThisWeek.setDate(startOfThisWeek.getDate() + 6)
 
-  // Period-filtered jobs (by drop_off_date). null range = no filter (shouldn't happen)
-  const filteredJobs = range
-    ? jobs.filter(j => j.drop_off_date && isWithinInterval(parseISO(j.drop_off_date), range))
-    : jobs
+  const thisMonthStr = format(today, 'yyyy-MM')
+  const weekJobs = jobs.filter(j => j.drop_off_date >= format(startOfThisWeek, 'yyyy-MM-dd') && j.drop_off_date <= format(endOfThisWeek, 'yyyy-MM-dd'))
+  const monthJobs = jobs.filter(j => j.drop_off_date?.startsWith(thisMonthStr))
+  const weekRev = weekJobs.reduce((s, j) => s + jobTotal(j), 0)
+  const monthRev = monthJobs.reduce((s, j) => s + jobTotal(j), 0)
+  const target = settings?.revenueTarget ?? 3000
+  const targetPct = Math.min(Math.round((monthRev / target) * 100), 999)
 
-  const allUnits      = filteredJobs.flatMap(j => j.units || [])
-  const completedJobs = filteredJobs.filter(j => j.units?.length && j.units.every(u => u.status === 'complete'))
-  const activeJobs    = filteredJobs.filter(j => !j.units?.length || j.units.some(u => u.status !== 'complete'))
-  const activeUnits   = allUnits.filter(u => u.status !== 'complete')
-  const completeUnits = allUnits.filter(u => u.status === 'complete')
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 px-4 py-3">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Revenue</p>
+      <div className="grid grid-cols-3 gap-4 text-center">
+        <div>
+          <p className="text-base font-bold text-slate-900">£{weekRev.toFixed(0)}</p>
+          <p className="text-[10px] text-slate-400">This week</p>
+        </div>
+        <div>
+          <p className="text-base font-bold text-slate-900">£{monthRev.toFixed(0)}</p>
+          <p className="text-[10px] text-slate-400">This month</p>
+        </div>
+        <div>
+          <p className={`text-base font-bold ${targetPct >= 100 ? 'text-green-600' : targetPct >= 60 ? 'text-amber-500' : 'text-slate-900'}`}>{targetPct}%</p>
+          <p className="text-[10px] text-slate-400">of target</p>
+        </div>
+      </div>
+      {/* Progress bar */}
+      <div className="mt-2.5 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all"
+          style={{ width: `${Math.min(targetPct, 100)}%`, backgroundColor: targetPct >= 100 ? '#22c55e' : targetPct >= 60 ? '#f59e0b' : '#38bdf8' }} />
+      </div>
+    </div>
+  )
+}
 
-  const totalRevenue     = filteredJobs.reduce((s, j) => s + jobTotal(j), 0)
-  const completedRevenue = completedJobs.reduce((s, j) => s + jobTotal(j), 0)
-  const activeRevenue    = activeJobs.reduce((s, j) => s + jobTotal(j), 0)
-  const avgActiveValue   = activeJobs.length ? activeRevenue / activeJobs.length : 0
+// ── Main ─────────────────────────────────────────────────────────────────────
+export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, settings }) {
+  const [editJob, setEditJob] = useState(null)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStr = format(today, 'yyyy-MM-dd')
+  const statusConfig = settings?.statusConfig
 
-  const unitCounts = STATUS_ORDER.reduce((acc, s) => {
-    acc[s] = allUnits.filter(u => u.status === s).length
-    return acc
-  }, {})
+  // Jobs physically in the workshop: dropped off on or before today, not all complete
+  const inWorkshop = jobs
+    .filter(j => {
+      if (!j.drop_off_date || j.drop_off_date > todayStr) return false
+      if (j.units?.length && j.units.every(u => u.status === 'complete')) return false
+      return true
+    })
+    .sort((a, b) => {
+      const aOver = isOverdue(a, today) ? 0 : 1
+      const bOver = isOverdue(b, today) ? 0 : 1
+      if (aOver !== bOver) return aOver - bOver
+      const urgDiff = jobUrgency(a) - jobUrgency(b)
+      if (urgDiff !== 0) return urgDiff
+      return (a.drop_off_date || '').localeCompare(b.drop_off_date || '')
+    })
 
-  // Brand splits (period-filtered)
-  const foxJobs      = filteredJobs.filter(j => j.units?.some(u => u.brand === 'Fox'))
-  const rockshoxJobs = filteredJobs.filter(j => j.units?.some(u => u.brand === 'Rockshox'))
-  const foxPct       = allUnits.length ? Math.round(allUnits.filter(u => u.brand === 'Fox').length / allUnits.length * 100) : 0
-  const rockshoxPct  = allUnits.length ? Math.round(allUnits.filter(u => u.brand === 'Rockshox').length / allUnits.length * 100) : 0
+  // Alert buckets (live, unfiltered)
+  const overdueJobs      = inWorkshop.filter(j => isOverdue(j, today))
+  const awaitingPartJobs = inWorkshop.filter(j => j.units?.some(u => u.status === 'awaiting_parts'))
+  const readyJobs        = inWorkshop.filter(j => j.units?.some(u => u.status === 'ready'))
 
-  // Workshop section always shows current live state (unfiltered)
-  const allActiveJobs     = jobs.filter(j => !j.units?.length || j.units.some(u => u.status !== 'complete'))
-  const overdueJobs       = allActiveJobs.filter(j => j.pickup_date && parseISO(j.pickup_date) < today)
-  const awaitingPartJobs  = jobs.filter(j => j.units?.some(u => u.status === 'awaiting_parts'))
-  const readyJobs         = jobs.filter(j => j.units?.every(u => u.status === 'complete' || u.status === 'ready') && j.units?.some(u => u.status === 'ready'))
-  const oldestDays        = allActiveJobs.reduce((max, j) => {
-    if (!j.drop_off_date) return max
-    return Math.max(max, differenceInDays(today, parseISO(j.drop_off_date)))
-  }, 0)
+  // Today's schedule
+  const dropOffsToday = jobs.filter(j => j.drop_off_date === todayStr)
+  const pickupsToday  = inWorkshop.filter(j => j.pickup_date === todayStr)
 
-  function jobsForStatus(status) {
-    return filteredJobs.filter(j => j.units?.some(u => u.status === status))
-  }
-  function open(title, jobList) { setSheet({ title, jobs: jobList }) }
+  // Coming up — drop-offs in next 7 days, grouped by date
+  const next7 = Array.from({ length: 7 }, (_, i) => addDays(today, i + 1))
+  const upcoming = next7
+    .map(d => {
+      const ds = format(d, 'yyyy-MM-dd')
+      const dayJobs = jobs.filter(j => j.drop_off_date === ds)
+      return { date: d, dateStr: ds, jobs: dayJobs }
+    })
+    .filter(g => g.jobs.length > 0)
 
-  function selectMode(m) {
-    setMode(m)
-    if (m === 'pick-week' || m === 'pick-month') setRef(new Date())
-  }
-
-  function stepRef(dir) {
-    if (mode === 'pick-week')  setRef(r => addWeeks(r, dir))
-    if (mode === 'pick-month') setRef(r => addMonths(r, dir))
-  }
-
-  const navLabel = periodLabel(mode, ref)
+  const hasAlerts = overdueJobs.length || awaitingPartJobs.length || readyJobs.length
 
   return (
     <div className="flex flex-col h-full">
+      {/* Header */}
       <div className="bg-black safe-top shrink-0">
-        <div className="px-4 py-3 flex items-center gap-3">
+        <div className="px-4 pt-3 pb-4 flex items-center gap-3">
           <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
-          <div>
-            <h1 className="text-white font-bold text-lg leading-none">Work Flow</h1>
-            <p className="text-slate-400 text-xs mt-1">Workshop overview</p>
+          <div className="flex-1">
+            <h1 className="text-white font-bold text-lg leading-none tracking-tight">Work Flow</h1>
+            <p className="text-slate-400 text-xs mt-1">{format(today, 'EEEE d MMMM')}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-white font-bold text-lg leading-none">{inWorkshop.length}</p>
+            <p className="text-slate-400 text-[10px] mt-0.5">on bench</p>
           </div>
         </div>
-
-        {/* Period selector */}
-        <div className="px-3 pb-3 flex gap-2 overflow-x-auto scrollbar-none">
-          {MODES.map(m => (
-            <button key={m.id} onClick={() => selectMode(m.id)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                mode === m.id
-                  ? 'bg-white text-black'
-                  : 'bg-white/15 text-white/80'
-              }`}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Prev/next navigation for pick modes */}
-        {navLabel && (
-          <div className="flex items-center justify-center gap-4 pb-3">
-            <button onClick={() => stepRef(-1)} className="text-white/70 px-3 py-1 text-lg leading-none">‹</button>
-            <span className="text-white text-xs font-semibold">{navLabel}</span>
-            <button onClick={() => stepRef(1)} className="text-white/70 px-3 py-1 text-lg leading-none">›</button>
-          </div>
-        )}
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-none">
-      <div className="max-w-2xl mx-auto p-4 space-y-5">
+        <div className="max-w-2xl mx-auto p-4 space-y-5">
 
-        {/* Revenue */}
-        <div>
-          <SectionLabel>Revenue</SectionLabel>
-          <div className="grid grid-cols-3 gap-3">
-            <RevenueCard value={`£${totalRevenue.toFixed(0)}`}      label="Total"    sub="period"    onClick={() => open('All Jobs', filteredJobs)} />
-            <RevenueCard value={`£${completedRevenue.toFixed(0)}`}  label="Invoiced" sub="complete"  onClick={() => open('Completed Jobs', completedJobs)} />
-            <RevenueCard value={`£${activeRevenue.toFixed(0)}`}     label="Pipeline" sub="active"    onClick={() => open('Active Jobs', activeJobs)} />
-          </div>
-        </div>
-
-        {/* Jobs summary */}
-        <div>
-          <SectionLabel>Jobs</SectionLabel>
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard value={filteredJobs.length}  label="Total Jobs"    onClick={() => open('All Jobs', filteredJobs)} />
-            <StatCard value={activeJobs.length}    label="Active Jobs"    accent="#64748b" onClick={() => open('Active Jobs', activeJobs)} />
-            <StatCard value={completedJobs.length} label="Complete Jobs"  accent={STATUS_CONFIG.complete.bg} onClick={() => open('Completed Jobs', completedJobs)} />
-          </div>
-        </div>
-
-        {/* Units summary */}
-        <div>
-          <SectionLabel>Units</SectionLabel>
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard value={allUnits.length}      label="Total Units"    onClick={() => open('All Jobs', filteredJobs)} />
-            <StatCard value={activeUnits.length}   label="Active Units"   accent="#64748b" onClick={() => open('Active Jobs', activeJobs)} />
-            <StatCard value={completeUnits.length} label="Complete Units" accent={STATUS_CONFIG.complete.bg} onClick={() => open('Completed Jobs', completedJobs)} />
-          </div>
-        </div>
-
-        {/* Unit status breakdown */}
-        <div>
-          <SectionLabel>Unit Status</SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
-            {STATUS_ORDER.map(s => {
-              const cfg = STATUS_CONFIG[s]
-              return (
-                <StatCard key={s}
-                  value={unitCounts[s] || 0}
-                  label={`${cfg.label} Units`}
-                  accent={cfg.bg}
-                  onClick={() => open(`${cfg.label} Units`, jobsForStatus(s))}
-                />
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Brand split */}
-        {allUnits.length > 0 && (
-          <div>
-            <SectionLabel>Brand Split</SectionLabel>
-            <div className="grid grid-cols-3 gap-3">
-              <StatCard value={`${foxPct}%`} label="Fox" sub={`${foxJobs.length} jobs`} accent="#f97316" onClick={() => open('Fox Jobs', foxJobs)} />
-              <StatCard value={`${rockshoxPct}%`} label="Rockshox" sub={`${rockshoxJobs.length} jobs`} accent="#3b82f6" onClick={() => open('Rockshox Jobs', rockshoxJobs)} />
-              <StatCard value={`${100 - foxPct - rockshoxPct}%`} label="Other" />
+          {/* Alerts */}
+          {hasAlerts > 0 && (
+            <div className="space-y-2">
+              <AlertBanner label={`${overdueJobs.length} overdue — past promised pickup date`}
+                count={overdueJobs.length} color="#ef4444" bg="#fef2f2"
+                onClick={() => setEditJob(overdueJobs[0])} />
+              <AlertBanner label={`${awaitingPartJobs.length} blocked — waiting on parts`}
+                count={awaitingPartJobs.length} color="#f59e0b" bg="#fffbeb"
+                onClick={() => setEditJob(awaitingPartJobs[0])} />
+              <AlertBanner label={`${readyJobs.length} ready — contact customer to collect`}
+                count={readyJobs.length} color="#a855f7" bg="#faf5ff"
+                onClick={() => setEditJob(readyJobs[0])} />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Workshop — always live/unfiltered */}
-        <div>
-          <SectionLabel>Workshop</SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              value={overdueJobs.length}
-              label="Overdue Jobs"
-              sub="past pickup date"
-              accent={overdueJobs.length > 0 ? '#ef4444' : '#22c55e'}
-              onClick={() => open('Overdue Jobs', overdueJobs)}
-            />
-            <StatCard
-              value={awaitingPartJobs.length}
-              label="Awaiting Parts"
-              sub="jobs blocked"
-              accent={awaitingPartJobs.length > 0 ? '#ef4444' : '#22c55e'}
-              onClick={() => open('Awaiting Parts', awaitingPartJobs)}
-            />
-            <StatCard
-              value={readyJobs.length}
-              label="Ready to Collect"
-              sub="notify customers"
-              accent={readyJobs.length > 0 ? STATUS_CONFIG.ready.bg : '#22c55e'}
-              onClick={() => open('Ready to Collect', readyJobs)}
-            />
-            <StatCard
-              value={oldestDays > 0 ? `${oldestDays}d` : '—'}
-              label="Oldest Active Job"
-              sub="days in workshop"
-              accent={oldestDays > 14 ? '#ef4444' : oldestDays > 7 ? '#f97316' : '#64748b'}
-              onClick={() => open('Active Jobs', allActiveJobs)}
-            />
-            <StatCard
-              value={`£${avgActiveValue.toFixed(0)}`}
-              label="Avg Active Job"
-              sub="value"
-              onClick={() => open('Active Jobs', activeJobs)}
-            />
-            <StatCard
-              value={customers?.length || 0}
-              label="Total Customers"
-              onClick={() => {}}
-            />
+          {/* In the Workshop */}
+          <div>
+            <SectionHeader count={inWorkshop.length} color="#0ea5e9">In the Workshop</SectionHeader>
+            {inWorkshop.length === 0
+              ? <EmptyRow text="Nothing on the bench right now" />
+              : <div className="space-y-2">
+                  {inWorkshop.map(job => (
+                    <JobCard key={job.id} job={job} today={today}
+                      statusConfig={statusConfig}
+                      onClick={() => setEditJob(job)} />
+                  ))}
+                </div>
+            }
           </div>
+
+          {/* Today */}
+          {(dropOffsToday.length > 0 || pickupsToday.length > 0) && (
+            <div>
+              <SectionHeader>Today</SectionHeader>
+              <div className="space-y-1.5">
+                {dropOffsToday.map(job => (
+                  <ScheduleRow key={`in-${job.id}`} job={job}
+                    label="IN" sublabel="drop-off"
+                    onClick={() => setEditJob(job)} />
+                ))}
+                {pickupsToday.map(job => (
+                  <ScheduleRow key={`out-${job.id}`} job={job}
+                    label="OUT" sublabel="pickup"
+                    onClick={() => setEditJob(job)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Coming Up */}
+          {upcoming.length > 0 && (
+            <div>
+              <SectionHeader>Coming Up</SectionHeader>
+              <div className="space-y-1.5">
+                {upcoming.flatMap(g =>
+                  g.jobs.map(job => (
+                    <ScheduleRow key={job.id} job={job}
+                      label={isToday(g.date) ? 'Today' : isTomorrow(g.date) ? 'Tmrw' : format(g.date, 'EEE d')}
+                      onClick={() => setEditJob(job)} />
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Revenue */}
+          <RevenueStrip jobs={jobs} settings={settings} />
+
         </div>
-
-      </div>
       </div>
 
-      {sheet && (
-        <JobListSheet
-          title={sheet.title}
-          jobs={sheet.jobs}
-          customers={customers}
-          saveJob={saveJob}
-          deleteJob={deleteJob}
-          onClose={() => setSheet(null)}
-        />
+      {editJob && (
+        <JobModal job={editJob} customers={customers}
+          onSave={saveJob} onDelete={deleteJob}
+          onClose={() => setEditJob(null)}
+          settings={settings} />
       )}
     </div>
   )
