@@ -6,6 +6,7 @@ import JobsScreen from './screens/JobsScreen'
 import CustomersScreen from './screens/CustomersScreen'
 import DashboardScreen from './screens/DashboardScreen'
 import AnalyticsScreen from './screens/AnalyticsScreen'
+import SettingsScreen from './screens/SettingsScreen'
 import LoginScreen from './screens/LoginScreen'
 
 function MainApp() {
@@ -19,6 +20,7 @@ function MainApp() {
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
         {activeTab === 'dashboard' && <DashboardScreen {...data} />}
         {activeTab === 'analytics' && <AnalyticsScreen {...data} />}
+        {activeTab === 'settings'  && <SettingsScreen  jobs={data.jobs} customers={data.customers} />}
       </div>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
