@@ -23,7 +23,8 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
   const phoneRef = useRef(null)
   const turnaroundDays = settings?.turnaroundDays ?? 3
   const brands = settings?.brands?.length ? settings.brands : ['Fox', 'Rockshox', 'Postage', 'Other']
-  const servicePrices = settings?.servicePrices ?? []
+  const allModels = settings?.models ?? {}
+  const defaultUnitPrice = String(settings?.defaultUnitPrice ?? 120)
   const defaultPickup = format(addDays(new Date(), turnaroundDays), 'yyyy-MM-dd')
 
   const [form, setForm] = useState({
@@ -34,8 +35,6 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
     pickup_date: job?.pickup_date || defaultPickup,
     notes: job?.notes || '',
   })
-  const [quickPickBrand, setQuickPickBrand] = useState('')
-  const [showQuickPick, setShowQuickPick] = useState(null) // unit idx
   const [units, setUnits] = useState(
     job?.units?.length ? job.units.map(u => ({
       id: u.id,
@@ -45,7 +44,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
       status: u.status || 'booked_in',
       parts_notes: u.parts_notes || '',
       price: u.price != null ? String(u.price) : '',
-    })) : [blankUnit()]
+    })) : [{ ...blankUnit(), price: defaultUnitPrice }]
   )
   const [nameSuggestions, setNameSuggestions] = useState([])
   const [hasTypedName, setHasTypedName] = useState(false)
@@ -83,7 +82,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
     setUnits(us => us.map((u, i) => i === idx ? { ...u, [key]: val } : u))
   }
 
-  function addUnit() { setUnits(us => [...us, blankUnit()]) }
+  function addUnit() { setUnits(us => [...us, { ...blankUnit(), price: defaultUnitPrice }]) }
   function removeUnit(idx) { setUnits(us => us.filter((_, i) => i !== idx)) }
 
   function handleWhatsApp() {
@@ -212,52 +211,23 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
                 <div key={idx} className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-slate-500">Unit {idx + 1}</span>
-                    <div className="flex items-center gap-3">
-                      {servicePrices.length > 0 && (
-                        <button onClick={() => { setShowQuickPick(showQuickPick === idx ? null : idx); setQuickPickBrand(brands[0] || '') }}
-                          className="text-sky-500 text-xs font-medium">Quick-pick</button>
-                      )}
-                      {units.length > 1 && <button onClick={() => removeUnit(idx)} className="text-red-400 text-xs font-medium">Remove</button>}
-                    </div>
+                    {units.length > 1 && <button onClick={() => removeUnit(idx)} className="text-red-400 text-xs font-medium">Remove</button>}
                   </div>
 
-                  {/* Quick-pick panel */}
-                  {showQuickPick === idx && (
-                    <div className="bg-white border border-sky-200 rounded-xl p-2 space-y-2">
-                      <div className="flex gap-1 flex-wrap">
-                        {brands.map(b => (
-                          <button key={b} onClick={() => setQuickPickBrand(b)}
-                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${quickPickBrand === b ? 'bg-sky-500 text-white border-sky-500' : 'text-slate-500 border-slate-200'}`}>
-                            {b}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="max-h-40 overflow-y-auto space-y-0.5">
-                        {servicePrices.filter(s => s.brand === quickPickBrand).map(s => (
-                          <button key={s.id} onClick={() => {
-                            setUnitField(idx, 'brand', s.brand)
-                            setUnitField(idx, 'model', s.service)
-                            setUnitField(idx, 'price', String(s.price))
-                            setShowQuickPick(null)
-                          }} className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-sky-50 text-left">
-                            <span className="text-sm text-slate-700">{s.service}</span>
-                            <span className="text-sm font-semibold text-slate-900 ml-3">£{s.price}</span>
-                          </button>
-                        ))}
-                        {servicePrices.filter(s => s.brand === quickPickBrand).length === 0 && (
-                          <p className="text-xs text-slate-400 px-2 py-2">No services for {quickPickBrand}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2×2 grid: Brand | Model / Serial | £Price — all cells same height */}
+                  {/* 2×2 grid: Brand | Model / Serial | £Price */}
                   <div className="grid grid-cols-2 gap-2">
-                    <select value={unit.brand} onChange={e => setUnitField(idx, 'brand', e.target.value)} className="input">
+                    <select value={unit.brand} onChange={e => { setUnitField(idx, 'brand', e.target.value); setUnitField(idx, 'model', '') }} className="input">
                       <option value="">Brand *</option>
                       {brands.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
-                    <input value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} placeholder="Model" className="input" />
+                    {allModels[unit.brand]?.length > 0 ? (
+                      <select value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} className="input">
+                        <option value="">Model</option>
+                        {allModels[unit.brand].map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    ) : (
+                      <input value={unit.model} onChange={e => setUnitField(idx, 'model', e.target.value)} placeholder="Model" className="input" />
+                    )}
                     <div className="relative">
                       <input value={unit.serial_number} onChange={e => setUnitField(idx, 'serial_number', e.target.value)} placeholder="Serial" className="input w-full pr-8" />
                       {unit.serial_number && (

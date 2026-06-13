@@ -15,14 +15,41 @@ function MainApp() {
   const data = useData()
   const { settings, updateSettings } = useSettings()
 
+  // Derive models from DB jobs, merge with any user-added models from settings
+  const mergedModels = (() => {
+    const derived = {}
+    for (const job of data.jobs) {
+      for (const unit of job.units || []) {
+        if (!unit.brand || !unit.model) continue
+        if (!derived[unit.brand]) derived[unit.brand] = new Set()
+        derived[unit.brand].add(unit.model.trim())
+      }
+    }
+    const sModels = settings.models || {}
+    const result = {}
+    const allBrands = new Set([
+      ...Object.keys(derived),
+      ...Object.keys(sModels).filter(k => !k.startsWith('_deleted_')),
+    ])
+    for (const brand of allBrands) {
+      const deleted = new Set(sModels[`_deleted_${brand}`] || [])
+      const fromDB = derived[brand] ? [...derived[brand]].filter(m => !deleted.has(m)) : []
+      const fromSettings = (sModels[brand] || []).filter(m => !deleted.has(m))
+      result[brand] = [...new Set([...fromDB, ...fromSettings])].sort()
+    }
+    return result
+  })()
+
+  const enrichedSettings = { ...settings, models: mergedModels }
+
   return (
     <div className="flex flex-col bg-slate-50" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 'calc(-1 * env(safe-area-inset-bottom))' }}>
       <div className="flex-1 min-h-0" style={{ overflow: 'clip' }}>
-        {activeTab === 'jobs'      && <JobsScreen      {...data} settings={settings} />}
+        {activeTab === 'jobs'      && <JobsScreen      {...data} settings={enrichedSettings} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
-        {activeTab === 'dashboard' && <DashboardScreen {...data} settings={settings} />}
-        {activeTab === 'analytics' && <AnalyticsScreen {...data} settings={settings} />}
-        {activeTab === 'settings'  && <SettingsScreen  jobs={data.jobs} customers={data.customers} settings={settings} updateSettings={updateSettings} />}
+        {activeTab === 'dashboard' && <DashboardScreen {...data} settings={enrichedSettings} />}
+        {activeTab === 'analytics' && <AnalyticsScreen {...data} settings={enrichedSettings} />}
+        {activeTab === 'settings'  && <SettingsScreen  jobs={data.jobs} customers={data.customers} settings={enrichedSettings} updateSettings={updateSettings} />}
       </div>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
