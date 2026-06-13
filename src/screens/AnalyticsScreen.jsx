@@ -57,7 +57,8 @@ function Insight({ text }) {
 }
 
 // SVG line chart. data = [{ label, value }], target = optional horizontal line value
-function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => String(v) }) {
+// todayFrac = fractional index (e.g. 3.43) where today falls on the x-axis
+function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => String(v), todayFrac = null }) {
   const H = 90
   const padT = 14, padB = 18, padL = 2, padR = 2
   const wrapRef = useRef(null)
@@ -130,6 +131,17 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
             {valueFormat(data[lastIdx].value)}
           </text>
         )}
+
+        {todayFrac !== null && todayFrac >= 0 && todayFrac <= n - 1 && (() => {
+          const tx = toX(todayFrac)
+          return (
+            <>
+              <line x1={tx} y1={padT} x2={tx} y2={padT + cH}
+                stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
+              <text x={tx + 2} y={padT + 7} fontSize="6.5" fill="#64748b" fontWeight="600">Today</text>
+            </>
+          )
+        })()}
 
         {data.map((d, i) => (
           <text key={i} x={toX(i)} y={H - 1} textAnchor="middle" fontSize="8" fill="#94a3b8">
@@ -282,6 +294,15 @@ export default function AnalyticsScreen({ jobs, customers }) {
 
     const unitsChartData = months.map(m => ({ label: m.label, value: m.unitCount || 0 }))
 
+    // Today line position: fractional index into months array
+    const dayOfMonth = today.getDate()
+    const daysInMonth = endOfMonth(today).getDate()
+    const todayFrac = thisMonthIdx >= 0 ? thisMonthIdx + (dayOfMonth / daysInMonth) : null
+
+    // Split months into confirmed history vs pipeline
+    const historicalMonths = thisMonthIdx > 0 ? months.slice(0, thisMonthIdx) : []
+    const pipelineMonths   = thisMonthIdx >= 0 ? months.slice(thisMonthIdx + 1) : []
+
     return {
       totalRevenue, completedRevenue, activeRevenue, avgJobValue, avgCompletedValue,
       months, thisMonth, lastMonth, targetGap, targetPct,
@@ -291,7 +312,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
       repeatCustomers, custSpend, topCustomers, maxCustSpend, newCustMonths,
       topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
       overdueJobs, awaitingPartsJobs, readyJobs, oldestActiveDays, overdueRate, partsBlockRate,
-      unitsChartData,
+      unitsChartData, todayFrac, historicalMonths, pipelineMonths,
     }
   }, [jobs, customers])
 
@@ -304,35 +325,40 @@ export default function AnalyticsScreen({ jobs, customers }) {
     repeatCustomers, custSpend, topCustomers, maxCustSpend, newCustMonths,
     topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
     overdueJobs, awaitingPartsJobs, readyJobs, oldestActiveDays, overdueRate, partsBlockRate,
-    unitsChartData,
+    unitsChartData, todayFrac, historicalMonths, pipelineMonths,
   } = data
 
   function revenueInsight() {
-    const activeMonths = months.filter(m => m.revenue > 0)
-    if (activeMonths.length < 2) return "Revenue data is building — insights will appear once you have a few months of history."
-    const recent3 = activeMonths.slice(-3)
-    const trend = recent3.length >= 2 ? recent3[recent3.length-1].revenue - recent3[0].revenue : 0
-    const trendDir = trend > 0 ? 'upward' : trend < 0 ? 'downward' : 'flat'
-    const pipelineRatio = totalRevenue > 0 ? Math.round((activeRevenue / totalRevenue) * 100) : 0
+    const histRevMonths = historicalMonths.filter(m => m.revenue > 0)
+    const pipeRevMonths = pipelineMonths.filter(m => m.revenue > 0)
+    if (histRevMonths.length < 2) return "Revenue history is building — insights will sharpen once you have more completed months."
+    const trend = histRevMonths[histRevMonths.length - 1].revenue - histRevMonths[0].revenue
+    const trendDir = trend > 100 ? 'upward' : trend < -100 ? 'downward' : 'flat'
+    const histTotal = historicalMonths.reduce((s, m) => s + m.revenue, 0)
+    const pipeTotal = pipeRevMonths.reduce((s, m) => s + m.revenue, 0)
     const hitTarget = Number(targetPct) >= 100
-    let txt = `Your revenue shows a ${trendDir} trend over recent months. `
-    if (hitTarget) txt += `This month you've hit ${targetPct}% of your £${REVENUE_TARGET.toLocaleString()} target — a strong result. `
-    else txt += `This month you're at ${targetPct}% of your £${REVENUE_TARGET.toLocaleString()} target with £${Math.abs(targetGap).toFixed(0)} remaining. `
-    txt += `Average job value is £${avgJobValue.toFixed(0)}, and ${pipelineRatio}% of total revenue is still in active pipeline. `
-    if (pipelineRatio > 40) txt += `A high pipeline ratio suggests strong forward bookings but focus on converting work to invoiced revenue.`
-    else txt += `Converting pipeline to invoiced revenue is tracking well.`
+    let txt = `Historical revenue (before today's line) shows a ${trendDir} trend. `
+    if (hitTarget) txt += `This month is already at ${targetPct}% of the £${REVENUE_TARGET.toLocaleString()} target — on track. `
+    else txt += `This month sits at ${targetPct}% of the £${REVENUE_TARGET.toLocaleString()} target with £${Math.abs(targetGap).toFixed(0)} still to book. `
+    if (pipeTotal > 0) txt += `Beyond today's line, £${pipeTotal.toFixed(0)} in pipeline jobs are already scheduled — strong forward visibility. `
+    txt += `Average job value is £${avgJobValue.toFixed(0)}.`
     return txt
   }
 
   function jobVolumeInsight() {
+    const histJobMonths = historicalMonths.filter(m => m.jobCount > 0)
+    const pipeJobMonths = pipelineMonths.filter(m => m.jobCount > 0)
     const completionRate = Math.round((completedJobs.length / Math.max(jobs.length, 1)) * 100)
-    const activeMonths = months.filter(m => m.jobCount > 0)
-    const peakMonth = activeMonths.reduce((a, b) => b.jobCount > a.jobCount ? b : a, activeMonths[0] || months[0])
-    let txt = `You've taken on ${jobs.length} jobs in total with a ${completionRate}% completion rate. `
-    txt += `Peak booking month was ${peakMonth.label} with ${peakMonth.jobCount} jobs. `
+    const peakHist = histJobMonths.reduce((a, b) => b.jobCount > a.jobCount ? b : a, histJobMonths[0])
+    const pipeJobs = pipelineMonths.reduce((s, m) => s + m.jobCount, 0)
+    let txt = `${completionRate}% of all jobs are completed. `
+    if (peakHist) txt += `Your busiest historical month was ${peakHist.label} with ${peakHist.jobCount} jobs. `
+    if (pipeJobs > 0) txt += `After today's line, ${pipeJobs} job${pipeJobs !== 1 ? 's' : ''} are already in the pipeline — `
+    if (pipeJobs > peakHist?.jobCount) txt += `shaping up to be a record period. `
+    else if (pipeJobs > 0) txt += `good forward bookings. `
     txt += `At ${avgUnitsPerJob.toFixed(1)} units per job on average, `
-    if (avgUnitsPerJob >= 2) txt += `customers are regularly bringing in multiple items — a positive sign for revenue per visit.`
-    else txt += `there's an opportunity to encourage multi-unit bookings to increase revenue per customer visit.`
+    if (avgUnitsPerJob >= 2) txt += `customers regularly bring multiple items — positive for revenue per visit.`
+    else txt += `encouraging multi-unit bookings could meaningfully lift revenue per visit.`
     return txt
   }
 
@@ -341,27 +367,28 @@ export default function AnalyticsScreen({ jobs, customers }) {
     const completedUnits = allUnits.filter(u => u.status === 'complete').length
     const completionRate = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0
     const awaitingPartsUnits = allUnits.filter(u => u.status === 'awaiting_parts').length
-    const activeMonths = months.filter(m => m.unitCount > 0)
-    const peakMonth = activeMonths.reduce((a, b) => (b.unitCount || 0) > (a.unitCount || 0) ? b : a, activeMonths[0] || months[0])
-    let txt = `${totalUnits} units have passed through the workshop, with ${completionRate}% completed. `
-    if (peakMonth) txt += `Peak unit volume was in ${peakMonth.label}. `
+    const histPeak = historicalMonths.filter(m => m.unitCount > 0).reduce((a, b) => (b.unitCount || 0) > (a.unitCount || 0) ? b : a, historicalMonths[0])
+    const pipeUnits = pipelineMonths.reduce((s, m) => s + (m.unitCount || 0), 0)
+    let txt = `${totalUnits} units in total — ${completionRate}% completed. `
+    if (histPeak) txt += `Peak historical unit volume was ${histPeak.label}. `
+    if (pipeUnits > 0) txt += `${pipeUnits} units are already scheduled beyond today — your pipeline is active. `
     if (awaitingPartsUnits > 0) {
       const pct = Math.round((awaitingPartsUnits / totalUnits) * 100)
-      txt += `${awaitingPartsUnits} units (${pct}%) are currently blocked on parts — this is your primary throughput constraint and worth addressing with suppliers proactively.`
+      txt += `${awaitingPartsUnits} units (${pct}%) are currently blocked on parts — address these with suppliers to protect pipeline throughput.`
     } else {
-      txt += `No units are currently blocked on parts, indicating good supply chain management.`
+      txt += `No units blocked on parts — supply chain is clear.`
     }
     return txt
   }
 
   function turnaroundInsight() {
     if (avgTurnaround === null) return "Turnaround data will appear once jobs have both drop-off and pickup dates recorded."
-    const recent = months.filter(m => m.avgTurnaround > 0).slice(-3)
-    const trendUp = recent.length >= 2 && recent[recent.length-1].avgTurnaround > recent[0].avgTurnaround
-    let txt = `Average turnaround is ${avgTurnaround} days, ranging from ${minTurnaround} to ${maxTurnaround} days. `
-    if (trendUp) txt += `Turnaround time has been increasing recently — this may indicate growing demand outpacing capacity or parts delays. `
-    else txt += `Turnaround times are stable or improving — a positive sign for capacity management. `
-    if (maxTurnaround > avgTurnaround * 2) txt += `The gap between fastest (${minTurnaround}d) and slowest (${maxTurnaround}d) is significant, suggesting some jobs encounter delays. Review what's driving outlier durations.`
+    const histTurnaround = historicalMonths.filter(m => m.avgTurnaround > 0)
+    const trendUp = histTurnaround.length >= 2 && histTurnaround[histTurnaround.length - 1].avgTurnaround > histTurnaround[0].avgTurnaround
+    let txt = `Historical average turnaround is ${avgTurnaround} days (${minTurnaround}–${maxTurnaround}d range). `
+    if (trendUp) txt += `Turnaround has been lengthening in recent history — watch for capacity or parts constraints emerging. `
+    else txt += `Turnaround is stable or improving across your historical record. `
+    if (maxTurnaround > avgTurnaround * 2) txt += `A large spread between fastest and slowest jobs suggests some outliers — investigate what's causing the longest jobs.`
     return txt
   }
 
@@ -474,7 +501,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
                 </p>
               </div>
             </div>
-            <LineChart data={revenueChartData} color="#22c55e" target={REVENUE_TARGET} valueFormat={v => `£${v.toFixed(0)}`} />
+            <LineChart data={revenueChartData} color="#22c55e" target={REVENUE_TARGET} valueFormat={v => `£${v.toFixed(0)}`} todayFrac={todayFrac} />
           </div>
 
           {/* Target progress bar */}
@@ -516,7 +543,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
                 <DeltaBadge current={thisMonth.jobCount} previous={lastMonth.jobCount} />
               </div>
             </div>
-            <LineChart data={jobsChartData} color="#38bdf8" valueFormat={v => String(v)} />
+            <LineChart data={jobsChartData} color="#38bdf8" valueFormat={v => String(v)} todayFrac={todayFrac} />
           </div>
           <div className="grid grid-cols-2 gap-2 mt-2">
             <KPICard value={avgUnitsPerJob.toFixed(1)} label="Avg Units / Job" sub="bikes per booking" />
@@ -545,7 +572,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
                 <DeltaBadge current={thisMonth.unitCount || 0} previous={lastMonth.unitCount || 0} />
               </div>
             </div>
-            <LineChart data={unitsChartData} color="#f97316" valueFormat={v => String(v)} />
+            <LineChart data={unitsChartData} color="#f97316" valueFormat={v => String(v)} todayFrac={todayFrac} />
           </div>
           <Insight text={unitsInsight()} />
         </Section>
@@ -561,7 +588,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
               </div>
               <div className="bg-white rounded-xl border border-slate-200 p-4">
                 <p className="text-sm font-semibold text-slate-700 mb-3">Avg Days per Month</p>
-                <LineChart data={turnaroundChartData} color="#a855f7" valueFormat={v => `${v}d`} />
+                <LineChart data={turnaroundChartData} color="#a855f7" valueFormat={v => `${v}d`} todayFrac={todayFrac} />
               </div>
             </>
           ) : (
@@ -637,7 +664,7 @@ export default function AnalyticsScreen({ jobs, customers }) {
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-2">
             <p className="text-sm font-semibold text-slate-700 mb-3">New Customers per Month</p>
-            <LineChart data={newCustChartData} color="#38bdf8" valueFormat={v => String(v)} />
+            <LineChart data={newCustChartData} color="#38bdf8" valueFormat={v => String(v)} todayFrac={todayFrac} />
           </div>
           {topCustomers.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 p-4">
