@@ -47,9 +47,10 @@ function JobCard({ job, today, onClick, statusConfig }) {
   const total = jobTotal(job)
 
   // Dominant status colour for left border
-  const dominantStatus = (job.units || []).reduce((best, u) => {
+  const units = job.units || []
+  const dominantStatus = units.reduce((best, u) => {
     return (STATUS_URGENCY[u.status] ?? 99) < (STATUS_URGENCY[best] ?? 99) ? u.status : best
-  }, 'booked_in')
+  }, units[0]?.status || 'booked_in')
   const cfg = statusConfig?.[dominantStatus] ?? { bg: '#94a3b8', light: '#f8fafc', border: '#e2e8f0', text: '#64748b' }
 
   return (
