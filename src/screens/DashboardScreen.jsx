@@ -200,7 +200,8 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
   const inWorkshop = jobs
     .filter(j => {
       if (!j.drop_off_date || j.drop_off_date > todayStr) return false
-      if (j.units?.length && j.units.every(u => u.status === 'complete')) return false
+      if (!j.units?.length) return false
+      if (j.units.every(u => u.status === 'complete' || u.status === 'on_hold')) return false
       return true
     })
     .sort((a, b) => {
@@ -216,7 +217,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
   const overdueJobs      = inWorkshop.filter(j => isOverdue(j, today))
   const awaitingPartJobs = inWorkshop.filter(j => j.units?.some(u => u.status === 'awaiting_parts'))
   const readyJobs        = inWorkshop.filter(j => j.units?.some(u => u.status === 'ready'))
-  const onHoldJobs       = inWorkshop.filter(j => j.units?.some(u => u.status === 'on_hold'))
+  const onHoldJobs       = jobs.filter(j => j.units?.some(u => u.status === 'on_hold') && !j.units.every(u => u.status === 'complete'))
 
   // Today's schedule
   const dropOffsToday = jobs.filter(j => j.drop_off_date === todayStr)
