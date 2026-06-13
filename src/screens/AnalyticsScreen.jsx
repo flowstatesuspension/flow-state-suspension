@@ -63,6 +63,7 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
   const padT = 14, padB = 18, padL = 2, padR = 2
   const wrapRef = useRef(null)
   const [W, setW] = useState(300)
+  const [hovered, setHovered] = useState(null)
 
   useLayoutEffect(() => {
     function measure() {
@@ -119,18 +120,49 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
           if (d.value === 0) return null
           const [x, y] = pts[i]
           const isLast = i === lastIdx
+          const isHovered = hovered === i
           return (
-            <circle key={i} cx={x} cy={y} r={isLast ? 3 : 2}
-              fill={isLast ? color : '#fff'} stroke={color} strokeWidth="1.5" />
+            <circle key={i} cx={x} cy={y} r={isHovered ? 4 : isLast ? 3 : 2}
+              fill={isLast || isHovered ? color : '#fff'} stroke={color} strokeWidth="1.5" />
           )
         })}
 
-        {data[lastIdx]?.value > 0 && (
+        {/* Hover tooltip */}
+        {hovered !== null && data[hovered]?.value > 0 && (() => {
+          const [x, y] = pts[hovered]
+          const label = valueFormat(data[hovered].value)
+          const tipW = label.length * 5.5 + 8
+          const tipH = 13
+          const tipX = Math.min(Math.max(x - tipW / 2, padL), W - padR - tipW)
+          const tipY = y - tipH - 5
+          return (
+            <>
+              <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="3"
+                fill="#1e293b" />
+              <text x={tipX + tipW / 2} y={tipY + 9} textAnchor="middle"
+                fontSize="7.5" fill="#fff" fontWeight="600">{label}</text>
+            </>
+          )
+        })()}
+
+        {data[lastIdx]?.value > 0 && hovered === null && (
           <text x={pts[lastIdx][0]} y={pts[lastIdx][1] - 5} textAnchor="middle"
             fontSize="8" fill={color} fontWeight="700">
             {valueFormat(data[lastIdx].value)}
           </text>
         )}
+
+        {/* Invisible hit areas for hover */}
+        {data.map((d, i) => {
+          if (d.value === 0) return null
+          const [x] = pts[i]
+          return (
+            <rect key={`hit-${i}`} x={x - 10} y={padT} width={20} height={cH}
+              fill="transparent"
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)} />
+          )
+        })}
 
         {todayFrac !== null && todayFrac >= 0 && todayFrac <= n - 1 && (
           <line x1={toX(todayFrac)} y1={padT} x2={toX(todayFrac)} y2={padT + cH}
