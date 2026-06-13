@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { format, parseISO, differenceInDays, addDays, isToday, isTomorrow } from 'date-fns'
 import JobModal from '../components/JobModal'
 
-const STATUS_URGENCY = { awaiting_parts: 0, ready: 1, in_progress: 2, booked_in: 3, complete: 4 }
+const STATUS_URGENCY = { awaiting_parts: 0, ready: 1, in_progress: 2, booked_in: 3, on_hold: 4, complete: 5 }
 
 function jobUrgency(job) {
   const statuses = job.units?.map(u => u.status) || ['booked_in']

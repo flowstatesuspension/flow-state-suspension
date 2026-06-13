@@ -31,6 +31,14 @@ export const STATUS_CONFIG = {
     text: '#ea580c',
     tailwind: 'bg-orange-500',
   },
+  on_hold: {
+    label: 'On Hold',
+    bg: '#6b7280',
+    light: '#f9fafb',
+    border: '#d1d5db',
+    text: '#374151',
+    tailwind: 'bg-gray-500',
+  },
   complete: {
     label: 'Complete',
     bg: '#22c55e',
@@ -41,4 +49,4 @@ export const STATUS_CONFIG = {
   },
 }
 
-export const STATUS_ORDER = ['booked_in', 'awaiting_parts', 'ready', 'in_progress', 'complete']
+export const STATUS_ORDER = ['booked_in', 'awaiting_parts', 'ready', 'in_progress', 'on_hold', 'complete']

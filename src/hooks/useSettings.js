@@ -15,6 +15,7 @@ const DEFAULTS = {
     awaiting_parts: 'Awaiting Parts',
     ready: 'Ready',
     in_progress: 'In Progress',
+    on_hold: 'On Hold',
     complete: 'Complete',
   },
 }
