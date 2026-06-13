@@ -14,6 +14,7 @@ function jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAncho
 
   if (calView === 'day') {
     return jobs.filter(j => {
+      if (j.units?.length && j.units.every(u => u.status === 'complete')) return false
       if (viewMode === 'booking') return j.drop_off_date === d
       if (!j.drop_off_date) return false
       if (j.drop_off_date > d) return false
@@ -28,6 +29,7 @@ function jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAncho
     return jobs.filter(j => {
       if (!j.drop_off_date) return false
       if (viewMode === 'booking') return parseISO(j.drop_off_date) >= weekStart && parseISO(j.drop_off_date) <= weekEnd
+      if (j.units?.length && j.units.every(u => u.status === 'complete')) return false
       if (!j.pickup_date) return false
       return parseISO(j.drop_off_date) <= weekEnd && parseISO(j.pickup_date) >= weekStart
     })
@@ -38,6 +40,7 @@ function jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAncho
   return jobs.filter(j => {
     if (!j.drop_off_date) return false
     if (viewMode === 'booking') return isWithinInterval(parseISO(j.drop_off_date), { start: monthStart, end: monthEnd })
+    if (j.units?.length && j.units.every(u => u.status === 'complete')) return false
     if (!j.pickup_date) return false
     return parseISO(j.drop_off_date) <= monthEnd && parseISO(j.pickup_date) >= monthStart
   })
