@@ -56,7 +56,7 @@ function MainApp() {
       <div className="flex-1 min-h-0" style={{ overflow: 'clip' }}>
         {activeTab === 'jobs'      && <JobsScreen      {...data} settings={enrichedSettings} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
-        {activeTab === 'dashboard' && <DashboardScreen {...data} settings={enrichedSettings} />}
+        {activeTab === 'dashboard' && <DashboardScreen {...data} settings={enrichedSettings} refresh={data.refresh} />}
         {activeTab === 'analytics' && <AnalyticsScreen {...data} settings={enrichedSettings} />}
         {activeTab === 'settings'  && <SettingsScreen  jobs={data.jobs} customers={data.customers} settings={enrichedSettings} updateSettings={updateSettings} />}
       </div>

@@ -183,8 +183,13 @@ function RevenueStrip({ jobs, settings }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
-export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, settings }) {
+export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, settings, refresh }) {
   const [editJob, setEditJob] = useState(null)
+
+  function closeModal() {
+    setEditJob(null)
+    refresh?.()
+  }
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayStr = format(today, 'yyyy-MM-dd')
@@ -210,6 +215,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
   const overdueJobs      = inWorkshop.filter(j => isOverdue(j, today))
   const awaitingPartJobs = inWorkshop.filter(j => j.units?.some(u => u.status === 'awaiting_parts'))
   const readyJobs        = inWorkshop.filter(j => j.units?.some(u => u.status === 'ready'))
+  const onHoldJobs       = inWorkshop.filter(j => j.units?.some(u => u.status === 'on_hold'))
 
   // Today's schedule
   const dropOffsToday = jobs.filter(j => j.drop_off_date === todayStr)
@@ -225,7 +231,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
     })
     .filter(g => g.jobs.length > 0)
 
-  const hasAlerts = overdueJobs.length || awaitingPartJobs.length || readyJobs.length
+  const hasAlerts = overdueJobs.length || awaitingPartJobs.length || readyJobs.length || onHoldJobs.length
 
   return (
     <div className="flex flex-col h-full">
@@ -259,6 +265,9 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
               <AlertBanner label={`${readyJobs.length} ready — contact customer to collect`}
                 count={readyJobs.length} color="#a855f7" bg="#faf5ff"
                 onClick={() => setEditJob(readyJobs[0])} />
+              <AlertBanner label={`${onHoldJobs.length} on hold — pending decision`}
+                count={onHoldJobs.length} color="#6b7280" bg="#f9fafb"
+                onClick={() => setEditJob(onHoldJobs[0])} />
             </div>
           )}
 
@@ -321,7 +330,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
       {editJob && (
         <JobModal job={editJob} customers={customers}
           onSave={saveJob} onDelete={deleteJob}
-          onClose={() => setEditJob(null)}
+          onClose={closeModal}
           settings={settings} />
       )}
     </div>
