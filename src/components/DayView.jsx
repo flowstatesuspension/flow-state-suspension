@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format, addDays, subDays, isToday, parseISO } from 'date-fns'
-import { STATUS_CONFIG } from '../constants'
+import { STATUS_CONFIG as BASE_STATUS_CONFIG } from '../constants'
 
 function jobTotal(job) {
   return (job.units || []).reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
@@ -21,7 +21,8 @@ function jobsOnDay(jobs, date, viewMode) {
   })
 }
 
-export default function DayView({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange }) {
+export default function DayView({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange, settings }) {
+  const STATUS_CONFIG = settings?.statusConfig ?? BASE_STATUS_CONFIG
   const [dateLocal, setDateLocal] = useState(new Date())
   const date    = anchorProp    ?? dateLocal
   const setDate = onAnchorChange ?? setDateLocal

@@ -26,6 +26,8 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
   const allModels = settings?.models ?? {}
   const defaultUnitPrice = String(settings?.defaultUnitPrice ?? 120)
   const defaultPickup = format(addDays(new Date(), turnaroundDays), 'yyyy-MM-dd')
+  const statusConfig = settings?.statusConfig ?? STATUS_CONFIG
+  const statusOrder = settings?.statusOrder ?? STATUS_ORDER
 
   const [form, setForm] = useState({
     customer_name: job?.customers?.name || '',
@@ -251,8 +253,8 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
 
                   {/* Status — single line, compact pills */}
                   <div className="flex gap-1 flex-nowrap">
-                    {STATUS_ORDER.map(s => {
-                      const cfg = STATUS_CONFIG[s]
+                    {statusOrder.map(s => {
+                      const cfg = statusConfig[s]
                       const active = unit.status === s
                       return (
                         <button key={s} onClick={() => setUnitField(idx, 'status', s)}

@@ -4,9 +4,11 @@ import {
   eachDayOfInterval, format, parseISO,
   addMonths, subMonths, isSameMonth, isToday, isWithinInterval,
 } from 'date-fns'
-import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
+import { STATUS_CONFIG as BASE_STATUS_CONFIG, STATUS_ORDER as BASE_STATUS_ORDER } from '../constants'
 
-export default function MonthCalendar({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange }) {
+export default function MonthCalendar({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange, settings }) {
+  const STATUS_CONFIG = settings?.statusConfig ?? BASE_STATUS_CONFIG
+  const STATUS_ORDER = settings?.statusOrder ?? BASE_STATUS_ORDER
   const [anchorLocal, setAnchorLocal] = useState(new Date())
   const anchor    = anchorProp    ?? anchorLocal
   const setAnchor = onAnchorChange ?? setAnchorLocal

@@ -4,7 +4,7 @@ import {
   eachDayOfInterval, format, parseISO,
   differenceInDays, max, min, isToday,
 } from 'date-fns'
-import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
+import { STATUS_CONFIG as BASE_STATUS_CONFIG, STATUS_ORDER as BASE_STATUS_ORDER } from '../constants'
 
 const ROW_PAD = 8
 const UNIT_H = 26
@@ -25,7 +25,9 @@ function copyToClipboard(text, e) {
   navigator.clipboard.writeText(text).catch(() => {})
 }
 
-export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange }) {
+export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange, settings }) {
+  const STATUS_CONFIG = settings?.statusConfig ?? BASE_STATUS_CONFIG
+  const STATUS_ORDER = settings?.statusOrder ?? BASE_STATUS_ORDER
   const [anchorLocal, setAnchorLocal] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   )

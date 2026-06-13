@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { useData } from './hooks/useData'
 import { useSettings } from './hooks/useSettings'
+import { STATUS_CONFIG, STATUS_ORDER } from './constants'
 import BottomNav from './components/BottomNav'
 import JobsScreen from './screens/JobsScreen'
 import CustomersScreen from './screens/CustomersScreen'
@@ -40,7 +41,15 @@ function MainApp() {
     return result
   })()
 
-  const enrichedSettings = { ...settings, models: mergedModels }
+  // Merge label overrides into STATUS_CONFIG
+  const statusConfig = Object.fromEntries(
+    STATUS_ORDER.map(key => [key, {
+      ...STATUS_CONFIG[key],
+      label: settings.statusLabels?.[key] ?? STATUS_CONFIG[key].label,
+    }])
+  )
+
+  const enrichedSettings = { ...settings, models: mergedModels, statusConfig, statusOrder: STATUS_ORDER }
 
   return (
     <div className="flex flex-col bg-slate-50" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 'calc(-1 * env(safe-area-inset-bottom))' }}>

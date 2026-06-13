@@ -161,13 +161,13 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
           </div>
         ) : calView === 'day' ? (
           <DayView jobs={jobs} onJobClick={openJob} viewMode={viewMode}
-            anchor={dayAnchor} onAnchorChange={setDayAnchor} />
+            anchor={dayAnchor} onAnchorChange={setDayAnchor} settings={settings} />
         ) : calView === 'week' ? (
           <GanttWeekView jobs={jobs} onJobClick={openJob} viewMode={viewMode}
-            anchor={weekAnchor} onAnchorChange={setWeekAnchor} />
+            anchor={weekAnchor} onAnchorChange={setWeekAnchor} settings={settings} />
         ) : (
           <MonthCalendar jobs={jobs} onJobClick={openJob} viewMode={viewMode}
-            anchor={monthAnchor} onAnchorChange={setMonthAnchor} />
+            anchor={monthAnchor} onAnchorChange={setMonthAnchor} settings={settings} />
         )}
       </div>
 

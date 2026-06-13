@@ -8,9 +8,15 @@ const DEFAULTS = {
   turnaroundDays: 3,
   defaultUnitPrice: 120,
   brands: ['Fox', 'Rockshox', 'Postage', 'Other'],
-  // models: { Fox: ['36', '38', ...], Rockshox: [...] }
-  // populated dynamically from DB + user additions; not stored in DEFAULTS
   models: {},
+  // statusLabels: overrides for display labels only. Keys are the DB values.
+  statusLabels: {
+    booked_in: 'Booked In',
+    awaiting_parts: 'Awaiting Parts',
+    ready: 'Ready for Collection',
+    in_progress: 'In Progress',
+    complete: 'Complete',
+  },
 }
 
 function load() {
