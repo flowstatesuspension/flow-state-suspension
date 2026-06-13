@@ -13,7 +13,7 @@ const DEFAULTS = {
   statusLabels: {
     booked_in: 'Booked In',
     awaiting_parts: 'Awaiting Parts',
-    ready: 'Ready for Collection',
+    ready: 'Ready',
     in_progress: 'In Progress',
     complete: 'Complete',
   },
@@ -23,7 +23,12 @@ function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULTS
-    return { ...DEFAULTS, ...JSON.parse(raw) }
+    const stored = JSON.parse(raw)
+    // Fix: incorrect default that shipped briefly
+    if (stored.statusLabels?.ready === 'Ready for Collection') {
+      stored.statusLabels.ready = 'Ready'
+    }
+    return { ...DEFAULTS, ...stored }
   } catch {
     return DEFAULTS
   }
