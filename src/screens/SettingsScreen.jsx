@@ -19,12 +19,22 @@ function exportCSV(filename, rows) {
 }
 
 // ── Accordion section ─────────────────────────────────────────────────────────
-function Accordion({ title, icon, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen)
+function Accordion({ title, icon, children }) {
+  const key = `accordion_${title}`
+  const [open, setOpen] = useState(() => {
+    const stored = sessionStorage.getItem(key)
+    return stored === null ? false : stored === 'true'
+  })
+  function toggle() {
+    setOpen(o => {
+      sessionStorage.setItem(key, !o)
+      return !o
+    })
+  }
   return (
     <div className="mx-4 mb-3 bg-white rounded-2xl shadow-sm overflow-hidden">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         className="w-full flex items-center gap-3 px-4 py-4 text-left"
       >
         <span className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">{icon}</span>
@@ -204,7 +214,7 @@ export default function SettingsScreen({ jobs, customers, settings, updateSettin
       <div className="flex-1 overflow-y-auto pt-4 pb-8 max-w-2xl mx-auto w-full">
 
         {/* Workshop */}
-        <Accordion defaultOpen title="Workshop" icon={
+        <Accordion title="Workshop" icon={
           <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654m5.65-5.65 2.496-3.03c.317-.384.74-.626 1.208-.766m0 0a3 3 0 1 1 5.468 2.598c-.317.384-.74.626-1.208.766m-5.268-2.598-.496.375" /></svg>
         }>
           <FieldRow label="Business Name">
