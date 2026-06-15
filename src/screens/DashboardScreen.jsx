@@ -84,7 +84,7 @@ function AlertBanner({ label, count, color, bg, onClick }) {
 }
 
 // ── Job card ─────────────────────────────────────────────────────────────────
-function JobCard({ job, today, onClick, statusConfig, activeTimer }) {
+function JobCard({ job, today, onClick, statusConfig, activeTimer, onStartTimer }) {
   const isTimerRunningHere = activeTimer?.job?.id === job?.id
   const overdue = isOverdue(job, today)
   const days = daysInWorkshop(job, today)
@@ -123,11 +123,29 @@ function JobCard({ job, today, onClick, statusConfig, activeTimer }) {
         <div className="flex flex-wrap gap-1 mb-2">
           {job.units?.map(u => {
             const sc = statusConfig?.[u.status] ?? { light: '#f8fafc', text: '#64748b', border: '#e2e8f0' }
+            const isRecording = activeTimer?.unit?.id === u.id
             return (
-              <span key={u.id} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: sc.light, color: sc.text, border: `1px solid ${sc.border}` }}>
-                {u.brand} {u.model}
-              </span>
+              <div key={u.id} className="flex items-center gap-1">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: sc.light, color: sc.text, border: `1px solid ${sc.border}` }}>
+                  {u.brand} {u.model}
+                </span>
+                {onStartTimer && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onStartTimer(job, u) }}
+                    className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                      isRecording
+                        ? 'bg-sky-500 text-white border-sky-500'
+                        : 'bg-white text-slate-400 border-slate-200 active:bg-slate-50'
+                    }`}
+                  >
+                    {isRecording
+                      ? <><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse block" /> Rec</>
+                      : <><svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></>
+                    }
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>
@@ -388,7 +406,8 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
                     <JobCard key={job.id} job={job} today={today}
                       statusConfig={statusConfig}
                       onClick={() => setEditJob(job)}
-                      activeTimer={activeTimer} />
+                      activeTimer={activeTimer}
+                      onStartTimer={onStartTimer} />
                   ))}
                 </div>
             }
