@@ -79,7 +79,11 @@ export default function FloatingTimer({ timer, onStop, onClose }) {
 
       <div className="px-4 pt-3 pb-4">
         <p className="text-sm font-bold text-white truncate">{job.customers?.name || '—'}</p>
-        {unitLabel && <p className="text-xs text-slate-400 truncate mt-0.5">{unitLabel}</p>}
+        {timer.unit && (
+          <p className="text-xs text-sky-300 truncate mt-0.5 font-semibold">
+            {[timer.unit.brand, timer.unit.model].filter(Boolean).join(' ')}
+          </p>
+        )}
 
         <p className="text-3xl font-mono font-bold text-sky-400 tracking-tight text-center mt-3">
           {formatHMS(elapsed)}

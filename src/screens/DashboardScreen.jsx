@@ -84,7 +84,7 @@ function AlertBanner({ label, count, color, bg, onClick }) {
 }
 
 // ── Job card ─────────────────────────────────────────────────────────────────
-function JobCard({ job, today, onClick, statusConfig, onStartTimer, activeTimer }) {
+function JobCard({ job, today, onClick, statusConfig, activeTimer }) {
   const isTimerRunningHere = activeTimer?.job?.id === job?.id
   const overdue = isOverdue(job, today)
   const days = daysInWorkshop(job, today)
@@ -132,32 +132,20 @@ function JobCard({ job, today, onClick, statusConfig, onStartTimer, activeTimer 
           })}
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white shrink-0"
-              style={{ backgroundColor: cfg.bg }}>
-              {statusConfig?.[dominantStatus]?.label ?? dominantStatus}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white"
+            style={{ backgroundColor: cfg.bg }}>
+            {statusConfig?.[dominantStatus]?.label ?? dominantStatus}
+          </span>
+          {days > 0 && (
+            <span className={`text-[10px] font-medium ${days > 14 ? 'text-red-500' : days > 7 ? 'text-amber-500' : 'text-slate-400'}`}>
+              {days}d in workshop
             </span>
-            {days > 0 && (
-              <span className={`text-[10px] font-medium ${days > 14 ? 'text-red-500' : days > 7 ? 'text-amber-500' : 'text-slate-400'}`}>
-                {days}d in workshop
-              </span>
-            )}
-          </div>
-          {onStartTimer && (
-            <button
-              onClick={e => { e.stopPropagation(); onStartTimer(job) }}
-              className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
-                isTimerRunningHere
-                  ? 'bg-sky-500 text-white border-sky-500'
-                  : 'bg-white text-slate-500 border-slate-200 active:bg-slate-50'
-              }`}
-            >
-              {isTimerRunningHere
-                ? <><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse block" /> Running</>
-                : <><svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Timer</>
-              }
-            </button>
+          )}
+          {isTimerRunningHere && (
+            <span className="flex items-center gap-1 text-[10px] font-bold text-sky-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse block" /> Recording
+            </span>
           )}
         </div>
       </div>
@@ -400,7 +388,6 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
                     <JobCard key={job.id} job={job} today={today}
                       statusConfig={statusConfig}
                       onClick={() => setEditJob(job)}
-                      onStartTimer={onStartTimer}
                       activeTimer={activeTimer} />
                   ))}
                 </div>

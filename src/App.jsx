@@ -20,14 +20,14 @@ function MainApp() {
   const [activeTimer, setActiveTimer] = useState(null) // { job, entryId, startedAt }
   const [timerStopKey, setTimerStopKey] = useState(0)
 
-  async function handleStartTimer(job) {
+  async function handleStartTimer(job, unit) {
     // Stop any existing timer first
     if (activeTimer) {
       await stopEntry(activeTimer.entryId, activeTimer.startedAt)
       setTimerStopKey(k => k + 1)
     }
-    const entry = await startEntry(job.id)
-    setActiveTimer({ job, entryId: entry.id, startedAt: entry.started_at })
+    const entry = await startEntry(job.id, unit.id)
+    setActiveTimer({ job, unit, entryId: entry.id, startedAt: entry.started_at })
   }
 
   async function handleStopTimer() {

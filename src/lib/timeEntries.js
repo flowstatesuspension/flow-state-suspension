@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
 
-export async function startEntry(jobId) {
+export async function startEntry(jobId, unitId) {
   const { data, error } = await supabase
     .from('time_entries')
-    .insert({ job_id: jobId, started_at: new Date().toISOString() })
+    .insert({ job_id: jobId, unit_id: unitId, started_at: new Date().toISOString() })
     .select('id, started_at')
     .single()
   if (error) throw error
@@ -21,11 +21,11 @@ export async function stopEntry(id, startedAt) {
   return durationSeconds
 }
 
-export async function getEntries(jobId) {
+export async function getEntriesForUnit(unitId) {
   const { data, error } = await supabase
     .from('time_entries')
     .select('*')
-    .eq('job_id', jobId)
+    .eq('unit_id', unitId)
     .order('started_at', { ascending: true })
   if (error) throw error
   return data || []
