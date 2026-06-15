@@ -17,8 +17,30 @@ function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const data = useData()
   const { settings, updateSettings } = useSettings()
-  const [activeTimer, setActiveTimer] = useState(null) // { job, entryId, startedAt }
+  const [activeTimer, setActiveTimer] = useState(null) // { job, unit, entryId, startedAt }
   const [timerStopKey, setTimerStopKey] = useState(0)
+
+  // On load: check for any open time entry and resume the floating timer
+  useEffect(() => {
+    if (!data.jobs.length) return
+    async function resumeOpenTimer() {
+      const { data: openEntries } = await supabase
+        .from('time_entries')
+        .select('*')
+        .is('stopped_at', null)
+        .order('started_at', { ascending: false })
+        .limit(1)
+      if (!openEntries?.length) return
+      const entry = openEntries[0]
+      // Find the job and unit from loaded data
+      const job = data.jobs.find(j => j.id === entry.job_id)
+      if (!job) return
+      const unit = job.units?.find(u => u.id === entry.unit_id)
+      if (!unit) return
+      setActiveTimer({ job, unit, entryId: entry.id, startedAt: entry.started_at })
+    }
+    resumeOpenTimer()
+  }, [data.jobs])
 
   async function handleStartTimer(job, unit) {
     // Stop any existing timer first
