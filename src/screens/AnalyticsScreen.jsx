@@ -1005,8 +1005,9 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     async function fetchServiceTimes() {
       const { data: entries } = await supabase
         .from('time_entries')
-        .select('duration_seconds, unit_id, started_at, units(brand, model)')
+        .select('duration_seconds, unit_id, started_at, units!inner(brand, model, status)')
         .not('duration_seconds', 'is', null)
+        .eq('units.status', 'complete')
         .order('started_at', { ascending: true })
       if (!entries?.length) return
 
