@@ -339,7 +339,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
   // Alert buckets (live, unfiltered)
   const overdueJobs      = inWorkshop.filter(j => isOverdue(j, today))
   const awaitingPartJobs = inWorkshop.filter(j => j.units?.some(u => u.status === 'awaiting_parts'))
-  const readyJobs        = inWorkshop.filter(j => j.units?.some(u => u.status === 'ready'))
+  const readyJobs        = []
   const onHoldJobs       = jobs.filter(j => j.units?.some(u => u.status === 'on_hold') && !j.units.every(u => u.status === 'complete'))
 
   // Today's schedule — exclude all-on-hold jobs
@@ -359,7 +359,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
     })
     .filter(g => g.jobs.length > 0)
 
-  const hasAlerts = overdueJobs.length || awaitingPartJobs.length || readyJobs.length || onHoldJobs.length
+  const hasAlerts = overdueJobs.length || awaitingPartJobs.length || onHoldJobs.length
 
   return (
     <div className="flex flex-col h-full">
@@ -390,9 +390,6 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
               <AlertBanner label={`${awaitingPartJobs.length} blocked — waiting on parts`}
                 count={awaitingPartJobs.length} color="#f59e0b" bg="#fffbeb"
                 onClick={() => openAlert(awaitingPartJobs, 'Waiting on parts', '#f59e0b')} />
-              <AlertBanner label={`${readyJobs.length} ready — contact customer to collect`}
-                count={readyJobs.length} color="#a855f7" bg="#faf5ff"
-                onClick={() => openAlert(readyJobs, 'Ready to collect', '#a855f7')} />
               <AlertBanner label={`${onHoldJobs.length} on hold — pending decision`}
                 count={onHoldJobs.length} color="#6b7280" bg="#f9fafb"
                 onClick={() => openAlert(onHoldJobs, 'On hold', '#6b7280')} />
