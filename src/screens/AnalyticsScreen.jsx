@@ -1005,30 +1005,46 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     async function fetchServiceTimes() {
       const { data: entries } = await supabase
         .from('time_entries')
-        .select('duration_seconds, unit_id, units(brand, model)')
+        .select('duration_seconds, unit_id, started_at, units(brand, model)')
         .not('duration_seconds', 'is', null)
+        .order('started_at', { ascending: true })
       if (!entries?.length) return
 
-      // Group by brand → model
-      const grouped = {}
+      // Step 1: sum all sessions per unit instance → one total per unit
+      const byUnit = {}
       entries.forEach(e => {
-        const brand = e.units?.brand || 'Unknown'
-        const model = e.units?.model?.trim() || 'Unknown'
-        const key = `${brand}||${model}`
-        if (!grouped[key]) grouped[key] = { brand, model, sessions: [], total: 0 }
-        grouped[key].sessions.push(e.duration_seconds)
-        grouped[key].total += e.duration_seconds
+        if (!byUnit[e.unit_id]) byUnit[e.unit_id] = {
+          brand: e.units?.brand || 'Unknown',
+          model: e.units?.model?.trim() || 'Unknown',
+          total: 0,
+          started_at: e.started_at,
+        }
+        byUnit[e.unit_id].total += e.duration_seconds
       })
 
-      const result = Object.values(grouped).map(g => ({
-        brand: g.brand,
-        model: g.model,
-        sessions: g.sessions.length,
-        avg: Math.round(g.total / g.sessions.length),
-        min: Math.min(...g.sessions),
-        max: Math.max(...g.sessions),
-        total: g.total,
-      })).sort((a, b) => a.brand.localeCompare(b.brand) || a.model.localeCompare(b.model))
+      // Step 2: group per-unit totals by brand/model, in chronological order
+      const byModel = {}
+      Object.values(byUnit).sort((a, b) => a.started_at.localeCompare(b.started_at)).forEach(u => {
+        const key = `${u.brand}||${u.model}`
+        if (!byModel[key]) byModel[key] = { brand: u.brand, model: u.model, totals: [] }
+        byModel[key].totals.push(u.total)
+      })
+
+      // Step 3: compute stats and trend (first half avg vs last half avg, need 3+ units)
+      const result = Object.values(byModel).map(g => {
+        const t = g.totals
+        const avg = Math.round(t.reduce((s, v) => s + v, 0) / t.length)
+        const min = Math.min(...t)
+        const max = Math.max(...t)
+        let trend = null
+        if (t.length >= 3) {
+          const half = Math.floor(t.length / 2)
+          const firstAvg = t.slice(0, half).reduce((s, v) => s + v, 0) / half
+          const lastAvg  = t.slice(-half).reduce((s, v) => s + v, 0) / half
+          trend = Math.round(((lastAvg - firstAvg) / firstAvg) * 100)
+        }
+        return { brand: g.brand, model: g.model, units: t.length, avg, min, max, trend }
+      }).sort((a, b) => a.brand.localeCompare(b.brand) || a.model.localeCompare(b.model))
 
       setServiceTimeByModel(result)
     }
@@ -1801,11 +1817,12 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
           ) : (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               {/* Header */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-50 border-b border-slate-100">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-50 border-b border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Model</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Avg</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Min</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Max</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Trend</span>
               </div>
               {/* Rows grouped by brand */}
               {(() => {
@@ -1820,14 +1837,24 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
                       </div>
                       {rows.map((r, i) => (
                         <div key={r.model}
-                          className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-3 py-2 ${i < rows.length - 1 ? 'border-b border-slate-50' : ''}`}>
+                          className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 items-center ${i < rows.length - 1 ? 'border-b border-slate-50' : ''}`}>
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-slate-800 truncate">{r.model}</p>
-                            <p className="text-[10px] text-slate-400">{r.sessions} session{r.sessions !== 1 ? 's' : ''}</p>
+                            <p className="text-[10px] text-slate-400">{r.units} unit{r.units !== 1 ? 's' : ''}</p>
                           </div>
-                          <span className="text-xs font-mono font-bold text-slate-800 text-right self-center">{formatHMS(r.avg)}</span>
-                          <span className="text-[10px] font-mono text-slate-400 text-right self-center">{formatHMS(r.min)}</span>
-                          <span className="text-[10px] font-mono text-slate-400 text-right self-center">{formatHMS(r.max)}</span>
+                          <span className="text-xs font-mono font-bold text-slate-800 text-right">{formatHMS(r.avg)}</span>
+                          <span className="text-[10px] font-mono text-slate-400 text-right">{formatHMS(r.min)}</span>
+                          <span className="text-[10px] font-mono text-slate-400 text-right">{formatHMS(r.max)}</span>
+                          <div className="text-right">
+                            {r.trend === null
+                              ? <span className="text-[10px] text-slate-300">—</span>
+                              : r.trend < 0
+                                ? <span className="text-[10px] font-bold text-emerald-500">↓{Math.abs(r.trend)}%</span>
+                                : r.trend === 0
+                                  ? <span className="text-[10px] font-bold text-slate-400">→</span>
+                                  : <span className="text-[10px] font-bold text-red-500">↑{r.trend}%</span>
+                            }
+                          </div>
                         </div>
                       ))}
                     </div>
