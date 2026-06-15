@@ -135,10 +135,18 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
     catch (e) { setError(e.message); setDeleting(false) }
   }
 
+  const [archiveError, setArchiveError] = useState(null)
+
   async function handleArchive() {
+    setArchiveError(null)
     setArchiving(true)
-    try { await onArchive(job.id); onClose() }
-    catch (e) { setError(e.message); setArchiving(false) }
+    try {
+      await onArchive(job.id)
+      onClose()
+    } catch (e) {
+      setArchiveError(e?.message || 'Archive failed')
+      setArchiving(false)
+    }
   }
 
   async function handleRestore() {
@@ -424,8 +432,9 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                 confirmArchive ? (
                   <div className="space-y-2">
                     <p className="text-sm text-amber-700 text-center font-medium">Archive this job? It will be hidden everywhere except this customer's record.</p>
+                    {archiveError && <p className="text-xs text-red-600 text-center bg-red-50 rounded-lg px-2 py-1">{archiveError}</p>}
                     <div className="flex gap-2">
-                      <button onClick={() => setConfirmArchive(false)} className="flex-1 py-2.5 text-slate-600 text-sm font-medium rounded-xl border border-slate-200">Cancel</button>
+                      <button onClick={() => { setConfirmArchive(false); setArchiveError(null) }} className="flex-1 py-2.5 text-slate-600 text-sm font-medium rounded-xl border border-slate-200">Cancel</button>
                       <button onClick={handleArchive} disabled={archiving} className="flex-1 py-2.5 text-white bg-amber-500 text-sm font-semibold rounded-xl disabled:opacity-40">
                         {archiving ? 'Archiving…' : 'Archive'}
                       </button>
