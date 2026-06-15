@@ -49,7 +49,7 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [archivedJobs, setArchivedJobs] = useState([])
-  const [showArchived, setShowArchived] = useState(false)
+  const [showArchived, setShowArchived] = useState(true)
 
   useEffect(() => {
     async function fetchArchived() {
@@ -299,7 +299,7 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-800 truncate">{c.name}</p>
                   <p className="text-xs text-slate-400 truncate">
-                    {count} job{count !== 1 ? 's' : ''}
+                    {count > 0 ? `${count} job${count !== 1 ? 's' : ''}` : 'No active jobs'}
                     {lj ? ` · last ${format(parseISO(lj.drop_off_date), 'd MMM yyyy')}` : ''}
                   </p>
                 </div>
