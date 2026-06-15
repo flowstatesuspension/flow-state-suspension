@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format, parseISO, differenceInDays, addDays, isToday, isTomorrow } from 'date-fns'
+import { format, parseISO, differenceInDays, addDays, isToday, isTomorrow, startOfWeek, endOfWeek } from 'date-fns'
 import JobModal from '../components/JobModal'
 
 const STATUS_URGENCY = { awaiting_parts: 0, ready: 1, in_progress: 2, booked_in: 3, on_hold: 4, complete: 5 }
@@ -231,28 +231,30 @@ function RevenueStrip({ jobs, settings }) {
 }
 
 // ── Stock view ───────────────────────────────────────────────────────────────
-function StockView({ jobs, onPillClick }) {
-  const activeJobs = jobs.filter(j => !j.units?.every(u => u.status === 'complete' || u.status === 'on_hold'))
-
-  // Group by brand → model → [jobs]
+function buildStockGroups(jobs) {
   const byBrand = {}
-  activeJobs.forEach(job => {
-    const activeUnits = (job.units || []).filter(u => u.status !== 'complete' && u.status !== 'on_hold')
-    activeUnits.forEach(u => {
-      const brand = u.brand || 'Unknown'
-      const model = u.model?.trim() || 'Unknown'
-      if (!byBrand[brand]) byBrand[brand] = {}
-      if (!byBrand[brand][model]) byBrand[brand][model] = []
-      if (!byBrand[brand][model].find(j => j.id === job.id)) byBrand[brand][model].push(job)
+  jobs
+    .filter(j => !j.units?.every(u => u.status === 'complete' || u.status === 'on_hold'))
+    .forEach(job => {
+      (job.units || []).filter(u => u.status !== 'complete' && u.status !== 'on_hold').forEach(u => {
+        const brand = u.brand || 'Unknown'
+        const model = u.model?.trim() || 'Unknown'
+        if (!byBrand[brand]) byBrand[brand] = {}
+        if (!byBrand[brand][model]) byBrand[brand][model] = []
+        if (!byBrand[brand][model].find(j => j.id === job.id)) byBrand[brand][model].push(job)
+      })
     })
-  })
+  return byBrand
+}
 
+function StockView({ title, jobs, onPillClick }) {
+  const byBrand = buildStockGroups(jobs)
   if (!Object.keys(byBrand).length) return null
   const brands = Object.entries(byBrand).sort(([a], [b]) => a.localeCompare(b))
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 px-4 py-3">
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Active Units · Stock View</p>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">{title}</p>
       <div className="space-y-2.5">
         {brands.map(([brand, models]) => (
           <div key={brand}>
@@ -423,8 +425,25 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
           {/* Revenue */}
           <RevenueStrip jobs={jobs} settings={settings} />
 
-          {/* Stock view */}
-          <StockView jobs={jobs} onPillClick={(pillJobs, title) => openAlert(pillJobs, title, '#0ea5e9')} />
+          {/* Stock view — this week */}
+          <StockView
+            title="This Week · Stock Requirements"
+            jobs={jobs.filter(j => {
+              if (!j.drop_off_date) return false
+              const wo = { weekStartsOn: 1 }
+              const ws = format(startOfWeek(today, wo), 'yyyy-MM-dd')
+              const we = format(endOfWeek(today, wo), 'yyyy-MM-dd')
+              return j.drop_off_date >= ws && j.drop_off_date <= we
+            })}
+            onPillClick={(pillJobs, title) => openAlert(pillJobs, title, '#0ea5e9')}
+          />
+
+          {/* Stock view — all active */}
+          <StockView
+            title="All Active Units · Stock View"
+            jobs={jobs}
+            onPillClick={(pillJobs, title) => openAlert(pillJobs, title, '#0ea5e9')}
+          />
 
         </div>
       </div>
