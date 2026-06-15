@@ -946,6 +946,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     const y1Forecast = year2026, y2Forecast = year2027
 
     return {
+      jobs,
       totalRevenue, completedRevenue, wipRevenue, avgJobValue, avgCompletedValue,
       months, thisMonth, lastMonth, targetGap, targetPct,
       confirmedRevenue: confirmedRevenue, bookedFutureRevenue, confirmedUnits, bookedFutureUnits,
@@ -971,6 +972,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
   }, [jobs_raw, customers])
 
   const {
+    jobs,
     totalRevenue, completedRevenue, wipRevenue, avgJobValue, avgCompletedValue,
     months, thisMonth, lastMonth, targetGap, targetPct,
     confirmedRevenue, bookedFutureRevenue, confirmedUnits, bookedFutureUnits,
