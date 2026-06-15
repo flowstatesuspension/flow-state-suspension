@@ -225,6 +225,47 @@ function RevenueStrip({ jobs, settings }) {
   )
 }
 
+// ── Stock view ───────────────────────────────────────────────────────────────
+function StockView({ jobs }) {
+  // Collect all active units across workshop + upcoming (not complete, not on hold)
+  const units = jobs
+    .filter(j => !j.units?.every(u => u.status === 'complete' || u.status === 'on_hold'))
+    .flatMap(j => (j.units || []).filter(u => u.status !== 'complete' && u.status !== 'on_hold'))
+
+  if (!units.length) return null
+
+  // Group by brand → model → count
+  const byBrand = {}
+  units.forEach(u => {
+    const brand = u.brand || 'Unknown'
+    const model = u.model?.trim() || 'Unknown'
+    if (!byBrand[brand]) byBrand[brand] = {}
+    byBrand[brand][model] = (byBrand[brand][model] || 0) + 1
+  })
+  const brands = Object.entries(byBrand).sort(([a], [b]) => a.localeCompare(b))
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 px-4 py-3">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Active Units · Stock View</p>
+      <div className="space-y-2.5">
+        {brands.map(([brand, models]) => (
+          <div key={brand}>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">{brand}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(models).sort(([, a], [, b]) => b - a).map(([model, count]) => (
+                <span key={model} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5">
+                  <span className="text-xs text-slate-700 font-medium">{model}</span>
+                  <span className="text-[10px] font-bold text-slate-400">×{count}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, settings, refresh }) {
   const [editJob, setEditJob] = useState(null)
@@ -373,6 +414,9 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
 
           {/* Revenue */}
           <RevenueStrip jobs={jobs} settings={settings} />
+
+          {/* Stock view */}
+          <StockView jobs={jobs} />
 
         </div>
       </div>
