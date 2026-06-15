@@ -134,14 +134,16 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
             </div>
             <div className="text-right shrink-0">
               <p className="text-slate-400 text-xs">
-                {activeJobs.length} active
-                {completeJobs.length > 0 ? ` · ${completeJobs.length} complete` : ''}
-                {onHoldJobs.length > 0 ? ` · ${onHoldJobs.length} on hold` : ''}
+                <span className="text-slate-500 font-medium">Jobs</span>
+                {' '}{activeJobs.length} Active
+                {completeJobs.length > 0 ? ` · ${completeJobs.length} Done` : ''}
+                {onHoldJobs.length > 0 ? ` · ${onHoldJobs.length} Hold` : ''}
               </p>
-              <p className="text-slate-500 text-xs">
-                {activeUnits.length} active
-                {completeUnits > 0 ? ` · ${completeUnits} complete` : ''}
-                {onHoldUnits > 0 ? ` · ${onHoldUnits} on hold` : ''}
+              <p className="text-slate-400 text-xs">
+                <span className="text-slate-500 font-medium">Units</span>
+                {' '}{activeUnits.length} Active
+                {completeUnits > 0 ? ` · ${completeUnits} Done` : ''}
+                {onHoldUnits > 0 ? ` · ${onHoldUnits} Hold` : ''}
               </p>
               <p className="text-slate-600 text-xs font-semibold">£{currentRevenue.toFixed(0)}</p>
             </div>
