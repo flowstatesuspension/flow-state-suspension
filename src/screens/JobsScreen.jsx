@@ -95,17 +95,23 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const [weekAnchor, setWeekAnchor] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [monthAnchor, setMonthAnchor] = useState(new Date())
 
-  const allOnHold = job => job.units?.length > 0 && job.units.every(u => u.status === 'on_hold')
-  const visibleJobs_    = visibleJobs(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
-  const currentJobs     = jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
-  const allComplete     = j => j.units?.length > 0 && j.units.every(u => u.status === 'complete')
-  const completeJobs    = viewMode === 'work' ? visibleJobs_.filter(allComplete) : []
-  const completeUnits   = completeJobs.flatMap(j => j.units || []).length
-  const activeJobs      = currentJobs.filter(j => !allOnHold(j))
-  const onHoldCount     = currentJobs.filter(allOnHold).length
-  const currentUnitsArr = activeJobs.flatMap(j => j.units || [])
-  const currentUnits    = currentUnitsArr.length
-  const currentRevenue  = currentUnitsArr.reduce((s, u) => s + (u.price || 0), 0)
+  const allOnHold    = job => job.units?.length > 0 && job.units.every(u => u.status === 'on_hold')
+  const allComplete  = job => job.units?.length > 0 && job.units.every(u => u.status === 'complete')
+
+  // For work view: use visibleJobs (includes complete) as the base for all counts
+  const periodJobs   = viewMode === 'work'
+    ? visibleJobs(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
+    : jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
+
+  const activeJobs   = periodJobs.filter(j => !allComplete(j) && !allOnHold(j))
+  const completeJobs = viewMode === 'work' ? periodJobs.filter(allComplete) : []
+  const onHoldJobs   = periodJobs.filter(allOnHold)
+
+  const allUnits     = periodJobs.flatMap(j => j.units || [])
+  const activeUnits  = allUnits.filter(u => u.status !== 'complete' && u.status !== 'on_hold')
+  const completeUnits = allUnits.filter(u => u.status === 'complete').length
+  const onHoldUnits  = allUnits.filter(u => u.status === 'on_hold').length
+  const currentRevenue = activeUnits.reduce((s, u) => s + (u.price || 0), 0)
 
   function openNew() {
     const defaultDate = calView === 'week' ? format(weekAnchor, 'yyyy-MM-dd') : undefined
@@ -128,13 +134,14 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
             </div>
             <div className="text-right shrink-0">
               <p className="text-slate-400 text-xs">
-                {activeJobs.length} job{activeJobs.length !== 1 ? 's' : ''}
-                {onHoldCount > 0 ? ` · ${onHoldCount} on hold` : ''}
+                {activeJobs.length} active
                 {completeJobs.length > 0 ? ` · ${completeJobs.length} complete` : ''}
+                {onHoldJobs.length > 0 ? ` · ${onHoldJobs.length} on hold` : ''}
               </p>
               <p className="text-slate-500 text-xs">
-                {currentUnits} unit{currentUnits !== 1 ? 's' : ''}
+                {activeUnits.length} active
                 {completeUnits > 0 ? ` · ${completeUnits} complete` : ''}
+                {onHoldUnits > 0 ? ` · ${onHoldUnits} on hold` : ''}
               </p>
               <p className="text-slate-600 text-xs font-semibold">£{currentRevenue.toFixed(0)}</p>
             </div>
