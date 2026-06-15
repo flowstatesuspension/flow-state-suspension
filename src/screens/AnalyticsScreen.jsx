@@ -1681,6 +1681,61 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
           <Insight text={turnaroundInsight()} />
         </Section>
 
+        {/* ── SERVICE TIME ── */}
+        <Section title="Service Time by Model">
+          {serviceTimeByModel.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm py-6">
+              Service time data will appear once you start recording time against units
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Model</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Avg</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Min</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Max</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Trend</span>
+              </div>
+              {(() => {
+                const brands = [...new Set(serviceTimeByModel.map(r => r.brand))].sort()
+                return brands.map((brand, bi) => {
+                  const rows = serviceTimeByModel.filter(r => r.brand === brand)
+                  const color = colorMap[brand] ?? BRAND_PALETTE[bi % BRAND_PALETTE.length]
+                  return (
+                    <div key={brand}>
+                      <div className="px-3 py-1.5 border-b border-slate-100" style={{ backgroundColor: `${color}10` }}>
+                        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color }}>{brand}</span>
+                      </div>
+                      {rows.map((r, i) => (
+                        <div key={r.model}
+                          className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 items-center ${i < rows.length - 1 ? 'border-b border-slate-50' : ''}`}>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-slate-800 truncate">{r.model}</p>
+                            <p className="text-[10px] text-slate-400">{r.units} unit{r.units !== 1 ? 's' : ''}</p>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-slate-800 text-right">{formatHMS(r.avg)}</span>
+                          <span className="text-[10px] font-mono text-slate-400 text-right">{formatHMS(r.min)}</span>
+                          <span className="text-[10px] font-mono text-slate-400 text-right">{formatHMS(r.max)}</span>
+                          <div className="text-right">
+                            {r.trend === null
+                              ? <span className="text-[10px] text-slate-300">—</span>
+                              : r.trend < 0
+                                ? <span className="text-[10px] font-bold text-emerald-500">↓{Math.abs(r.trend)}%</span>
+                                : r.trend === 0
+                                  ? <span className="text-[10px] font-bold text-slate-400">→</span>
+                                  : <span className="text-[10px] font-bold text-red-500">↑{r.trend}%</span>
+                            }
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+          )}
+        </Section>
+
         {/* ── CUSTOMERS ── */}
         <Section title="Customers">
           <div className="grid grid-cols-3 gap-2 mb-2">
@@ -1809,62 +1864,6 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
           </Section>
         )}
 
-        {/* ── SERVICE TIME ── */}
-        <Section title="Service Time by Model">
-          {serviceTimeByModel.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm py-6">
-              Service time data will appear once you start recording time against units
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              {/* Header */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-50 border-b border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Model</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Avg</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Min</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Max</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Trend</span>
-              </div>
-              {/* Rows grouped by brand */}
-              {(() => {
-                const brands = [...new Set(serviceTimeByModel.map(r => r.brand))].sort()
-                return brands.map((brand, bi) => {
-                  const rows = serviceTimeByModel.filter(r => r.brand === brand)
-                  const color = colorMap[brand] ?? BRAND_PALETTE[bi % BRAND_PALETTE.length]
-                  return (
-                    <div key={brand}>
-                      <div className="px-3 py-1.5 border-b border-slate-100" style={{ backgroundColor: `${color}10` }}>
-                        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color }}>{brand}</span>
-                      </div>
-                      {rows.map((r, i) => (
-                        <div key={r.model}
-                          className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 px-3 py-2 items-center ${i < rows.length - 1 ? 'border-b border-slate-50' : ''}`}>
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-slate-800 truncate">{r.model}</p>
-                            <p className="text-[10px] text-slate-400">{r.units} unit{r.units !== 1 ? 's' : ''}</p>
-                          </div>
-                          <span className="text-xs font-mono font-bold text-slate-800 text-right">{formatHMS(r.avg)}</span>
-                          <span className="text-[10px] font-mono text-slate-400 text-right">{formatHMS(r.min)}</span>
-                          <span className="text-[10px] font-mono text-slate-400 text-right">{formatHMS(r.max)}</span>
-                          <div className="text-right">
-                            {r.trend === null
-                              ? <span className="text-[10px] text-slate-300">—</span>
-                              : r.trend < 0
-                                ? <span className="text-[10px] font-bold text-emerald-500">↓{Math.abs(r.trend)}%</span>
-                                : r.trend === 0
-                                  ? <span className="text-[10px] font-bold text-slate-400">→</span>
-                                  : <span className="text-[10px] font-bold text-red-500">↑{r.trend}%</span>
-                            }
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                })
-              })()}
-            </div>
-          )}
-        </Section>
 
       </div>
       </div>
