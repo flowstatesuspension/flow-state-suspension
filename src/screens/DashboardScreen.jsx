@@ -27,9 +27,9 @@ const allOnHold = job => job.units?.length > 0 && job.units.every(u => u.status 
 // ── Alert picker modal ────────────────────────────────────────────────────────
 function AlertPickerModal({ jobs, title, color, onSelect, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-lg bg-white rounded-t-2xl pb-safe overflow-hidden"
+      <div className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-xl"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <p className="text-sm font-bold text-slate-800">{title}</p>
