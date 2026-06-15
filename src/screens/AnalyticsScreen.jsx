@@ -1798,43 +1798,44 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
             <div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm py-6">
               Service time data will appear once you start recording time against units
             </div>
-          ) : (() => {
-            const brands = [...new Set(serviceTimeByModel.map(r => r.brand))].sort()
-            const maxAvg = Math.max(...serviceTimeByModel.map(r => r.avg), 1)
-            return (
-              <div className="space-y-4">
-                {brands.map(brand => {
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              {/* Header */}
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Model</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Avg</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Min</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Max</span>
+              </div>
+              {/* Rows grouped by brand */}
+              {(() => {
+                const brands = [...new Set(serviceTimeByModel.map(r => r.brand))].sort()
+                return brands.map((brand, bi) => {
                   const rows = serviceTimeByModel.filter(r => r.brand === brand)
-                  const color = colorMap[brand] ?? BRAND_PALETTE[0]
+                  const color = colorMap[brand] ?? BRAND_PALETTE[bi % BRAND_PALETTE.length]
                   return (
-                    <div key={brand} className="bg-white rounded-xl border border-slate-200 p-4">
-                      <p className="text-sm font-bold mb-3" style={{ color }}>{brand}</p>
-                      <div className="space-y-3">
-                        {rows.map(r => (
-                          <div key={r.model}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-medium text-slate-700 truncate pr-2">{r.model}</span>
-                              <div className="flex items-center gap-3 shrink-0 text-right">
-                                <div>
-                                  <p className="text-xs font-bold text-slate-900">{formatHMS(r.avg)}</p>
-                                  <p className="text-[10px] text-slate-400">avg · {r.sessions} session{r.sessions !== 1 ? 's' : ''}</p>
-                                </div>
-                              </div>
-                            </div>
-                            <HBar value={r.avg} max={maxAvg} color={color} />
-                            <div className="flex justify-between mt-1">
-                              <span className="text-[10px] text-slate-400">Min {formatHMS(r.min)}</span>
-                              <span className="text-[10px] text-slate-400">Max {formatHMS(r.max)}</span>
-                            </div>
-                          </div>
-                        ))}
+                    <div key={brand}>
+                      <div className="px-3 py-1.5 border-b border-slate-100" style={{ backgroundColor: `${color}10` }}>
+                        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color }}>{brand}</span>
                       </div>
+                      {rows.map((r, i) => (
+                        <div key={r.model}
+                          className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-3 py-2 ${i < rows.length - 1 ? 'border-b border-slate-50' : ''}`}>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-slate-800 truncate">{r.model}</p>
+                            <p className="text-[10px] text-slate-400">{r.sessions} session{r.sessions !== 1 ? 's' : ''}</p>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-slate-800 text-right self-center">{formatHMS(r.avg)}</span>
+                          <span className="text-[10px] font-mono text-slate-400 text-right self-center">{formatHMS(r.min)}</span>
+                          <span className="text-[10px] font-mono text-slate-400 text-right self-center">{formatHMS(r.max)}</span>
+                        </div>
+                      ))}
                     </div>
                   )
-                })}
-              </div>
-            )
-          })()}
+                })
+              })()}
+            </div>
+          )}
         </Section>
 
       </div>
