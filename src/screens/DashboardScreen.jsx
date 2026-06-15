@@ -49,6 +49,11 @@ function AlertPickerModal({ jobs, title, color, onSelect, onClose }) {
                 <p className="text-xs text-slate-400 truncate">
                   {job.units?.map(u => `${u.brand} ${u.model}`).join(', ')}
                 </p>
+                {job.drop_off_date && (
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Drop-off {format(parseISO(job.drop_off_date), 'd MMM yyyy')}
+                  </p>
+                )}
               </div>
               <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
