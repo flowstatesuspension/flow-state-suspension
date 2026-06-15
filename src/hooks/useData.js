@@ -16,6 +16,7 @@ export function useData() {
           supabase
             .from('jobs')
             .select('*, units(*), customers(id, name, email, phone)')
+            .eq('archived', false)
             .order('drop_off_date', { ascending: true }),
           supabase.from('customers').select('*').order('name'),
         ])
@@ -122,11 +123,23 @@ export function useData() {
     await fetchAll()
   }
 
+  async function archiveJob(id) {
+    const { error } = await supabase.from('jobs').update({ archived: true }).eq('id', id)
+    if (error) throw error
+    await fetchAll()
+  }
+
+  async function restoreJob(id) {
+    const { error } = await supabase.from('jobs').update({ archived: false }).eq('id', id)
+    if (error) throw error
+    await fetchAll()
+  }
+
   async function updateUnitStatus(unitId, status) {
     const { error } = await supabase.from('units').update({ status }).eq('id', unitId)
     if (error) throw error
     await fetchAll()
   }
 
-  return { jobs, customers, loading, error, saveJob, deleteJob, deleteCustomer, updateCustomer, updateUnitStatus, refresh: fetchAll }
+  return { jobs, customers, loading, error, saveJob, deleteJob, archiveJob, restoreJob, deleteCustomer, updateCustomer, updateUnitStatus, refresh: fetchAll }
 }

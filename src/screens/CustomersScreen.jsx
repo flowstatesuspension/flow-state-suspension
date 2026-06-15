@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 import { format, parseISO } from 'date-fns'
 import StatusBadge from '../components/StatusBadge'
 import JobModal from '../components/JobModal'
@@ -39,7 +40,7 @@ function CustomerEditModal({ customer, onSave, onClose }) {
   )
 }
 
-function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob, updateCustomer, deleteCustomer }) {
+function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob, archiveJob, restoreJob, updateCustomer, deleteCustomer }) {
   const custJobs = jobs.filter(j => j.customer_id === customer.id)
     .sort((a, b) => new Date(b.drop_off_date) - new Date(a.drop_off_date))
   const [editJob, setEditJob] = useState(null)
@@ -47,6 +48,21 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
   const [showEditCustomer, setShowEditCustomer] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [archivedJobs, setArchivedJobs] = useState([])
+  const [showArchived, setShowArchived] = useState(false)
+
+  useEffect(() => {
+    async function fetchArchived() {
+      const { data } = await supabase
+        .from('jobs')
+        .select('*, units(*), customers(id, name, email, phone)')
+        .eq('customer_id', customer.id)
+        .eq('archived', true)
+        .order('drop_off_date', { ascending: false })
+      setArchivedJobs(data || [])
+    }
+    fetchArchived()
+  }, [customer.id])
 
   const lifetimeSpend = custJobs.reduce((sum, j) => sum + jobTotal(j), 0)
 
@@ -145,11 +161,58 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
             </button>
           ))
         )}
+
+        {/* Archived jobs */}
+        {archivedJobs.length > 0 && (
+          <div className="pt-2">
+            <button onClick={() => setShowArchived(v => !v)}
+              className="flex items-center gap-2 text-xs text-slate-400 font-medium mb-2 w-full">
+              <span className="flex-1 text-left">Archived Jobs ({archivedJobs.length})</span>
+              <svg viewBox="0 0 24 24" className={`w-3.5 h-3.5 transition-transform ${showArchived ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+              </svg>
+            </button>
+            {showArchived && archivedJobs.map(job => (
+              <button key={job.id} onClick={() => { setEditJob({ ...job, archived: true }); setShowJobModal(true) }}
+                className="w-full bg-slate-50 rounded-xl border border-slate-200 border-dashed p-3 text-left mb-2 opacity-70 hover:opacity-100 transition-opacity">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">Archived</span>
+                    <span className="text-xs text-slate-400">
+                      {job.drop_off_date ? format(parseISO(job.drop_off_date), 'd MMM yyyy') : '—'}
+                    </span>
+                  </div>
+                  <span className="text-sm font-bold text-slate-500">£{jobTotal(job).toFixed(2)}</span>
+                </div>
+                <div className="flex flex-wrap gap-1 mb-1">
+                  {job.units?.map(u => <StatusBadge key={u.id} status={u.status} small />)}
+                </div>
+                {job.units?.length > 0 && (
+                  <p className="text-xs text-slate-500">{job.units.map(u => `${u.brand} ${u.model}`).join(' · ')}</p>
+                )}
+                {job.notes && <p className="text-xs text-slate-400 mt-1 truncate">{job.notes}</p>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       </div>
 
       {showJobModal && (
-        <JobModal job={editJob} customers={customers} onSave={saveJob} onDelete={deleteJob} onClose={() => { setShowJobModal(false); setEditJob(null) }} />
+        <JobModal job={editJob} customers={customers} onSave={saveJob} onDelete={deleteJob}
+          onArchive={archiveJob} onRestore={restoreJob}
+          onClose={async () => {
+            setShowJobModal(false)
+            setEditJob(null)
+            // Refresh archived list in case archive/restore was used
+            const { data } = await supabase
+              .from('jobs')
+              .select('*, units(*), customers(id, name, email, phone)')
+              .eq('customer_id', customer.id)
+              .eq('archived', true)
+              .order('drop_off_date', { ascending: false })
+            setArchivedJobs(data || [])
+          }} />
       )}
       {showEditCustomer && (
         <CustomerEditModal customer={customer} onSave={data => updateCustomer(customer.id, data)} onClose={() => setShowEditCustomer(false)} />
@@ -158,7 +221,7 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
   )
 }
 
-export default function CustomersScreen({ customers, jobs, loading, saveJob, deleteJob, deleteCustomer, updateCustomer }) {
+export default function CustomersScreen({ customers, jobs, loading, saveJob, deleteJob, archiveJob, restoreJob, deleteCustomer, updateCustomer }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
 
@@ -171,6 +234,8 @@ export default function CustomersScreen({ customers, jobs, loading, saveJob, del
         onBack={() => setSelected(null)}
         saveJob={saveJob}
         deleteJob={deleteJob}
+        archiveJob={archiveJob}
+        restoreJob={restoreJob}
         updateCustomer={updateCustomer}
         deleteCustomer={deleteCustomer}
       />

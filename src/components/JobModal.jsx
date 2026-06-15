@@ -18,7 +18,7 @@ function jobTotal(units) {
   return units.reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
 }
 
-export default function JobModal({ job, customers, onSave, onDelete, onClose, settings, onStartTimer, activeTimer, timerStopKey }) {
+export default function JobModal({ job, customers, onSave, onDelete, onArchive, onRestore, onClose, settings, onStartTimer, activeTimer, timerStopKey }) {
   const isNew = !job?.id
   const nameRef = useRef(null)
   const phoneRef = useRef(null)
@@ -54,6 +54,8 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const [error, setError] = useState(null)
   const [copiedSerial, setCopiedSerial] = useState(null)
   const [noPhoneWarning, setNoPhoneWarning] = useState(false)
@@ -132,6 +134,21 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
     try { await onDelete(job.id); onClose() }
     catch (e) { setError(e.message); setDeleting(false) }
   }
+
+  async function handleArchive() {
+    setArchiving(true)
+    try { await onArchive(job.id); onClose() }
+    catch (e) { setError(e.message); setArchiving(false) }
+  }
+
+  async function handleRestore() {
+    setArchiving(true)
+    try { await onRestore(job.id); onClose() }
+    catch (e) { setError(e.message); setArchiving(false) }
+  }
+
+  const isArchived = job?.archived === true
+  const allOnHold = !isNew && units.length > 0 && units.every(u => u.status === 'on_hold')
 
   const total = jobTotal(units)
 
@@ -391,9 +408,37 @@ export default function JobModal({ job, customers, onSave, onDelete, onClose, se
           </div>
 
 
-          {/* Delete */}
+          {/* Archive / Restore / Delete */}
           {!isNew && (
-            <section className="pt-2 border-t border-slate-100">
+            <section className="pt-2 border-t border-slate-100 space-y-2">
+              {/* Restore button — only shown on archived jobs (accessed via customer record) */}
+              {isArchived && (
+                <button onClick={handleRestore} disabled={archiving}
+                  className="w-full py-2.5 text-amber-600 text-sm font-medium rounded-xl border border-amber-200 hover:bg-amber-50 disabled:opacity-40">
+                  {archiving ? 'Restoring…' : 'Restore Job'}
+                </button>
+              )}
+
+              {/* Archive — only for on-hold jobs that aren't already archived */}
+              {!isArchived && allOnHold && (
+                confirmArchive ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-amber-700 text-center font-medium">Archive this job? It will be hidden everywhere except this customer's record.</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfirmArchive(false)} className="flex-1 py-2.5 text-slate-600 text-sm font-medium rounded-xl border border-slate-200">Cancel</button>
+                      <button onClick={handleArchive} disabled={archiving} className="flex-1 py-2.5 text-white bg-amber-500 text-sm font-semibold rounded-xl disabled:opacity-40">
+                        {archiving ? 'Archiving…' : 'Archive'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmArchive(true)} className="w-full py-2.5 text-amber-600 text-sm font-medium rounded-xl border border-amber-200 hover:bg-amber-50">
+                    Archive Job
+                  </button>
+                )
+              )}
+
+              {/* Delete */}
               {!confirmDelete ? (
                 <button onClick={() => setConfirmDelete(true)} className="w-full py-2.5 text-red-500 text-sm font-medium rounded-xl border border-red-200 hover:bg-red-50">Delete Job</button>
               ) : (
