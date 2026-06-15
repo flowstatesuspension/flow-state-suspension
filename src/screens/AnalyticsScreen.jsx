@@ -1040,20 +1040,22 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
       avgUnitPriceThisMonth,
 
-      // Weekly revenue — last 12 weeks
+      // Weekly revenue — YTD from Jan 1
       weeklyRevenue: (() => {
+        const yearStart = startOfWeek(new Date(today.getFullYear(), 0, 1), { weekStartsOn: 1 })
+        const thisWeekStart = startOfWeek(today, { weekStartsOn: 1 })
         const weeks = []
-        for (let i = 11; i >= 0; i--) {
-          const weekStart = startOfWeek(subMonths(today, 0), { weekStartsOn: 1 })
-          const ws = new Date(weekStart); ws.setDate(ws.getDate() - i * 7)
+        let ws = new Date(yearStart)
+        while (ws <= thisWeekStart) {
           const we = new Date(ws); we.setDate(we.getDate() + 6)
-          const label = format(ws, 'd MMM')
+          const label = `W${format(ws, 'w')}`
           const rev = jobs.filter(j => {
             if (!j.drop_off_date) return false
             const d = parseISO(j.drop_off_date)
             return d >= ws && d <= we
           }).reduce((s, j) => s + jobTotal(j), 0)
-          weeks.push({ label, revenue: rev, weekStart: ws })
+          weeks.push({ label, value: rev })
+          ws = new Date(ws); ws.setDate(ws.getDate() + 7)
         }
         return weeks
       })(),
@@ -1408,17 +1410,9 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
 
           {/* Weekly revenue chart */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-2">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-700">Revenue by Week</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">last 12 weeks · by drop-off date</p>
-              </div>
-              <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-sky-400 inline-block" /> below target</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400 inline-block" /> hit target</span>
-              </div>
-            </div>
-            <WeeklyRevenueChart weeks={weeklyRevenue} target={REVENUE_TARGET} />
+            <p className="text-sm font-semibold text-slate-700 mb-0.5">Revenue by Week</p>
+            <p className="text-[10px] text-slate-400 mb-3">YTD · by drop-off date</p>
+            <LineChart data={weeklyRevenue} color="#22c55e" valueFormat={v => `£${v.toFixed(0)}`} />
           </div>
 
           {/* Target progress bar + run rate */}
