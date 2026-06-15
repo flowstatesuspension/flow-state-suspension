@@ -226,22 +226,23 @@ function RevenueStrip({ jobs, settings }) {
 }
 
 // ── Stock view ───────────────────────────────────────────────────────────────
-function StockView({ jobs }) {
-  // Collect all active units across workshop + upcoming (not complete, not on hold)
-  const units = jobs
-    .filter(j => !j.units?.every(u => u.status === 'complete' || u.status === 'on_hold'))
-    .flatMap(j => (j.units || []).filter(u => u.status !== 'complete' && u.status !== 'on_hold'))
+function StockView({ jobs, onPillClick }) {
+  const activeJobs = jobs.filter(j => !j.units?.every(u => u.status === 'complete' || u.status === 'on_hold'))
 
-  if (!units.length) return null
-
-  // Group by brand → model → count
+  // Group by brand → model → [jobs]
   const byBrand = {}
-  units.forEach(u => {
-    const brand = u.brand || 'Unknown'
-    const model = u.model?.trim() || 'Unknown'
-    if (!byBrand[brand]) byBrand[brand] = {}
-    byBrand[brand][model] = (byBrand[brand][model] || 0) + 1
+  activeJobs.forEach(job => {
+    const activeUnits = (job.units || []).filter(u => u.status !== 'complete' && u.status !== 'on_hold')
+    activeUnits.forEach(u => {
+      const brand = u.brand || 'Unknown'
+      const model = u.model?.trim() || 'Unknown'
+      if (!byBrand[brand]) byBrand[brand] = {}
+      if (!byBrand[brand][model]) byBrand[brand][model] = []
+      if (!byBrand[brand][model].find(j => j.id === job.id)) byBrand[brand][model].push(job)
+    })
   })
+
+  if (!Object.keys(byBrand).length) return null
   const brands = Object.entries(byBrand).sort(([a], [b]) => a.localeCompare(b))
 
   return (
@@ -252,11 +253,13 @@ function StockView({ jobs }) {
           <div key={brand}>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">{brand}</p>
             <div className="flex flex-wrap gap-1.5">
-              {Object.entries(models).sort(([, a], [, b]) => b - a).map(([model, count]) => (
-                <span key={model} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5">
+              {Object.entries(models).sort(([, a], [, b]) => b.length - a.length).map(([model, modelJobs]) => (
+                <button key={model}
+                  onClick={() => onPillClick(modelJobs, `${brand} ${model}`)}
+                  className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 active:bg-slate-100">
                   <span className="text-xs text-slate-700 font-medium">{model}</span>
-                  <span className="text-[10px] font-bold text-slate-400">×{count}</span>
-                </span>
+                  <span className="text-[10px] font-bold text-slate-400">×{modelJobs.length}</span>
+                </button>
               ))}
             </div>
           </div>
@@ -416,7 +419,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
           <RevenueStrip jobs={jobs} settings={settings} />
 
           {/* Stock view */}
-          <StockView jobs={jobs} />
+          <StockView jobs={jobs} onPillClick={(pillJobs, title) => openAlert(pillJobs, title, '#0ea5e9')} />
 
         </div>
       </div>
