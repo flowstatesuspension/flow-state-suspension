@@ -301,7 +301,7 @@ function StockView({ title, jobs, onPillClick }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
-export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, settings, refresh, activeTimer, onStartTimer, timerStopKey }) {
+export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, archiveJob, restoreJob, settings, refresh, activeTimer, onStartTimer, timerStopKey }) {
   const [editJob, setEditJob] = useState(null)
   const [alertPicker, setAlertPicker] = useState(null) // { jobs, title, color }
 
@@ -486,7 +486,7 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
 
       {editJob && (
         <JobModal job={editJob} customers={customers}
-          onSave={saveJob} onDelete={deleteJob}
+          onSave={saveJob} onDelete={deleteJob} onArchive={archiveJob} onRestore={restoreJob}
           onClose={closeModal}
           settings={settings}
           onStartTimer={onStartTimer}
