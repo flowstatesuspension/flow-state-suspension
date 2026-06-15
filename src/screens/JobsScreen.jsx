@@ -111,7 +111,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const activeUnits  = allUnits.filter(u => u.status !== 'complete' && u.status !== 'on_hold')
   const completeUnits = allUnits.filter(u => u.status === 'complete').length
   const onHoldUnits  = allUnits.filter(u => u.status === 'on_hold').length
-  const currentRevenue = activeUnits.reduce((s, u) => s + (u.price || 0), 0)
+  const currentRevenue = allUnits.filter(u => u.status !== 'on_hold').reduce((s, u) => s + (u.price || 0), 0)
 
   function openNew() {
     const defaultDate = calView === 'week' ? format(weekAnchor, 'yyyy-MM-dd') : undefined
