@@ -1,4 +1,6 @@
-import { useMemo, useState, useRef, useLayoutEffect } from 'react'
+import { useMemo, useState, useRef, useLayoutEffect, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { formatHMS } from '../lib/timeEntries'
 import { format, parseISO, differenceInDays, startOfMonth, subMonths, endOfMonth, addMonths } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 
@@ -996,6 +998,43 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     avgUnitPriceThisMonth,
   } = data
 
+  // ── Service time data ────────────────────────────────────────────────────────
+  const [serviceTimeByModel, setServiceTimeByModel] = useState([])
+
+  useEffect(() => {
+    async function fetchServiceTimes() {
+      const { data: entries } = await supabase
+        .from('time_entries')
+        .select('duration_seconds, unit_id, units(brand, model)')
+        .not('duration_seconds', 'is', null)
+      if (!entries?.length) return
+
+      // Group by brand → model
+      const grouped = {}
+      entries.forEach(e => {
+        const brand = e.units?.brand || 'Unknown'
+        const model = e.units?.model?.trim() || 'Unknown'
+        const key = `${brand}||${model}`
+        if (!grouped[key]) grouped[key] = { brand, model, sessions: [], total: 0 }
+        grouped[key].sessions.push(e.duration_seconds)
+        grouped[key].total += e.duration_seconds
+      })
+
+      const result = Object.values(grouped).map(g => ({
+        brand: g.brand,
+        model: g.model,
+        sessions: g.sessions.length,
+        avg: Math.round(g.total / g.sessions.length),
+        min: Math.min(...g.sessions),
+        max: Math.max(...g.sessions),
+        total: g.total,
+      })).sort((a, b) => a.brand.localeCompare(b.brand) || a.model.localeCompare(b.model))
+
+      setServiceTimeByModel(result)
+    }
+    fetchServiceTimes()
+  }, [])
+
   // Sustainability verdict badge
   const sustainVerdict = (() => {
     if (last3.length < 2) return null
@@ -1752,6 +1791,51 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
             })()}
           </Section>
         )}
+
+        {/* ── SERVICE TIME ── */}
+        <Section title="Service Time by Model">
+          {serviceTimeByModel.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center text-slate-400 text-sm py-6">
+              Service time data will appear once you start recording time against units
+            </div>
+          ) : (() => {
+            const brands = [...new Set(serviceTimeByModel.map(r => r.brand))].sort()
+            const maxAvg = Math.max(...serviceTimeByModel.map(r => r.avg), 1)
+            return (
+              <div className="space-y-4">
+                {brands.map(brand => {
+                  const rows = serviceTimeByModel.filter(r => r.brand === brand)
+                  const color = colorMap[brand] ?? BRAND_PALETTE[0]
+                  return (
+                    <div key={brand} className="bg-white rounded-xl border border-slate-200 p-4">
+                      <p className="text-sm font-bold mb-3" style={{ color }}>{brand}</p>
+                      <div className="space-y-3">
+                        {rows.map(r => (
+                          <div key={r.model}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-medium text-slate-700 truncate pr-2">{r.model}</span>
+                              <div className="flex items-center gap-3 shrink-0 text-right">
+                                <div>
+                                  <p className="text-xs font-bold text-slate-900">{formatHMS(r.avg)}</p>
+                                  <p className="text-[10px] text-slate-400">avg · {r.sessions} session{r.sessions !== 1 ? 's' : ''}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <HBar value={r.avg} max={maxAvg} color={color} />
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[10px] text-slate-400">Min {formatHMS(r.min)}</span>
+                              <span className="text-[10px] text-slate-400">Max {formatHMS(r.max)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </Section>
 
       </div>
       </div>
