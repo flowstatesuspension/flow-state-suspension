@@ -13,15 +13,17 @@ export default function FloatingTimer({ timer, onStop, onClose }) {
     setPos({ x: Math.max(8, w / 2 - 144), y: 80 })
   }, [])
 
-  // Tick
+  // Tick — show total (prior completed sessions + current session)
   useEffect(() => {
+    const prior = timer.priorSeconds || 0
     function tick() {
-      setElapsed(Math.max(0, Math.round((Date.now() - new Date(timer.startedAt).getTime()) / 1000)))
+      const sessionSecs = Math.max(0, Math.round((Date.now() - new Date(timer.startedAt).getTime()) / 1000))
+      setElapsed(prior + sessionSecs)
     }
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [timer.startedAt])
+  }, [timer.startedAt, timer.priorSeconds])
 
   function onPointerDown(e) {
     if (e.target.closest('button')) return

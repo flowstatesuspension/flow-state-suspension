@@ -62,6 +62,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
   const [pendingConfirm, setPendingConfirm] = useState(null) // { key, onConfirm }
   const [unitEntries, setUnitEntries] = useState({}) // { [unitId]: entries[] }
   const [editingEntry, setEditingEntry] = useState(null) // { id, h, m, s }
+  const [expandedTimeUnits, setExpandedTimeUnits] = useState({})
 
   async function loadEntriesForUnit(unitId) {
     const entries = await getEntriesForUnit(unitId)
@@ -321,11 +322,24 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                     const entries = unitEntries[unit.id] || []
                     const total = entries.reduce((s, e) => s + (e.duration_seconds || 0), 0)
                     const isRunning = activeTimer?.unit?.id === unit.id
+                    const expanded = expandedTimeUnits[unit.id] ?? false
                     return (
                       <div className="border-t border-slate-200 pt-2 space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Time</span>
-                          {total > 0 && <span className="text-[10px] font-bold text-slate-600">{formatHMS(total)}</span>}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Time</span>
+                            {total > 0 && (
+                              <button onClick={() => setExpandedTimeUnits(prev => ({ ...prev, [unit.id]: !expanded }))}
+                                className="flex items-center gap-1 text-[10px] font-bold text-slate-600 hover:text-slate-800">
+                                {formatHMS(total)}
+                                {entries.length > 0 && (
+                                  <svg viewBox="0 0 24 24" className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
+                          </div>
                           <button
                             onClick={() => onStartTimer(job, unit)}
                             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
@@ -340,7 +354,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                             }
                           </button>
                         </div>
-                        {entries.map(entry => {
+                        {expanded && entries.map(entry => {
                           const isEditing = editingEntry?.id === entry.id
                           return (
                             <div key={entry.id} className="flex items-center gap-2 bg-white border border-slate-100 rounded-lg px-2.5 py-1.5">

@@ -37,7 +37,13 @@ function MainApp() {
       if (!job) return
       const unit = job.units?.find(u => u.id === entry.unit_id)
       if (!unit) return
-      setActiveTimer({ job, unit, entryId: entry.id, startedAt: entry.started_at })
+      const { data: prior } = await supabase
+        .from('time_entries')
+        .select('duration_seconds')
+        .eq('unit_id', unit.id)
+        .not('duration_seconds', 'is', null)
+      const priorSeconds = (prior || []).reduce((s, e) => s + (e.duration_seconds || 0), 0)
+      setActiveTimer({ job, unit, entryId: entry.id, startedAt: entry.started_at, priorSeconds })
     }
     resumeOpenTimer()
   }, [data.jobs])
@@ -48,8 +54,15 @@ function MainApp() {
       await stopEntry(activeTimer.entryId, activeTimer.startedAt)
       setTimerStopKey(k => k + 1)
     }
+    // Fetch prior completed seconds for this unit
+    const { data: prior } = await supabase
+      .from('time_entries')
+      .select('duration_seconds')
+      .eq('unit_id', unit.id)
+      .not('duration_seconds', 'is', null)
+    const priorSeconds = (prior || []).reduce((s, e) => s + (e.duration_seconds || 0), 0)
     const entry = await startEntry(job.id, unit.id)
-    setActiveTimer({ job, unit, entryId: entry.id, startedAt: entry.started_at })
+    setActiveTimer({ job, unit, entryId: entry.id, startedAt: entry.started_at, priorSeconds })
   }
 
   async function handleStopTimer() {
