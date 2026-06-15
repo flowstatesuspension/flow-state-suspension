@@ -344,14 +344,17 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
 
   // Today's schedule — exclude all-on-hold jobs
   const dropOffsToday = jobs.filter(j => j.drop_off_date === todayStr && !allOnHold(j))
-  const pickupsToday  = inWorkshop.filter(j => j.pickup_date === todayStr)
+  const pickupsToday  = jobs.filter(j => j.pickup_date === todayStr && !allOnHold(j))
 
-  // Coming up — drop-offs in next 7 days, exclude all-on-hold
+  // Coming up — drop-offs AND pickups in next 7 days, exclude all-on-hold
   const next7 = Array.from({ length: 7 }, (_, i) => addDays(today, i + 1))
   const upcoming = next7
     .map(d => {
       const ds = format(d, 'yyyy-MM-dd')
-      const dayJobs = jobs.filter(j => j.drop_off_date === ds && !allOnHold(j))
+      const dayJobs = jobs.filter(j => !allOnHold(j) && (
+        j.drop_off_date === ds ||
+        (j.pickup_date === ds && j.units?.every(u => u.status === 'complete'))
+      ))
       return { date: d, dateStr: ds, jobs: dayJobs }
     })
     .filter(g => g.jobs.length > 0)
@@ -438,11 +441,15 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
               <SectionHeader>Coming Up</SectionHeader>
               <div className="space-y-1.5">
                 {upcoming.flatMap(g =>
-                  g.jobs.map(job => (
-                    <ScheduleRow key={job.id} job={job}
-                      label={isToday(g.date) ? 'Today' : isTomorrow(g.date) ? 'Tmrw' : format(g.date, 'EEE d')}
-                      onClick={() => setEditJob(job)} />
-                  ))
+                  g.jobs.map(job => {
+                    const isPickup = job.pickup_date === g.dateStr && job.units?.every(u => u.status === 'complete')
+                    return (
+                      <ScheduleRow key={job.id} job={job}
+                        label={isToday(g.date) ? 'Today' : isTomorrow(g.date) ? 'Tmrw' : format(g.date, 'EEE d')}
+                        sublabel={isPickup ? 'pickup' : 'drop-off'}
+                        onClick={() => setEditJob(job)} />
+                    )
+                  })
                 )}
               </div>
             </div>
