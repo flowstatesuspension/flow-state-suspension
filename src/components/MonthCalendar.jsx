@@ -39,7 +39,7 @@ export default function MonthCalendar({ jobs, onJobClick, viewMode, anchor: anch
 
   function jobColor(job) {
     const statuses = job.units?.map(u => u.status) || ['booked_in']
-    const priority = ['awaiting_parts', 'in_progress', 'ready', 'booked_in', 'complete']
+    const priority = ['awaiting_parts', 'in_progress', 'ready', 'on_hold', 'booked_in', 'complete']
     const top = priority.find(s => statuses.includes(s)) || 'booked_in'
     return STATUS_CONFIG[top]?.bg || '#94a3b8'
   }

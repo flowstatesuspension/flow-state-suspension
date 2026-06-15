@@ -314,6 +314,9 @@ export default function SettingsScreen({ jobs, customers, settings, updateSettin
           <FieldRow label="Default Unit Price">
             <InlineInput type="number" prefix="£" value={settings.defaultUnitPrice} onChange={v => patch('defaultUnitPrice', parseFloat(v) || 0)} placeholder="120" />
           </FieldRow>
+          <FieldRow label="Weekly Capacity">
+            <InlineInput type="number" suffix="units/wk" value={settings.weeklyCapacity} onChange={v => patch('weeklyCapacity', parseInt(v) || 1)} placeholder="8" />
+          </FieldRow>
         </Accordion>
 
         <Accordion title="Statuses" icon={iconStatus}>

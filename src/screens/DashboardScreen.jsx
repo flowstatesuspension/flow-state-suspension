@@ -22,6 +22,45 @@ function isOverdue(job, today) {
   return job.pickup_date && parseISO(job.pickup_date) < today
 }
 
+const allOnHold = job => job.units?.length > 0 && job.units.every(u => u.status === 'on_hold')
+
+// ── Alert picker modal ────────────────────────────────────────────────────────
+function AlertPickerModal({ jobs, title, color, onSelect, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-lg bg-white rounded-t-2xl pb-safe overflow-hidden"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <p className="text-sm font-bold text-slate-800">{title}</p>
+          <button onClick={onClose} className="text-slate-400 active:text-slate-600">
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto max-h-96 p-3 space-y-2">
+          {jobs.map(job => (
+            <button key={job.id} onClick={() => { onSelect(job); onClose() }}
+              className="w-full flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2.5 text-left active:bg-slate-100"
+              style={{ borderLeft: `4px solid ${color}` }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-900 truncate">{job.customers?.name || '—'}</p>
+                <p className="text-xs text-slate-400 truncate">
+                  {job.units?.map(u => `${u.brand} ${u.model}`).join(', ')}
+                </p>
+              </div>
+              <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Alert banner ─────────────────────────────────────────────────────────────
 function AlertBanner({ label, count, color, bg, onClick }) {
   if (!count) return null
@@ -59,7 +98,10 @@ function JobCard({ job, today, onClick, statusConfig }) {
       style={{ borderColor: overdue ? '#fca5a5' : cfg.border, borderLeftWidth: 4, borderLeftColor: overdue ? '#ef4444' : cfg.bg }}>
       <div className="p-3">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <span className="font-bold text-slate-900 text-sm leading-tight">{job.customers?.name || '—'}</span>
+          <div className="flex-1 min-w-0">
+            <span className="font-bold text-slate-900 text-sm leading-tight">{job.customers?.name || '—'}</span>
+            {job.notes ? <p className="text-xs text-slate-400 mt-0.5 truncate">{job.notes}</p> : null}
+          </div>
           <div className="text-right shrink-0">
             <span className="text-sm font-bold text-slate-800">£{total.toFixed(0)}</span>
             {overdue ? (
@@ -186,10 +228,16 @@ function RevenueStrip({ jobs, settings }) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, settings, refresh }) {
   const [editJob, setEditJob] = useState(null)
+  const [alertPicker, setAlertPicker] = useState(null) // { jobs, title, color }
 
   function closeModal() {
     setEditJob(null)
     refresh?.()
+  }
+
+  function openAlert(alertJobs, title, color) {
+    if (alertJobs.length === 1) { setEditJob(alertJobs[0]); return }
+    setAlertPicker({ jobs: alertJobs, title, color })
   }
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -219,16 +267,16 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
   const readyJobs        = inWorkshop.filter(j => j.units?.some(u => u.status === 'ready'))
   const onHoldJobs       = jobs.filter(j => j.units?.some(u => u.status === 'on_hold') && !j.units.every(u => u.status === 'complete'))
 
-  // Today's schedule
-  const dropOffsToday = jobs.filter(j => j.drop_off_date === todayStr)
+  // Today's schedule — exclude all-on-hold jobs
+  const dropOffsToday = jobs.filter(j => j.drop_off_date === todayStr && !allOnHold(j))
   const pickupsToday  = inWorkshop.filter(j => j.pickup_date === todayStr)
 
-  // Coming up — drop-offs in next 7 days, grouped by date
+  // Coming up — drop-offs in next 7 days, exclude all-on-hold
   const next7 = Array.from({ length: 7 }, (_, i) => addDays(today, i + 1))
   const upcoming = next7
     .map(d => {
       const ds = format(d, 'yyyy-MM-dd')
-      const dayJobs = jobs.filter(j => j.drop_off_date === ds)
+      const dayJobs = jobs.filter(j => j.drop_off_date === ds && !allOnHold(j))
       return { date: d, dateStr: ds, jobs: dayJobs }
     })
     .filter(g => g.jobs.length > 0)
@@ -260,16 +308,16 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
             <div className="space-y-2">
               <AlertBanner label={`${overdueJobs.length} overdue — past promised pickup date`}
                 count={overdueJobs.length} color="#ef4444" bg="#fef2f2"
-                onClick={() => setEditJob(overdueJobs[0])} />
+                onClick={() => openAlert(overdueJobs, 'Overdue jobs', '#ef4444')} />
               <AlertBanner label={`${awaitingPartJobs.length} blocked — waiting on parts`}
                 count={awaitingPartJobs.length} color="#f59e0b" bg="#fffbeb"
-                onClick={() => setEditJob(awaitingPartJobs[0])} />
+                onClick={() => openAlert(awaitingPartJobs, 'Waiting on parts', '#f59e0b')} />
               <AlertBanner label={`${readyJobs.length} ready — contact customer to collect`}
                 count={readyJobs.length} color="#a855f7" bg="#faf5ff"
-                onClick={() => setEditJob(readyJobs[0])} />
+                onClick={() => openAlert(readyJobs, 'Ready to collect', '#a855f7')} />
               <AlertBanner label={`${onHoldJobs.length} on hold — pending decision`}
                 count={onHoldJobs.length} color="#6b7280" bg="#f9fafb"
-                onClick={() => setEditJob(onHoldJobs[0])} />
+                onClick={() => openAlert(onHoldJobs, 'On hold', '#6b7280')} />
             </div>
           )}
 
@@ -328,6 +376,16 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
 
         </div>
       </div>
+
+      {alertPicker && (
+        <AlertPickerModal
+          jobs={alertPicker.jobs}
+          title={alertPicker.title}
+          color={alertPicker.color}
+          onSelect={setEditJob}
+          onClose={() => setAlertPicker(null)}
+        />
+      )}
 
       {editJob && (
         <JobModal job={editJob} customers={customers}

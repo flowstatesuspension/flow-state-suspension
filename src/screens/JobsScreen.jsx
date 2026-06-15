@@ -30,8 +30,8 @@ function jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAncho
       if (!j.drop_off_date) return false
       if (viewMode === 'booking') return parseISO(j.drop_off_date) >= weekStart && parseISO(j.drop_off_date) <= weekEnd
       if (j.units?.length && j.units.every(u => u.status === 'complete')) return false
-      if (!j.pickup_date) return false
-      return parseISO(j.drop_off_date) <= weekEnd && parseISO(j.pickup_date) >= weekStart
+      // No pickup_date = still active; include if dropped off before week ends
+      return parseISO(j.drop_off_date) <= weekEnd && (!j.pickup_date || parseISO(j.pickup_date) >= weekStart)
     })
   }
 
@@ -41,8 +41,7 @@ function jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAncho
     if (!j.drop_off_date) return false
     if (viewMode === 'booking') return isWithinInterval(parseISO(j.drop_off_date), { start: monthStart, end: monthEnd })
     if (j.units?.length && j.units.every(u => u.status === 'complete')) return false
-    if (!j.pickup_date) return false
-    return parseISO(j.drop_off_date) <= monthEnd && parseISO(j.pickup_date) >= monthStart
+    return parseISO(j.drop_off_date) <= monthEnd && (!j.pickup_date || parseISO(j.pickup_date) >= monthStart)
   })
 }
 
@@ -96,10 +95,17 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const [weekAnchor, setWeekAnchor] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [monthAnchor, setMonthAnchor] = useState(new Date())
 
-  const currentJobs  = jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
-  const currentUnitsArr = currentJobs.flatMap(j => j.units || [])
-  const currentUnits = currentUnitsArr.length
-  const currentRevenue = currentUnitsArr.reduce((s, u) => s + (u.price || 0), 0)
+  const allOnHold = job => job.units?.length > 0 && job.units.every(u => u.status === 'on_hold')
+  const visibleJobs_    = visibleJobs(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
+  const currentJobs     = jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor)
+  const allComplete     = j => j.units?.length > 0 && j.units.every(u => u.status === 'complete')
+  const completeJobs    = viewMode === 'work' ? visibleJobs_.filter(allComplete) : []
+  const completeUnits   = completeJobs.flatMap(j => j.units || []).length
+  const activeJobs      = currentJobs.filter(j => !allOnHold(j))
+  const onHoldCount     = currentJobs.filter(allOnHold).length
+  const currentUnitsArr = activeJobs.flatMap(j => j.units || [])
+  const currentUnits    = currentUnitsArr.length
+  const currentRevenue  = currentUnitsArr.reduce((s, u) => s + (u.price || 0), 0)
 
   function openNew() {
     const defaultDate = calView === 'week' ? format(weekAnchor, 'yyyy-MM-dd') : undefined
@@ -121,8 +127,15 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
               <p className="text-slate-400 text-xs mt-1">Job Schedule</p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-slate-400 text-xs">{currentJobs.length} job{currentJobs.length !== 1 ? 's' : ''}</p>
-              <p className="text-slate-500 text-xs">{currentUnits} unit{currentUnits !== 1 ? 's' : ''}</p>
+              <p className="text-slate-400 text-xs">
+                {activeJobs.length} job{activeJobs.length !== 1 ? 's' : ''}
+                {onHoldCount > 0 ? ` · ${onHoldCount} on hold` : ''}
+                {completeJobs.length > 0 ? ` · ${completeJobs.length} complete` : ''}
+              </p>
+              <p className="text-slate-500 text-xs">
+                {currentUnits} unit{currentUnits !== 1 ? 's' : ''}
+                {completeUnits > 0 ? ` · ${completeUnits} complete` : ''}
+              </p>
               <p className="text-slate-600 text-xs font-semibold">£{currentRevenue.toFixed(0)}</p>
             </div>
           </div>

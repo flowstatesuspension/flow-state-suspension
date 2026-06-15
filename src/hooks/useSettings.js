@@ -5,6 +5,7 @@ const STORAGE_KEY = 'flowstate_settings'
 const DEFAULTS = {
   workshopName: 'Flow State Suspension',
   revenueTarget: 3000,
+  weeklyCapacity: 8,
   turnaroundDays: 3,
   defaultUnitPrice: 120,
   brands: ['Fox', 'Rockshox', 'Postage', 'Other'],
