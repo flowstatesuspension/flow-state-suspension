@@ -254,18 +254,31 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-slate-500">Unit {idx + 1}</span>
-                      {unit.brand === 'Fox' && (
-                        <a href="https://www.silverfish-uk.com/customer/account/login/" target="_blank" rel="noopener noreferrer"
-                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Silverfish UK">
+                      {unit.brand === 'Fox' && (<>
+                        <a href="https://tech.ridefox.com/bike" target="_blank" rel="noopener noreferrer"
+                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Fox Tech — Ride Fox">
                           <img src="/fox.png" alt="Fox" className="w-full h-full object-cover" />
                         </a>
-                      )}
-                      {unit.brand === 'Rockshox' && (
-                        <a href="https://www.zyrofisherb2b.co.uk/" target="_blank" rel="noopener noreferrer"
-                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Zyro Fisher B2B">
-                          <img src="https://trailhead.rockshox.com/favicon.ico" alt="Rockshox" className="w-full h-full object-cover" onError={e => e.target.style.display='none'} />
+                        <a href="https://www.silverfish-uk.com/customer/account/login/" target="_blank" rel="noopener noreferrer"
+                          className="w-5 h-5 rounded overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center" title="Silverfish UK">
+                          <img src="https://www.silverfish-uk.com/favicon.ico" alt="Silverfish" className="w-full h-full object-cover"
+                            onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block' }} />
+                          <span style={{display:'none'}} className="text-[7px] font-black text-slate-600 leading-none">SF</span>
                         </a>
-                      )}
+                      </>)}
+                      {unit.brand === 'Rockshox' && (<>
+                        <a href="https://trailhead.rockshox.com/en/product/search/serial" target="_blank" rel="noopener noreferrer"
+                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Rockshox Trailhead">
+                          <img src="https://trailhead.rockshox.com/favicon.ico" alt="Rockshox" className="w-full h-full object-cover"
+                            onError={e => e.target.style.display='none'} />
+                        </a>
+                        <a href="https://www.zyrofisherb2b.co.uk/" target="_blank" rel="noopener noreferrer"
+                          className="w-5 h-5 rounded overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center" title="Zyro Fisher B2B">
+                          <img src="https://www.zyrofisherb2b.co.uk/favicon.ico" alt="Zyro Fisher" className="w-full h-full object-cover"
+                            onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block' }} />
+                          <span style={{display:'none'}} className="text-[7px] font-black text-slate-600 leading-none">ZF</span>
+                        </a>
+                      </>)}
                     </div>
                     {units.length > 1 && (
                       pendingConfirm?.key === `unit-${idx}` ? (
