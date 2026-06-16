@@ -255,14 +255,14 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-slate-500">Unit {idx + 1}</span>
                       {unit.brand === 'Fox' && (
-                        <a href="https://tech.ridefox.com/bike" target="_blank" rel="noopener noreferrer"
-                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Fox Tech — Ride Fox">
-                          <img src="/fox-logo.png" alt="Fox" className="w-full h-full object-cover" />
+                        <a href="https://www.silverfish-uk.com/customer/account/login/" target="_blank" rel="noopener noreferrer"
+                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Silverfish UK">
+                          <img src="/fox.png" alt="Fox" className="w-full h-full object-cover" />
                         </a>
                       )}
                       {unit.brand === 'Rockshox' && (
-                        <a href="https://trailhead.rockshox.com/en/product/search/serial" target="_blank" rel="noopener noreferrer"
-                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Rockshox Trailhead">
+                        <a href="https://www.zyrofisherb2b.co.uk/" target="_blank" rel="noopener noreferrer"
+                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Zyro Fisher B2B">
                           <img src="https://trailhead.rockshox.com/favicon.ico" alt="Rockshox" className="w-full h-full object-cover" onError={e => e.target.style.display='none'} />
                         </a>
                       )}
