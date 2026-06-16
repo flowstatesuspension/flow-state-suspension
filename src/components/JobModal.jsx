@@ -260,10 +260,8 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                           <img src="/fox.png" alt="Fox" className="w-full h-full object-cover" />
                         </a>
                         <a href="https://www.silverfish-uk.com/customer/account/login/" target="_blank" rel="noopener noreferrer"
-                          className="w-5 h-5 rounded overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center" title="Silverfish UK">
-                          <img src="https://www.silverfish-uk.com/favicon.ico" alt="Silverfish" className="w-full h-full object-cover"
-                            onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block' }} />
-                          <span style={{display:'none'}} className="text-[7px] font-black text-slate-600 leading-none">SF</span>
+                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Silverfish UK">
+                          <img src="/sf.png" alt="Silverfish" className="w-full h-full object-cover" />
                         </a>
                         <a href="/fox-fork-oil-volumes.html" target="_blank" rel="noopener noreferrer"
                           className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0" title="Fox Oil Volumes">
