@@ -252,7 +252,21 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
               {units.map((unit, idx) => (
                 <div key={idx} className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-500">Unit {idx + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-500">Unit {idx + 1}</span>
+                      {unit.brand === 'Fox' && (
+                        <a href="https://tech.ridefox.com/bike" target="_blank" rel="noopener noreferrer"
+                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Fox Tech — Ride Fox">
+                          <img src="https://tech.ridefox.com/favicon.ico" alt="Fox" className="w-full h-full object-cover" onError={e => e.target.style.display='none'} />
+                        </a>
+                      )}
+                      {unit.brand === 'Rockshox' && (
+                        <a href="https://trailhead.rockshox.com/en/product/search/serial" target="_blank" rel="noopener noreferrer"
+                          className="w-5 h-5 rounded overflow-hidden shrink-0" title="Rockshox Trailhead">
+                          <img src="https://trailhead.rockshox.com/favicon.ico" alt="Rockshox" className="w-full h-full object-cover" onError={e => e.target.style.display='none'} />
+                        </a>
+                      )}
+                    </div>
                     {units.length > 1 && (
                       pendingConfirm?.key === `unit-${idx}` ? (
                         <div className="flex items-center gap-2">
@@ -265,22 +279,6 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                       )
                     )}
                   </div>
-
-                  {/* Brand reference links */}
-                  {unit.brand === 'Fox' && (
-                    <a href="https://tech.ridefox.com/bike" target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-[11px] font-semibold text-sky-600 mb-1">
-                      <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-                      Fox Tech — Ride Fox
-                    </a>
-                  )}
-                  {unit.brand === 'Rockshox' && (
-                    <a href="https://trailhead.rockshox.com/en/product/search/serial" target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-[11px] font-semibold text-sky-600 mb-1">
-                      <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-                      Rockshox Trailhead
-                    </a>
-                  )}
 
                   {/* 2×2 grid: Brand | Model / Serial | £Price */}
                   <div className="grid grid-cols-2 gap-2">
