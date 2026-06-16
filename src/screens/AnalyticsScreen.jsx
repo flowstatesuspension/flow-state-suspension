@@ -1097,6 +1097,10 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     avgUnitPriceThisMonth, weeklyRevenue,
   } = data
 
+  // ── Models by Brand toggles ──────────────────────────────────────────────────
+  const [modelMetric, setModelMetric] = useState('qty') // 'qty' | 'pct'
+  const [showRevenue, setShowRevenue] = useState(true)
+
   // ── Service time data ────────────────────────────────────────────────────────
   const [serviceTimeByModel, setServiceTimeByModel] = useState([])
 
@@ -1941,8 +1945,9 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
 
         {/* ── MODELS ── */}
         {Object.keys(modelsByBrand).length > 0 && (
-          <Section title="Models by Brand">
+          <Section title="Models by Brand" id="section-brands">
             {(() => {
+              const totalUnits = allUnits.length || 1
               const sorted = Object.entries(modelsByBrand).sort(([a], [b]) => a.localeCompare(b))
               const paired = ['Fox', 'Rockshox']
               const pairEntries = paired.map(b => sorted.find(([brand]) => brand === b)).filter(Boolean)
@@ -1959,8 +1964,11 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs text-slate-600 font-medium truncate pr-2">{m.model}</span>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-xs font-semibold text-slate-700">{m.count}</span>
-                              <span className="text-[10px] text-slate-400">£{m.revenue.toFixed(0)}</span>
+                              {modelMetric === 'qty'
+                                ? <span className="text-xs font-semibold text-slate-700">{m.count}</span>
+                                : <span className="text-xs font-semibold text-slate-700">{((m.count / totalUnits) * 100).toFixed(0)}%</span>
+                              }
+                              {showRevenue && <span className="text-[10px] text-slate-400">£{m.revenue.toFixed(0)}</span>}
                             </div>
                           </div>
                           <HBar value={m.count} max={maxCount} color={barColor} />
@@ -1972,6 +1980,21 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
               }
               return (
                 <div className="space-y-4">
+                  {/* Toggles */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                      {['qty', 'pct'].map(v => (
+                        <button key={v} onClick={() => setModelMetric(v)}
+                          className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${modelMetric === v ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
+                          {v === 'qty' ? 'Qty' : '% of total'}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setShowRevenue(v => !v)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${showRevenue ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200'}`}>
+                      £ Revenue
+                    </button>
+                  </div>
                   {pairEntries.length === 2 && (
                     <div className="flex gap-3">
                       <BrandCard brand={pairEntries[0][0]} models={pairEntries[0][1]} flex />
