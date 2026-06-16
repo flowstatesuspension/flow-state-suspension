@@ -257,9 +257,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                       {unit.brand === 'Fox' && (
                         <a href="https://tech.ridefox.com/bike" target="_blank" rel="noopener noreferrer"
                           className="w-5 h-5 rounded overflow-hidden shrink-0" title="Fox Tech — Ride Fox">
-                          <img src="https://www.ridefox.com/favicon.ico" alt="Fox" className="w-full h-full object-cover"
-                            onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex' }} />
-                          <span style={{display:'none'}} className="w-5 h-5 rounded bg-orange-500 items-center justify-center text-white font-black text-[9px]">FOX</span>
+                          <img src="/fox.png" alt="Fox" className="w-full h-full object-cover" />
                         </a>
                       )}
                       {unit.brand === 'Rockshox' && (
