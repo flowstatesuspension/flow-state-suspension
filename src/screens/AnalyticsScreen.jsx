@@ -1955,9 +1955,14 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
               const BrandCard = ({ brand, models, flex }) => {
                 const maxCount = models[0]?.count || 1
                 const barColor = colorMap[brand] ?? BRAND_PALETTE[0]
+                const brandTotal = models.reduce((s, m) => s + m.count, 0)
+                const brandPct = ((brandTotal / totalUnits) * 100).toFixed(0)
                 return (
                   <div className={`bg-white rounded-xl border border-slate-200 p-4${flex ? ' flex-1 min-w-0' : ''}`}>
-                    <p className="text-sm font-bold mb-3" style={{ color: barColor }}>{brand}</p>
+                    <div className="flex items-baseline justify-between mb-3">
+                      <p className="text-sm font-bold" style={{ color: barColor }}>{brand}</p>
+                      <span className="text-[10px] font-bold text-slate-400">{brandPct}% of all</span>
+                    </div>
                     <div className="space-y-2.5">
                       {models.map(m => (
                         <div key={m.model}>
