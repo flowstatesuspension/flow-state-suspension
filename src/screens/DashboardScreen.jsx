@@ -2,6 +2,90 @@ import { useState } from 'react'
 import { format, parseISO, differenceInDays, addDays, isToday, isTomorrow, startOfWeek, endOfWeek } from 'date-fns'
 import JobModal from '../components/JobModal'
 
+// ── Todo row ──────────────────────────────────────────────────────────────────
+function TodoRow({ todo, onToggle, onEdit, onDelete }) {
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(todo.text)
+
+  function handleSave() {
+    if (text.trim() && text.trim() !== todo.text) onEdit(todo.id, text.trim())
+    setEditing(false)
+  }
+
+  return (
+    <div className={`flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 ${todo.completed ? 'opacity-60' : ''}`}>
+      <button onClick={() => onToggle(todo.id, !todo.completed)}
+        className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+          todo.completed ? 'bg-green-500 border-green-500' : 'border-amber-400'
+        }`}>
+        {todo.completed && (
+          <svg viewBox="0 0 24 24" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </button>
+      {editing ? (
+        <input
+          autoFocus
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false) }}
+          className="flex-1 text-sm bg-white border border-amber-300 rounded-lg px-2 py-0.5 text-slate-800 outline-none"
+        />
+      ) : (
+        <p className={`flex-1 text-sm ${todo.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}
+          onClick={() => setEditing(true)}>{todo.text}</p>
+      )}
+      <button onClick={() => onDelete(todo.id)} className="text-slate-300 active:text-red-400 shrink-0">
+        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+// ── Add todo form ─────────────────────────────────────────────────────────────
+function AddTodoForm({ defaultDate, onAdd, onClose }) {
+  const [text, setText] = useState('')
+  const [date, setDate] = useState(defaultDate)
+  const [saving, setSaving] = useState(false)
+
+  async function handleAdd() {
+    if (!text.trim() || !date) return
+    setSaving(true)
+    try { await onAdd(text.trim(), date) } finally { setSaving(false) }
+    onClose()
+  }
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+      <input
+        autoFocus
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') onClose() }}
+        placeholder="To-do note…"
+        className="w-full text-sm bg-white border border-amber-300 rounded-lg px-3 py-2 text-slate-800 outline-none placeholder-slate-400"
+      />
+      <div className="flex gap-2">
+        <input
+          type="date"
+          value={date}
+          onChange={e => setDate(e.target.value)}
+          className="flex-1 text-sm bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-slate-700 outline-none"
+        />
+        <button onClick={onClose} className="px-3 py-1.5 text-xs font-semibold text-slate-500 active:text-slate-700">Cancel</button>
+        <button onClick={handleAdd} disabled={saving || !text.trim()}
+          className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg disabled:opacity-50 active:bg-amber-600">
+          Add
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const STATUS_URGENCY = { awaiting_parts: 0, ready: 1, in_progress: 2, booked_in: 3, on_hold: 4, complete: 5 }
 
 function jobUrgency(job) {
@@ -301,9 +385,11 @@ function StockView({ title, jobs, onPillClick }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
-export default function DashboardScreen({ jobs, customers, loading, saveJob, deleteJob, archiveJob, restoreJob, settings, refresh, activeTimer, onStartTimer, timerStopKey }) {
+export default function DashboardScreen({ jobs, customers, todos = [], loading, saveJob, deleteJob, archiveJob, restoreJob, addTodo, updateTodo, toggleTodo, deleteTodo, settings, refresh, activeTimer, onStartTimer, timerStopKey }) {
   const [editJob, setEditJob] = useState(null)
   const [alertPicker, setAlertPicker] = useState(null) // { jobs, title, color }
+  const [showAddTodo, setShowAddTodo] = useState(false)
+  const [addTodoDate, setAddTodoDate] = useState(null)
 
   function closeModal() {
     setEditJob(null)
@@ -346,6 +432,9 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
   const dropOffsToday = jobs.filter(j => j.drop_off_date === todayStr && !allOnHold(j))
   const pickupsToday  = jobs.filter(j => j.pickup_date === todayStr && !allOnHold(j))
 
+  // Todos
+  const todayTodos = todos.filter(t => t.due_date === todayStr)
+
   // Coming up — drop-offs AND pickups in next 7 days, exclude all-on-hold
   const next7 = Array.from({ length: 7 }, (_, i) => addDays(today, i + 1))
   const upcoming = next7
@@ -355,9 +444,10 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
         j.drop_off_date === ds ||
         (j.pickup_date === ds && j.units?.every(u => u.status === 'complete'))
       ))
-      return { date: d, dateStr: ds, jobs: dayJobs }
+      const dayTodos = todos.filter(t => t.due_date === ds)
+      return { date: d, dateStr: ds, jobs: dayJobs, todos: dayTodos }
     })
-    .filter(g => g.jobs.length > 0)
+    .filter(g => g.jobs.length > 0 || g.todos.length > 0)
 
   const hasAlerts = overdueJobs.length || awaitingPartJobs.length || onHoldJobs.length
 
@@ -414,10 +504,25 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
           </div>
 
           {/* Today */}
-          {(dropOffsToday.length > 0 || pickupsToday.length > 0) && (
+          {(dropOffsToday.length > 0 || pickupsToday.length > 0 || todayTodos.length > 0 || showAddTodo) && (
             <div>
-              <SectionHeader>Today</SectionHeader>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today</p>
+                <button onClick={() => { setAddTodoDate(todayStr); setShowAddTodo(true) }}
+                  className="flex items-center gap-1 text-[10px] font-bold text-amber-600 active:text-amber-700">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  To-Do
+                </button>
+              </div>
               <div className="space-y-1.5">
+                {showAddTodo && addTodoDate === todayStr && (
+                  <AddTodoForm defaultDate={todayStr} onAdd={addTodo} onClose={() => setShowAddTodo(false)} />
+                )}
+                {todayTodos.map(t => (
+                  <TodoRow key={t.id} todo={t} onToggle={toggleTodo} onEdit={updateTodo} onDelete={deleteTodo} />
+                ))}
                 {dropOffsToday.map(job => (
                   <ScheduleRow key={`in-${job.id}`} job={job}
                     label="IN" sublabel="drop-off"
@@ -431,23 +536,49 @@ export default function DashboardScreen({ jobs, customers, loading, saveJob, del
               </div>
             </div>
           )}
+          {/* Today section when it would be empty — still allow adding todos */}
+          {(dropOffsToday.length === 0 && pickupsToday.length === 0 && todayTodos.length === 0 && !showAddTodo) && (
+            <div className="flex justify-end">
+              <button onClick={() => { setAddTodoDate(todayStr); setShowAddTodo(true) }}
+                className="flex items-center gap-1 text-[10px] font-bold text-amber-600 active:text-amber-700 py-1">
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Add To-Do
+              </button>
+            </div>
+          )}
 
           {/* Coming Up */}
           {upcoming.length > 0 && (
             <div>
               <SectionHeader>Coming Up</SectionHeader>
               <div className="space-y-1.5">
-                {upcoming.flatMap(g =>
-                  g.jobs.map(job => {
+                {upcoming.flatMap(g => {
+                  const dayLabel = isToday(g.date) ? 'Today' : isTomorrow(g.date) ? 'Tmrw' : format(g.date, 'EEE d')
+                  const items = []
+                  g.todos.forEach(t => items.push(
+                    <div key={`todo-${t.id}`} className="flex items-center gap-2">
+                      <div className="w-12 shrink-0 text-center">
+                        <p className="text-xs font-bold text-amber-500">{dayLabel}</p>
+                        <p className="text-[10px] text-amber-400">to-do</p>
+                      </div>
+                      <div className="flex-1">
+                        <TodoRow todo={t} onToggle={toggleTodo} onEdit={updateTodo} onDelete={deleteTodo} />
+                      </div>
+                    </div>
+                  ))
+                  g.jobs.forEach(job => {
                     const isPickup = job.pickup_date === g.dateStr && job.units?.every(u => u.status === 'complete')
-                    return (
+                    items.push(
                       <ScheduleRow key={job.id} job={job}
-                        label={isToday(g.date) ? 'Today' : isTomorrow(g.date) ? 'Tmrw' : format(g.date, 'EEE d')}
+                        label={dayLabel}
                         sublabel={isPickup ? 'pickup' : 'drop-off'}
                         onClick={() => setEditJob(job)} />
                     )
                   })
-                )}
+                  return items
+                })}
               </div>
             </div>
           )}

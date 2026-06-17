@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 export function useData() {
   const [jobs, setJobs] = useState([])
   const [customers, setCustomers] = useState([])
+  const [todos, setTodos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -11,7 +12,7 @@ export function useData() {
     setLoading(true)
     setError(null)
     try {
-      const [{ data: jobsData, error: jobsErr }, { data: custsData, error: custsErr }] =
+      const [{ data: jobsData, error: jobsErr }, { data: custsData, error: custsErr }, { data: todosData, error: todosErr }] =
         await Promise.all([
           supabase
             .from('jobs')
@@ -19,11 +20,14 @@ export function useData() {
             .eq('archived', false)
             .order('drop_off_date', { ascending: true }),
           supabase.from('customers').select('*').order('name'),
+          supabase.from('todos').select('*').order('due_date').order('created_at'),
         ])
       if (jobsErr) throw jobsErr
       if (custsErr) throw custsErr
+      if (todosErr) throw todosErr
       setJobs(jobsData || [])
       setCustomers(custsData || [])
+      setTodos(todosData || [])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -39,6 +43,7 @@ export function useData() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, fetchAll)
       .subscribe()
 
     return () => supabase.removeChannel(jobsSub)
@@ -123,6 +128,31 @@ export function useData() {
     await fetchAll()
   }
 
+  // --- Todos ---
+  async function addTodo(text, dueDate) {
+    const { error } = await supabase.from('todos').insert({ text, due_date: dueDate })
+    if (error) throw error
+    await fetchAll()
+  }
+
+  async function updateTodo(id, text) {
+    const { error } = await supabase.from('todos').update({ text }).eq('id', id)
+    if (error) throw error
+    await fetchAll()
+  }
+
+  async function toggleTodo(id, completed) {
+    const { error } = await supabase.from('todos').update({ completed }).eq('id', id)
+    if (error) throw error
+    await fetchAll()
+  }
+
+  async function deleteTodo(id) {
+    const { error } = await supabase.from('todos').delete().eq('id', id)
+    if (error) throw error
+    await fetchAll()
+  }
+
   async function archiveJob(id) {
     const { error } = await supabase.from('jobs').update({ archived: true }).eq('id', id)
     if (error) throw error
@@ -141,5 +171,5 @@ export function useData() {
     await fetchAll()
   }
 
-  return { jobs, customers, loading, error, saveJob, deleteJob, archiveJob, restoreJob, deleteCustomer, updateCustomer, updateUnitStatus, refresh: fetchAll }
+  return { jobs, customers, todos, loading, error, saveJob, deleteJob, archiveJob, restoreJob, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, refresh: fetchAll }
 }

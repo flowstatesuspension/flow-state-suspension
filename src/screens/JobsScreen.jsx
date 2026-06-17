@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth,
-  format, parseISO, isWithinInterval,
+  format, parseISO, isWithinInterval, addDays,
 } from 'date-fns'
 import GanttWeekView from '../components/GanttWeekView'
 import MonthCalendar from '../components/MonthCalendar'
@@ -86,7 +86,95 @@ function visibleJobs(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor
   })
 }
 
-export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJob, archiveJob, restoreJob, settings, onStartTimer, activeTimer, timerStopKey }) {
+function TodosPanel({ todos, toggleTodo, updateTodo, deleteTodo, addTodo, periodStart, periodEnd }) {
+  const [showAdd, setShowAdd] = useState(false)
+  const [newText, setNewText] = useState('')
+  const [newDate, setNewDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+
+  const periodTodos = todos.filter(t => t.due_date >= periodStart && t.due_date <= periodEnd)
+
+  const grouped = {}
+  periodTodos.forEach(t => {
+    if (!grouped[t.due_date]) grouped[t.due_date] = []
+    grouped[t.due_date].push(t)
+  })
+
+  async function handleAdd() {
+    if (!newText.trim()) return
+    await addTodo(newText.trim(), newDate)
+    setNewText('')
+    setShowAdd(false)
+  }
+
+  return (
+    <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 space-y-2 overflow-y-auto max-h-56">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">To-Dos</p>
+        <button onClick={() => setShowAdd(v => !v)} className="text-[10px] font-bold text-amber-600 active:text-amber-800">+ Add</button>
+      </div>
+      {showAdd && (
+        <div className="flex gap-2">
+          <input autoFocus value={newText} onChange={e => setNewText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false) }}
+            placeholder="Note…"
+            className="flex-1 text-xs bg-white border border-amber-300 rounded-lg px-2 py-1.5 outline-none" />
+          <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
+            className="text-xs bg-white border border-amber-300 rounded-lg px-2 py-1.5 outline-none" />
+          <button onClick={handleAdd} className="text-xs font-bold text-amber-600 active:text-amber-800 px-1">Add</button>
+        </div>
+      )}
+      {Object.keys(grouped).length === 0 && !showAdd && (
+        <p className="text-xs text-amber-400 text-center py-1">No to-dos in this period</p>
+      )}
+      {Object.keys(grouped).sort().map(date => (
+        <div key={date} className="space-y-1">
+          <p className="text-[10px] font-bold text-amber-500">{format(parseISO(date), 'EEE d MMM')}</p>
+          {grouped[date].map(t => (
+            <TodoItemRow key={t.id} todo={t} onToggle={toggleTodo} onEdit={updateTodo} onDelete={deleteTodo} />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TodoItemRow({ todo, onToggle, onEdit, onDelete }) {
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(todo.text)
+
+  function handleSave() {
+    if (text.trim() && text.trim() !== todo.text) onEdit(todo.id, text.trim())
+    setEditing(false)
+  }
+
+  return (
+    <div className={`flex items-center gap-2 py-0.5 ${todo.completed ? 'opacity-60' : ''}`}>
+      <button onClick={() => onToggle(todo.id, !todo.completed)}
+        className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${todo.completed ? 'bg-green-500 border-green-500' : 'border-amber-400'}`}>
+        {todo.completed && (
+          <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </button>
+      {editing ? (
+        <input autoFocus value={text} onChange={e => setText(e.target.value)}
+          onBlur={handleSave} onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
+          className="flex-1 text-xs bg-white border border-amber-300 rounded px-1.5 py-0.5 outline-none" />
+      ) : (
+        <p className={`flex-1 text-xs ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}
+          onClick={() => setEditing(true)}>{todo.text}</p>
+      )}
+      <button onClick={() => onDelete(todo.id)} className="text-slate-300 active:text-red-400">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+export default function JobsScreen({ jobs, customers, todos = [], loading, saveJob, deleteJob, archiveJob, restoreJob, addTodo, updateTodo, toggleTodo, deleteTodo, settings, onStartTimer, activeTimer, timerStopKey }) {
   const [calView, setCalView]       = useState('week')
   const [viewMode, setViewMode]     = useState('work')
   const [selectedJob, setSelectedJob] = useState(null)
@@ -94,6 +182,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const [dayAnchor, setDayAnchor]   = useState(new Date())
   const [weekAnchor, setWeekAnchor] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [monthAnchor, setMonthAnchor] = useState(new Date())
+  const [showTodos, setShowTodos]   = useState(false)
 
   const allOnHold    = job => job.units?.length > 0 && job.units.every(u => u.status === 'on_hold')
   const allComplete  = job => job.units?.length > 0 && job.units.every(u => u.status === 'complete')
@@ -112,6 +201,18 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
   const completeUnits = allUnits.filter(u => u.status === 'complete').length
   const onHoldUnits  = allUnits.filter(u => u.status === 'on_hold').length
   const currentRevenue = allUnits.filter(u => u.status !== 'on_hold').reduce((s, u) => s + (u.price || 0), 0)
+
+  const wo = { weekStartsOn: 1 }
+  const todoPeriod = (() => {
+    if (calView === 'day') {
+      const d = format(dayAnchor, 'yyyy-MM-dd')
+      return { start: d, end: d }
+    }
+    if (calView === 'week') {
+      return { start: format(startOfWeek(weekAnchor, wo), 'yyyy-MM-dd'), end: format(endOfWeek(weekAnchor, wo), 'yyyy-MM-dd') }
+    }
+    return { start: format(startOfMonth(monthAnchor), 'yyyy-MM-dd'), end: format(endOfMonth(monthAnchor), 'yyyy-MM-dd') }
+  })()
 
   function openNew() {
     const defaultDate = calView === 'week' ? format(weekAnchor, 'yyyy-MM-dd') : undefined
@@ -149,7 +250,7 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <div className="flex bg-white/10 rounded-lg p-0.5">
               {[['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(([id, label]) => (
                 <button key={id} onClick={() => setCalView(id)}
@@ -171,9 +272,32 @@ export default function JobsScreen({ jobs, customers, loading, saveJob, deleteJo
                 </button>
               ))}
             </div>
+
+            <button onClick={() => setShowTodos(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                showTodos ? 'bg-amber-500 text-white' : 'bg-white/10 text-slate-400'
+              }`}>
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              To-Do
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Todos panel */}
+      {showTodos && (
+        <TodosPanel
+          todos={todos}
+          toggleTodo={toggleTodo}
+          updateTodo={updateTodo}
+          deleteTodo={deleteTodo}
+          addTodo={addTodo}
+          periodStart={todoPeriod.start}
+          periodEnd={todoPeriod.end}
+        />
+      )}
 
       {/* Chart area */}
       <div className="flex-1 min-h-0 flex flex-col bg-white">
