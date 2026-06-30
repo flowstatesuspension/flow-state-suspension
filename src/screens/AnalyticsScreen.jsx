@@ -40,6 +40,7 @@ const NAV_SECTIONS = [
   { label: 'Jobs',         id: 'section-jobs' },
   { label: 'Customers',    id: 'section-customers' },
   { label: 'Brands',       id: 'section-brands' },
+  { label: 'Stock Pred.',  id: 'section-stock' },
 ]
 
 function KPICard({ value, label, sub, accentColor, tip }) {
@@ -1050,6 +1051,33 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
       avgUnitPriceThisMonth,
 
+      // Stock predictor: weekly arrival rate per brand/model from all past drop-off dates
+      stockRates: (() => {
+        const pastJobs = jobs.filter(j => j.drop_off_date && parseISO(j.drop_off_date) <= today)
+        if (!pastJobs.length) return []
+        const dates = pastJobs.map(j => parseISO(j.drop_off_date)).sort((a, b) => a - b)
+        const totalWeeks = Math.max(differenceInDays(today, dates[0]) / 7, 1)
+        const byKey = {}
+        pastJobs.forEach(j => {
+          ;(j.units || []).forEach(u => {
+            const brand = u.brand || 'Unknown'
+            const model = u.model?.trim() || 'Unknown'
+            const key = `${brand}||${model}`
+            if (!byKey[key]) byKey[key] = { brand, model, count: 0 }
+            byKey[key].count++
+          })
+        })
+        return Object.values(byKey)
+          .map(r => ({ ...r, weeklyRate: r.count / totalWeeks }))
+          .sort((a, b) => b.weeklyRate - a.weeklyRate)
+      })(),
+      stockHistoryWeeks: (() => {
+        const pastJobs = jobs.filter(j => j.drop_off_date && parseISO(j.drop_off_date) <= today)
+        if (!pastJobs.length) return 0
+        const dates = pastJobs.map(j => parseISO(j.drop_off_date)).sort((a, b) => a - b)
+        return Math.max(differenceInDays(today, dates[0]) / 7, 1)
+      })(),
+
       // Weekly revenue — YTD from Jan 1
       weeklyRevenue: (() => {
         const yearStart = startOfWeek(new Date(today.getFullYear(), 0, 1), { weekStartsOn: 1 })
@@ -1095,11 +1123,15 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     unitsChartData, todayFrac, historicalMonths, pipelineMonths,
     year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
     avgUnitPriceThisMonth, weeklyRevenue,
+    stockRates, stockHistoryWeeks,
   } = data
 
   // ── Models by Brand toggles ──────────────────────────────────────────────────
   const [modelMetric, setModelMetric] = useState('qty') // 'qty' | 'pct'
   const [showRevenue, setShowRevenue] = useState(true)
+
+  // ── Stock predictor period ────────────────────────────────────────────────────
+  const [stockPeriod, setStockPeriod] = useState('4w') // '1w' | '4w' | '3m'
 
   // ── Service time data ────────────────────────────────────────────────────────
   const [serviceTimeByModel, setServiceTimeByModel] = useState([])
@@ -2014,6 +2046,119 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
           </Section>
         )}
 
+
+        {/* ── STOCK PREDICTOR ── */}
+        <Section title="Stock Predictor" id="section-stock">
+          {(() => {
+            const PERIOD_OPTIONS = [
+              { id: '1w', label: '1 Week',   weeks: 1 },
+              { id: '4w', label: '4 Weeks',  weeks: 4 },
+              { id: '3m', label: '3 Months', weeks: 13 },
+            ]
+            const selected = PERIOD_OPTIONS.find(p => p.id === stockPeriod) ?? PERIOD_OPTIONS[1]
+            const multiplier = selected.weeks
+
+            // Confidence: how many full periods of this length are in history
+            const periodsInHistory = stockHistoryWeeks / multiplier
+            const confidence = periodsInHistory >= 4 ? 'high' : periodsInHistory >= 2 ? 'medium' : periodsInHistory >= 1 ? 'low' : 'insufficient'
+            const confColor = { high: '#22c55e', medium: '#f97316', low: '#ef4444', insufficient: '#94a3b8' }[confidence]
+            const confLabel = { high: 'High confidence', medium: 'Moderate confidence', low: 'Low confidence', insufficient: 'Insufficient history' }[confidence]
+
+            // Compute predicted units, filter out zero predictions
+            const predictions = stockRates
+              .map(r => ({ ...r, predicted: r.weeklyRate * multiplier }))
+              .filter(r => r.predicted >= 0.1)
+
+            // Group by brand
+            const byBrand = {}
+            predictions.forEach(r => {
+              if (!byBrand[r.brand]) byBrand[r.brand] = []
+              byBrand[r.brand].push(r)
+            })
+            const sortedBrands = Object.keys(byBrand).sort((a, b) => {
+              const aTotal = byBrand[a].reduce((s, r) => s + r.predicted, 0)
+              const bTotal = byBrand[b].reduce((s, r) => s + r.predicted, 0)
+              return bTotal - aTotal
+            })
+
+            return (
+              <div className="space-y-3">
+                {/* Period selector */}
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5">
+                    {PERIOD_OPTIONS.map(p => (
+                      <button key={p.id} onClick={() => setStockPeriod(p.id)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                          stockPeriod === p.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+                        }`}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: confColor }} />
+                    <span className="text-[10px] font-semibold" style={{ color: confColor }}>{confLabel}</span>
+                  </div>
+                </div>
+
+                {/* Context line */}
+                <p className="text-[10px] text-slate-400">
+                  Based on {Math.round(stockHistoryWeeks)} weeks of history ·
+                  Predicted unit arrivals for the next {selected.label.toLowerCase()}
+                </p>
+
+                {confidence === 'insufficient' ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
+                    Need at least one full {selected.label.toLowerCase()} of history to predict stock
+                  </div>
+                ) : predictions.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
+                    No unit history to build a prediction from
+                  </div>
+                ) : (
+                  sortedBrands.map(brand => {
+                    const rows = byBrand[brand].sort((a, b) => b.predicted - a.predicted)
+                    const brandTotal = rows.reduce((s, r) => s + r.predicted, 0)
+                    const barColor = colorMap[brand] ?? BRAND_PALETTE[0]
+                    const maxPredicted = rows[0].predicted
+                    return (
+                      <div key={brand} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between"
+                          style={{ backgroundColor: `${barColor}10` }}>
+                          <span className="text-xs font-bold uppercase tracking-wide" style={{ color: barColor }}>{brand}</span>
+                          <span className="text-xs font-bold text-slate-700">{brandTotal.toFixed(1)} units predicted</span>
+                        </div>
+                        <div className="divide-y divide-slate-50">
+                          {rows.map(r => {
+                            const pct = maxPredicted > 0 ? (r.predicted / maxPredicted) * 100 : 0
+                            const isLow = r.predicted < 0.5
+                            return (
+                              <div key={r.model} className="px-4 py-2.5">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-xs font-medium text-slate-700 truncate pr-3">{r.model}</span>
+                                  <div className="flex items-center gap-3 shrink-0">
+                                    <span className="text-[10px] text-slate-400">{r.count} historical</span>
+                                    <span className={`text-sm font-bold ${isLow ? 'text-slate-400' : 'text-slate-800'}`}>
+                                      {r.predicted >= 1 ? Math.round(r.predicted) : r.predicted.toFixed(1)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full transition-all"
+                                    style={{ width: `${pct}%`, backgroundColor: isLow ? '#cbd5e1' : barColor }} />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )
+          })()}
+        </Section>
 
       </div>
       </div>
