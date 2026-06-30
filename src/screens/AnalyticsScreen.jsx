@@ -1051,14 +1051,19 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
       avgUnitPriceThisMonth,
 
-      // Stock predictor: weekly arrival rate per brand/model from all past drop-off dates
+      // Stock predictor: based on the same recent window as the revenue rolling avg (last 3 completed months)
+      // Falls back to all available history if fewer than 3 months exist.
       stockRates: (() => {
-        const pastJobs = jobs.filter(j => j.drop_off_date && parseISO(j.drop_off_date) <= today)
-        if (!pastJobs.length) return []
-        const dates = pastJobs.map(j => parseISO(j.drop_off_date)).sort((a, b) => a - b)
-        const totalWeeks = Math.max(differenceInDays(today, dates[0]) / 7, 1)
+        const windowStart = last3.length > 0 ? last3[0].start : (activeHistMonths[0]?.start ?? startOfMonth(subMonths(today, 3)))
+        const baseJobs = jobs.filter(j => {
+          if (!j.drop_off_date) return false
+          const d = parseISO(j.drop_off_date)
+          return d >= windowStart && d <= today
+        })
+        if (!baseJobs.length) return []
+        const actualWeeks = Math.max(differenceInDays(today, windowStart) / 7, 1)
         const byKey = {}
-        pastJobs.forEach(j => {
+        baseJobs.forEach(j => {
           ;(j.units || []).forEach(u => {
             const brand = u.brand || 'Unknown'
             const model = u.model?.trim() || 'Unknown'
@@ -1068,15 +1073,16 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
           })
         })
         return Object.values(byKey)
-          .map(r => ({ ...r, weeklyRate: r.count / totalWeeks }))
+          .map(r => ({ ...r, weeklyRate: r.count / actualWeeks }))
           .sort((a, b) => b.weeklyRate - a.weeklyRate)
       })(),
       stockHistoryWeeks: (() => {
-        const pastJobs = jobs.filter(j => j.drop_off_date && parseISO(j.drop_off_date) <= today)
-        if (!pastJobs.length) return 0
-        const dates = pastJobs.map(j => parseISO(j.drop_off_date)).sort((a, b) => a - b)
-        return Math.max(differenceInDays(today, dates[0]) / 7, 1)
+        const windowStart = last3.length > 0 ? last3[0].start : (activeHistMonths[0]?.start ?? startOfMonth(subMonths(today, 3)))
+        return Math.max(differenceInDays(today, windowStart) / 7, 1)
       })(),
+      stockWindowLabel: last3.length > 0
+        ? `last ${last3.length} completed month${last3.length !== 1 ? 's' : ''}`
+        : 'available history',
 
       // Weekly revenue — YTD from Jan 1
       weeklyRevenue: (() => {
@@ -1123,7 +1129,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     unitsChartData, todayFrac, historicalMonths, pipelineMonths,
     year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
     avgUnitPriceThisMonth, weeklyRevenue,
-    stockRates, stockHistoryWeeks,
+    stockRates, stockHistoryWeeks, stockWindowLabel,
   } = data
 
   // ── Models by Brand toggles ──────────────────────────────────────────────────
@@ -2103,13 +2109,13 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
 
                 {/* Context line */}
                 <p className="text-[10px] text-slate-400">
-                  Based on {Math.round(stockHistoryWeeks)} weeks of history ·
-                  Predicted unit arrivals for the next {selected.label.toLowerCase()}
+                  Profile: {stockWindowLabel} · same base as revenue rolling avg ·
+                  Predicted arrivals for the next {selected.label.toLowerCase()}
                 </p>
 
                 {confidence === 'insufficient' ? (
                   <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
-                    Need at least one full {selected.label.toLowerCase()} of history to predict stock
+                    Need at least one full {selected.label.toLowerCase()} of recent history to predict stock
                   </div>
                 ) : predictions.length === 0 ? (
                   <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
