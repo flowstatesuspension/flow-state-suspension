@@ -50,19 +50,28 @@ export function useData() {
   }, [fetchAll])
 
   // --- Customers ---
-  async function upsertCustomer(data) {
+  async function upsertCustomer(data, existingCustomerId) {
+    const payload = { name: data.name.trim(), email: data.email || '', phone: data.phone || '' }
+
+    // If we already know which customer this is, update them directly (handles name changes)
+    if (existingCustomerId) {
+      await supabase.from('customers').update(payload).eq('id', existingCustomerId)
+      return existingCustomerId
+    }
+
+    // New job: try to find by name to avoid duplicates
     const { data: existing } = await supabase
       .from('customers')
       .select('id')
-      .ilike('name', data.name.trim())
+      .ilike('name', payload.name)
       .maybeSingle()
     if (existing) {
-      await supabase.from('customers').update(data).eq('id', existing.id)
+      await supabase.from('customers').update(payload).eq('id', existing.id)
       return existing.id
     }
     const { data: created, error } = await supabase
       .from('customers')
-      .insert({ ...data, name: data.name.trim() })
+      .insert(payload)
       .select('id')
       .single()
     if (error) throw error
@@ -83,7 +92,10 @@ export function useData() {
 
   // --- Jobs ---
   async function saveJob(jobData, units) {
-    const customerId = await upsertCustomer({ name: jobData.customer_name, email: jobData.customer_email || '', phone: jobData.customer_phone || '' })
+    const customerId = await upsertCustomer(
+      { name: jobData.customer_name, email: jobData.customer_email || '', phone: jobData.customer_phone || '' },
+      jobData.customer_id || null
+    )
 
     let jobId = jobData.id
     if (jobId) {

@@ -121,7 +121,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
     if (units.some(u => !u.brand.trim())) { setError('Each unit needs a brand'); return }
     setSaving(true); setError(null)
     try {
-      await onSave({ ...form, id: job?.id }, units)
+      await onSave({ ...form, id: job?.id, customer_id: job?.customer_id }, units)
       onClose()
     } catch (e) {
       setError(e.message)
