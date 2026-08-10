@@ -755,14 +755,16 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
                 )}
                 {dropOffsToday.map(job => (
                   <ScheduleRow key={`in-${job.id}`} job={job}
-                    label="IN" sublabel="arrived"
+                    label="IN"
+                    sublabel={job.arrived_at ? 'arrived' : 'drop-off'}
                     onClick={() => setEditJob(job)}
                     done={!!job.arrived_at}
                     onToggleDone={setJobArrived && (() => toggleMovement(setJobArrived, job, job.arrived_at))} />
                 ))}
                 {pickupsToday.map(job => (
                   <ScheduleRow key={`out-${job.id}`} job={job}
-                    label="OUT" sublabel="collected"
+                    label="OUT"
+                    sublabel={job.collected_at ? 'collected' : 'pickup'}
                     onClick={() => setEditJob(job)}
                     done={!!job.collected_at}
                     onToggleDone={setJobCollected && (() => toggleMovement(setJobCollected, job, job.collected_at))} />
