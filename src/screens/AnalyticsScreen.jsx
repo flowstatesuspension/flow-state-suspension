@@ -988,7 +988,14 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
         ? `last ${last3.length} completed month${last3.length !== 1 ? 's' : ''}`
         : 'available history',
     }
-  }, [jobs_raw, customers])
+    // Depend on the individual settings values rather than the settings object:
+    // App rebuilds enrichedSettings on every render, so depending on the object
+    // would recompute all of this each time and defeat the memo entirely.
+  }, [
+    jobs_raw, customers, REVENUE_TARGET,
+    settings?.weeklyCapacity, settings?.defaultUnitPrice,
+    settings?.stepCapacityFrom, settings?.stepCapacity,
+  ])
 
   const {
     jobs,
