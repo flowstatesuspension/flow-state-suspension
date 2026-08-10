@@ -1535,7 +1535,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
               tip="Sum of all unit prices across every job ever created, including active work." />
             <KPICard value={`£${completedRevenue.toFixed(0)}`} label="Invoiced" sub="completed" accentColor="#3b82f6"
               tip="Revenue from jobs where every unit is marked complete — work fully delivered." />
-            <KPICard value={`£${wipRevenue.toFixed(0)}`} label="WIP" sub="in workshop" accentColor="#f97316"
+            <KPICard value={`£${wipRevenue.toFixed(0)}`} label="Pipeline" sub="in workshop" accentColor="#f97316"
               tip="Revenue tied up in active jobs — earned once those jobs complete." />
           </div>
 
