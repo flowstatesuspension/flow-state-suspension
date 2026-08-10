@@ -997,11 +997,6 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       ? pricedUnits.reduce((s, u) => s + (parseFloat(u.price) || 0), 0) / pricedUnits.length
       : avgUnitPriceThisMonth
 
-    function monthCapacityRevenue(d) {
-      const wd = workingDays(startOfMonth(d), endOfMonth(d))
-      return (wd / 5) * weeklyCapacity * avgUnitPriceOverall
-    }
-
     // Revenue for a calendar month, straight from jobs. The `months` window only
     // reaches 6 months back, so anything earlier in the year has to come from here.
     function revenueForMonth(year, monthIdx) {
@@ -1026,6 +1021,40 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     const fitPoints = []
     for (let m = 0; m < Math.min(nowAbs, 24); m++) {
       if (monthRevenue[m] > 0) fitPoints.push({ x: m, y: monthRevenue[m] / SEASON[m % 12] })
+    }
+
+    // ── Capacity ceiling ──────────────────────────────────────────────────────
+    // Two candidates: what the settings say you can do, and what you have
+    // actually done. A completed month is proof of throughput, so the ceiling
+    // takes whichever is higher — otherwise a stale setting caps the forecast
+    // below your own track record and projects you going backwards.
+    // Both are held as a weekly rate so months with more working days scale up.
+    const configuredWeeklyRevenue = weeklyCapacity * avgUnitPriceOverall
+
+    let demonstratedWeeklyRevenue = 0
+    let bestMonthRevenue = 0
+    let bestMonthLabel = null
+    for (let m = 0; m < Math.min(nowAbs, 24); m++) {
+      if (monthRevenue[m] <= 0) continue
+      const d = new Date(FORECAST_Y1 + Math.floor(m / 12), m % 12, 1)
+      const wd = workingDays(startOfMonth(d), endOfMonth(d))
+      if (wd <= 0) continue
+      const weekly = monthRevenue[m] / (wd / 5)
+      if (weekly > demonstratedWeeklyRevenue) {
+        demonstratedWeeklyRevenue = weekly
+        bestMonthRevenue = monthRevenue[m]
+        bestMonthLabel = format(d, 'MMM yyyy')
+      }
+    }
+
+    const ceilingWeeklyRevenue = Math.max(configuredWeeklyRevenue, demonstratedWeeklyRevenue)
+    const capacityFromActuals = demonstratedWeeklyRevenue > configuredWeeklyRevenue
+    const ceilingWeeklyUnits = avgUnitPriceOverall > 0
+      ? ceilingWeeklyRevenue / avgUnitPriceOverall : weeklyCapacity
+
+    function monthCapacityRevenue(d) {
+      const wd = workingDays(startOfMonth(d), endOfMonth(d))
+      return (wd / 5) * ceilingWeeklyRevenue
     }
 
     // Least-squares trend on the deseasonalised series
@@ -1095,7 +1124,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
 
     const y1Total = Math.round(year2026.reduce((s, m) => s + m.revenue, 0))
     const y2Total = Math.round(year2027.reduce((s, m) => s + m.revenue, 0))
-    const avgMonthlyCapacityRevenue = Math.round((21 / 5) * weeklyCapacity * avgUnitPriceOverall)
+    const avgMonthlyCapacityRevenue = Math.round((21 / 5) * ceilingWeeklyRevenue)
 
     // Underlying month-on-month growth at today's level, before damping
     const effectiveGrowthRate = trendLevel > 0 ? trendSlope / trendLevel : 0
@@ -1125,6 +1154,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       unitsChartData, todayFrac, historicalMonths, pipelineMonths,
       year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
       forecastActual, forecastY1, forecastY2, forecastFitMonths,
+      capacityFromActuals, bestMonthLabel, bestMonthRevenue, ceilingWeeklyUnits, avgUnitPriceOverall,
       avgUnitPriceThisMonth,
 
       // Stock predictor: based on the same recent window as the revenue rolling avg (last 3 completed months)
@@ -1205,6 +1235,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     unitsChartData, todayFrac, historicalMonths, pipelineMonths,
     year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
     forecastActual, forecastY1, forecastY2, forecastFitMonths,
+    capacityFromActuals, bestMonthLabel, bestMonthRevenue, ceilingWeeklyUnits, avgUnitPriceOverall,
     avgUnitPriceThisMonth, weeklyRevenue,
     stockRates, stockHistoryWeeks, stockWindowLabel,
   } = data
@@ -1317,7 +1348,10 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
 
     const capPeak27 = year2027.reduce((max, m) => Math.max(max, m.revenue), 0)
     if (capPeak27 >= avgMonthlyCapacityRevenue * 0.9) {
-      txt += `Summer 2027 runs into your capacity ceiling of roughly £${avgMonthlyCapacityRevenue.toLocaleString()}/month — that is the binding constraint on growth, not demand. More throughput or a higher average unit price is the only way past it.`
+      txt += `Summer 2027 runs into your capacity ceiling of roughly £${avgMonthlyCapacityRevenue.toLocaleString()}/month, so peak months flatten out — that is throughput binding, not demand falling away. `
+      txt += capacityFromActuals
+        ? `The ceiling comes from your best month so far (${bestMonthLabel}), which is above the figure in Settings — worth updating so the rest of the app agrees. Going beyond it means more units a week or a higher average unit price.`
+        : `The ceiling is your Settings figure of ${weeklyCapacity} units/wk. If you can realistically do more, raise it and the peak-season forecast will follow.`
     } else {
       txt += `2027 peaks stay inside your current capacity, so the growth can be absorbed on the existing bench.`
     }
@@ -1714,6 +1748,25 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
               target={REVENUE_TARGET}
               capacity={avgMonthlyCapacityRevenue}
             />
+            {/* Make it obvious which ceiling is binding — a stale setting silently
+                capping the forecast is hard to spot from the line alone */}
+            <div className={`mt-3 rounded-lg px-3 py-2 border ${capacityFromActuals ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
+              <p className="text-[10px] leading-relaxed text-slate-600">
+                <span className="font-bold text-orange-500">Capacity ceiling £{avgMonthlyCapacityRevenue.toLocaleString()}/mo</span>
+                {capacityFromActuals ? (
+                  <>
+                    {' '}— taken from your best month ({bestMonthLabel}, £{Math.round(bestMonthRevenue).toLocaleString()}),
+                    which beats the {weeklyCapacity} units/wk in Settings. That works out at
+                    ~{ceilingWeeklyUnits.toFixed(1)} units/wk. Update Settings to match if this is your real throughput.
+                  </>
+                ) : (
+                  <>
+                    {' '}— from {weeklyCapacity} units/wk in Settings at £{Math.round(avgUnitPriceOverall)}/unit.
+                    Raise it there if you can service more; the forecast is held to this line.
+                  </>
+                )}
+              </p>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2 mb-2">
             <KPICard
