@@ -310,12 +310,13 @@ function CompactJobRow({ job, today, statusConfig, expanded, onToggle, onOpen, a
       style={{ borderColor: overdue ? '#fca5a5' : cfg.border, borderLeftWidth: 3, borderLeftColor: overdue ? '#ef4444' : cfg.bg }}>
       <button onClick={onToggle}
         className="w-full flex items-center gap-2.5 pl-2.5 pr-2 py-2 text-left active:bg-slate-50 transition-colors">
-        <div className="flex gap-1 shrink-0">
-          {units.slice(0, 4).map(u => (
-            <span key={u.id} className="w-[7px] h-[7px] rounded-full block"
-              style={{ backgroundColor: (statusConfig?.[u.status] ?? FALLBACK_CFG).bg }} />
-          ))}
-        </div>
+        <span
+          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-[13px] font-bold leading-none"
+          style={{ backgroundColor: cfg.light, color: cfg.text, border: `1px solid ${cfg.border}` }}
+          aria-label={`${units.length} unit${units.length !== 1 ? 's' : ''}`}
+        >
+          {units.length}
+        </span>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold text-slate-900 leading-tight truncate">
             {job.customers?.name || '—'}
