@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useLayoutEffect, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatHMS } from '../lib/timeEntries'
-import { format, parseISO, differenceInDays, startOfMonth, subMonths, endOfMonth, addMonths, startOfWeek } from 'date-fns'
+import { format, parseISO, differenceInDays, startOfMonth, subMonths, endOfMonth, addMonths } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 
 const DEFAULT_REVENUE_TARGET = 3000
@@ -630,75 +630,6 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
   )
 }
 
-function WeeklyRevenueChart({ weeks, target }) {
-  const H = 110
-  const padT = 16, padB = 22, padL = 4, padR = 4
-  const wrapRef = useRef(null)
-  const [W, setW] = useState(300)
-  const [hovered, setHovered] = useState(null)
-
-  useLayoutEffect(() => {
-    function measure() { if (wrapRef.current) setW(wrapRef.current.clientWidth || 300) }
-    measure()
-    const ro = new ResizeObserver(measure)
-    if (wrapRef.current) ro.observe(wrapRef.current)
-    return () => ro.disconnect()
-  }, [])
-
-  const cW = W - padL - padR
-  const cH = H - padT - padB
-  const n = weeks.length
-  const maxVal = Math.max(target ?? 0, ...weeks.map(w => w.revenue), 1) * 1.12
-  const barW = Math.max(4, (cW / n) * 0.65)
-  const gap = cW / n
-  const toX = i => padL + gap * i + gap / 2
-  const toY = v => padT + cH - Math.max(0, Math.min(v / maxVal, 1)) * cH
-  const targetY = target ? toY(target) : null
-
-  // Show every 2nd label to avoid crowding
-  const showLabel = i => i % 2 === 0 || i === n - 1
-
-  return (
-    <div ref={wrapRef} style={{ width: '100%' }}>
-      <svg width={W} height={H} style={{ overflow: 'visible' }}>
-        {/* Target line */}
-        {targetY != null && (
-          <>
-            <line x1={padL} y1={targetY} x2={W - padR} y2={targetY} stroke="#ef4444" strokeWidth={1} strokeDasharray="3 2" />
-            <text x={W - padR - 2} y={targetY - 3} textAnchor="end" fontSize="7" fill="#ef4444">target</text>
-          </>
-        )}
-        {/* Bars */}
-        {weeks.map((w, i) => {
-          const x = toX(i)
-          const y = toY(w.revenue)
-          const bH = Math.max(0, cH - (y - padT))
-          const isHov = hovered === i
-          const hitTarget = target && w.revenue >= target
-          const color = hitTarget ? '#22c55e' : '#38bdf8'
-          return (
-            <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
-              onTouchStart={() => setHovered(i)} onTouchEnd={() => setHovered(null)}>
-              <rect x={x - barW / 2} y={y} width={barW} height={bH}
-                fill={color} opacity={isHov ? 1 : 0.75} rx={2} />
-              {isHov && w.revenue > 0 && (
-                <text x={x} y={y - 4} textAnchor="middle" fontSize="8" fontWeight="bold" fill="#0f172a">
-                  £{w.revenue.toFixed(0)}
-                </text>
-              )}
-              {showLabel(i) && (
-                <text x={x} y={H - 2} textAnchor="middle" fontSize="7.5" fill="#94a3b8">
-                  {w.label}
-                </text>
-              )}
-            </g>
-          )
-        })}
-      </svg>
-    </div>
-  )
-}
-
 export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings }) {
   const REVENUE_TARGET = settings?.revenueTarget ?? DEFAULT_REVENUE_TARGET
   const data = useMemo(() => {
@@ -1189,26 +1120,6 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       stockWindowLabel: last3.length > 0
         ? `last ${last3.length} completed month${last3.length !== 1 ? 's' : ''}`
         : 'available history',
-
-      // Weekly revenue — YTD from Jan 1
-      weeklyRevenue: (() => {
-        const yearStart = startOfWeek(new Date(today.getFullYear(), 0, 1), { weekStartsOn: 1 })
-        const thisWeekStart = startOfWeek(today, { weekStartsOn: 1 })
-        const weeks = []
-        let ws = new Date(yearStart)
-        while (ws <= thisWeekStart) {
-          const we = new Date(ws); we.setDate(we.getDate() + 6)
-          const label = `W${format(ws, 'w')}`
-          const rev = jobs.filter(j => {
-            if (!j.drop_off_date) return false
-            const d = parseISO(j.drop_off_date)
-            return d >= ws && d <= we
-          }).reduce((s, j) => s + jobTotal(j), 0)
-          weeks.push({ label, value: rev })
-          ws = new Date(ws); ws.setDate(ws.getDate() + 7)
-        }
-        return weeks
-      })(),
     }
   }, [jobs_raw, customers])
 
@@ -1236,7 +1147,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
     forecastActual, forecastY1, forecastY2, forecastFitMonths,
     capacityFromActuals, bestMonthLabel, bestMonthRevenue, ceilingWeeklyUnits, avgUnitPriceOverall,
-    avgUnitPriceThisMonth, weeklyRevenue,
+    avgUnitPriceThisMonth,
     stockRates, stockHistoryWeeks, stockWindowLabel,
   } = data
 
@@ -1598,13 +1509,6 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
               </div>
             </div>
             <LineChart data={revenueChartData} color="#22c55e" target={REVENUE_TARGET} valueFormat={v => `£${v.toFixed(0)}`} todayFrac={todayFrac} />
-          </div>
-
-          {/* Weekly revenue chart */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-2">
-            <p className="text-sm font-semibold text-slate-700 mb-0.5">Revenue by Week</p>
-            <p className="text-[10px] text-slate-400 mb-3">YTD · by drop-off date</p>
-            <LineChart data={weeklyRevenue} color="#22c55e" valueFormat={v => `£${v.toFixed(0)}`} />
           </div>
 
           {/* Target progress bar + run rate */}
