@@ -1514,7 +1514,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
           <div className="px-4 py-3 flex items-center gap-3">
             <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
             <div>
-              <h1 className="text-white font-bold text-lg leading-none">Work Flow</h1>
+              <h1 className="text-white font-bold text-lg leading-none">Work State</h1>
               <p className="text-slate-400 text-xs mt-1">Business insights</p>
             </div>
           </div>
@@ -1542,7 +1542,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
         <div className="px-4 py-3 flex items-center gap-3">
           <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
           <div>
-            <h1 className="text-white font-bold text-lg leading-none">Work Flow</h1>
+            <h1 className="text-white font-bold text-lg leading-none">Work State</h1>
             <p className="text-slate-400 text-xs mt-1">Business insights</p>
           </div>
         </div>

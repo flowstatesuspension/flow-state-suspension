@@ -458,7 +458,7 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
         <div className="px-4 pt-3 pb-4 flex items-center gap-3">
           <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
           <div className="flex-1">
-            <h1 className="text-white font-bold text-lg leading-none tracking-tight">Work Flow</h1>
+            <h1 className="text-white font-bold text-lg leading-none tracking-tight">Work State</h1>
             <p className="text-slate-400 text-xs mt-1">{format(today, 'EEEE d MMMM')}</p>
           </div>
           <div className="text-right">

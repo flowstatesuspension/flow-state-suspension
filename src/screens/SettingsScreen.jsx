@@ -293,7 +293,7 @@ export default function SettingsScreen({ jobs, customers, settings, updateSettin
         <div className="px-4 pt-3 pb-4 flex items-center gap-3">
           <img src="/logo.png" alt="logo" className="h-10 w-auto shrink-0" />
           <div>
-            <h1 className="text-white font-bold text-lg leading-none tracking-tight">Work Flow</h1>
+            <h1 className="text-white font-bold text-lg leading-none tracking-tight">Work State</h1>
             <p className="text-slate-400 text-xs mt-1">Settings</p>
           </div>
         </div>
@@ -382,7 +382,7 @@ export default function SettingsScreen({ jobs, customers, settings, updateSettin
           </button>
         </Accordion>
 
-        <p className="text-center text-xs text-slate-300 pt-2">Flow State Suspension · Work Flow</p>
+        <p className="text-center text-xs text-slate-300 pt-2">Flow State Suspension · Work State</p>
       </div>
     </div>
   )
