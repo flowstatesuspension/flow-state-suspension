@@ -408,24 +408,47 @@ function GlanceCard({ benchJobs, benchUnits, dueToday, blocked, monthRev, target
 }
 
 // ── Mini schedule row (Today / Coming Up) ─────────────────────────────────────
-function ScheduleRow({ job, label, sublabel, onClick }) {
+// Pass done/onToggleDone to make the row tickable — used on Today so arrivals
+// and collections can be checked off as they happen.
+function ScheduleRow({ job, label, sublabel, onClick, done, onToggleDone }) {
+  const tickable = typeof onToggleDone === 'function'
   return (
-    <button onClick={onClick}
-      className="w-full flex items-center gap-3 bg-white rounded-xl border border-slate-100 px-3 py-2.5 text-left active:bg-slate-50">
-      {label && (
-        <div className="w-12 shrink-0 text-center">
-          <p className="text-xs font-bold text-slate-700">{label}</p>
-          {sublabel && <p className="text-[10px] text-slate-400">{sublabel}</p>}
-        </div>
+    <div className={`flex items-center gap-2 bg-white rounded-xl border border-slate-100 pr-3 py-2.5 transition-opacity ${
+      tickable ? 'pl-2' : 'pl-3'} ${done ? 'opacity-55' : ''}`}>
+      {tickable && (
+        <button
+          onClick={onToggleDone}
+          aria-pressed={!!done}
+          aria-label={done ? `Undo — ${job.customers?.name || 'job'}` : `Mark ${sublabel || 'done'} — ${job.customers?.name || 'job'}`}
+          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+            done ? 'bg-green-500 border-green-500' : 'border-slate-300 active:border-slate-400'
+          }`}
+        >
+          {done && (
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
       )}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate">{job.customers?.name || '—'}</p>
-        <p className="text-xs text-slate-400 truncate">
-          {job.units?.map(u => `${u.brand} ${u.model}`).join(' · ')}
-        </p>
-      </div>
-      <span className="text-sm font-bold text-slate-600 shrink-0">£{jobTotal(job).toFixed(0)}</span>
-    </button>
+      <button onClick={onClick} className="flex-1 flex items-center gap-3 min-w-0 text-left active:opacity-70">
+        {label && (
+          <div className="w-11 shrink-0 text-center">
+            <p className="text-xs font-bold text-slate-700">{label}</p>
+            {sublabel && <p className="text-[10px] text-slate-400">{sublabel}</p>}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-semibold text-slate-800 truncate ${done ? 'line-through' : ''}`}>
+            {job.customers?.name || '—'}
+          </p>
+          <p className="text-xs text-slate-400 truncate">
+            {job.units?.map(u => `${u.brand} ${u.model}`).join(' · ')}
+          </p>
+        </div>
+        <span className="text-sm font-bold text-slate-600 shrink-0">£{jobTotal(job).toFixed(0)}</span>
+      </button>
+    </div>
   )
 }
 
@@ -518,7 +541,7 @@ function StockView({ weekJobs, allJobs, scope, onScopeChange, onPillClick }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
-export default function DashboardScreen({ jobs, customers, todos = [], loading, saveJob, deleteJob, archiveJob, restoreJob, addTodo, updateTodo, toggleTodo, deleteTodo, settings, refresh, activeTimer, onStartTimer, timerStopKey }) {
+export default function DashboardScreen({ jobs, customers, todos = [], loading, saveJob, deleteJob, archiveJob, restoreJob, setJobArrived, setJobCollected, addTodo, updateTodo, toggleTodo, deleteTodo, settings, refresh, activeTimer, onStartTimer, timerStopKey }) {
   const [editJob, setEditJob] = useState(null)
   const [alertPicker, setAlertPicker] = useState(null) // { jobs, title, color }
   const [showAddTodo, setShowAddTodo] = useState(false)
@@ -572,6 +595,12 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
 
   // Todos
   const todayTodos = todos.filter(t => t.due_date === todayStr)
+
+  // Today's checklist progress — arrivals in, collections out
+  const todayMovements = dropOffsToday.length + pickupsToday.length
+  const todayMovementsDone =
+    dropOffsToday.filter(j => j.arrived_at).length +
+    pickupsToday.filter(j => j.collected_at).length
 
   // Coming up — drop-offs AND pickups in next 7 days, exclude all-on-hold
   const next7 = Array.from({ length: 7 }, (_, i) => addDays(today, i + 1))
@@ -676,7 +705,16 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
           {(dropOffsToday.length > 0 || pickupsToday.length > 0 || todayTodos.length > 0 || showAddTodo) && (
             <div id="dash-today">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today</p>
+                  {todayMovements > 0 && (
+                    <span className={`text-[10px] font-bold ${
+                      todayMovementsDone === todayMovements ? 'text-green-600' : 'text-slate-400'
+                    }`}>
+                      {todayMovementsDone}/{todayMovements} done
+                    </span>
+                  )}
+                </div>
                 <button onClick={() => { setAddTodoDate(todayStr); setShowAddTodo(true) }}
                   className="flex items-center gap-1 text-[10px] font-bold text-amber-600 active:text-amber-700">
                   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -694,13 +732,17 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
                 ))}
                 {dropOffsToday.map(job => (
                   <ScheduleRow key={`in-${job.id}`} job={job}
-                    label="IN" sublabel="drop-off"
-                    onClick={() => setEditJob(job)} />
+                    label="IN" sublabel="arrived"
+                    onClick={() => setEditJob(job)}
+                    done={!!job.arrived_at}
+                    onToggleDone={setJobArrived && (() => setJobArrived(job.id, !job.arrived_at))} />
                 ))}
                 {pickupsToday.map(job => (
                   <ScheduleRow key={`out-${job.id}`} job={job}
-                    label="OUT" sublabel="pickup"
-                    onClick={() => setEditJob(job)} />
+                    label="OUT" sublabel="collected"
+                    onClick={() => setEditJob(job)}
+                    done={!!job.collected_at}
+                    onToggleDone={setJobCollected && (() => setJobCollected(job.id, !job.collected_at))} />
                 ))}
               </div>
             </div>

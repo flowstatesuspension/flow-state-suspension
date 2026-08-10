@@ -190,6 +190,18 @@ export function useData() {
     if (failed) { await fetchAll({ silent: true }); throw failed.error }
   }
 
+  // Physical movement in and out of the workshop, tracked separately from work
+  // status — a job can be finished but still on the shelf waiting to be collected.
+  async function setJobTimestamp(id, field, on) {
+    const value = on ? new Date().toISOString() : null
+    setJobs(prev => prev.map(j => (j.id === id ? { ...j, [field]: value } : j)))
+    const { error } = await supabase.from('jobs').update({ [field]: value }).eq('id', id)
+    if (error) { await fetchAll({ silent: true }); throw error }
+  }
+
+  const setJobArrived   = (id, on) => setJobTimestamp(id, 'arrived_at', on)
+  const setJobCollected = (id, on) => setJobTimestamp(id, 'collected_at', on)
+
   async function archiveJob(id) {
     const { error } = await supabase.from('jobs').update({ archived: true }).eq('id', id)
     if (error) throw error
@@ -208,5 +220,5 @@ export function useData() {
     await fetchAll()
   }
 
-  return { jobs, customers, todos, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, refresh: fetchAll }
+  return { jobs, customers, todos, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, setJobArrived, setJobCollected, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, refresh: fetchAll }
 }
