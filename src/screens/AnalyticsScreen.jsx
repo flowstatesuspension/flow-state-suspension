@@ -451,10 +451,19 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
           )
         })}
 
-        {todayFrac !== null && todayFrac >= 0 && todayFrac <= n - 1 && (
-          <line x1={toX(todayFrac)} y1={padT} x2={toX(todayFrac)} y2={padT + cH}
-            stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
-        )}
+        {/* Today marker — drops from the line to the baseline, so it never runs
+            up through the point's value label */}
+        {todayFrac !== null && todayFrac >= 0 && todayFrac <= n - 1 && (() => {
+          const i0 = Math.floor(todayFrac)
+          const i1 = Math.min(i0 + 1, n - 1)
+          const t = todayFrac - i0
+          const vAt = data[i0].value + (data[i1].value - data[i0].value) * t
+          const x = toX(todayFrac)
+          return (
+            <line x1={x} y1={toY(vAt)} x2={x} y2={padT + cH}
+              stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
+          )
+        })()}
 
         {data.map((d, i) => (
           <text key={i} x={toX(i)} y={H - 1} textAnchor="middle" fontSize="8" fill="#94a3b8">
