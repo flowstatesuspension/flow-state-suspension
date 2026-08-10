@@ -8,8 +8,9 @@ export function useData() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
+  const fetchAll = useCallback(async (opts) => {
+    // Background refreshes (realtime, reorder) skip the spinner so the UI doesn't flash
+    if (!opts?.silent) setLoading(true)
     setError(null)
     try {
       const [{ data: jobsData, error: jobsErr }, { data: custsData, error: custsErr }, { data: todosData, error: todosErr }] =
@@ -18,6 +19,7 @@ export function useData() {
             .from('jobs')
             .select('*, units(*), customers(id, name, email, phone)')
             .eq('archived', false)
+            .order('sort_order', { ascending: true, nullsFirst: false })
             .order('drop_off_date', { ascending: true }),
           supabase.from('customers').select('*').order('name'),
           supabase.from('todos').select('*').order('due_date').order('created_at'),
@@ -38,12 +40,13 @@ export function useData() {
   useEffect(() => {
     fetchAll()
 
+    const silentRefresh = () => fetchAll({ silent: true })
     const jobsSub = supabase
       .channel('jobs-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, fetchAll)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, fetchAll)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, fetchAll)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, silentRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, silentRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, silentRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, silentRefresh)
       .subscribe()
 
     return () => supabase.removeChannel(jobsSub)
@@ -107,7 +110,9 @@ export function useData() {
     } else {
       const { data, error } = await supabase
         .from('jobs')
-        .insert({ customer_id: customerId, drop_off_date: jobData.drop_off_date, pickup_date: jobData.pickup_date, notes: jobData.notes })
+        // Date.now() sits far above the backfilled range, so new jobs land at the
+        // bottom of the manual work order until they're dragged into place
+        .insert({ customer_id: customerId, drop_off_date: jobData.drop_off_date, pickup_date: jobData.pickup_date, notes: jobData.notes, sort_order: Date.now() })
         .select('id')
         .single()
       if (error) throw error
@@ -165,6 +170,26 @@ export function useData() {
     await fetchAll()
   }
 
+  // Permute a set of jobs among the sort_order slots they already occupy, so
+  // jobs outside the visible list keep their position in the global order.
+  async function reorderJobs(updates) {
+    if (!updates?.length) return
+    const byId = new Map(updates.map(u => [u.id, u.sort_order]))
+    setJobs(prev => [...prev]
+      .map(j => (byId.has(j.id) ? { ...j, sort_order: byId.get(j.id) } : j))
+      .sort((a, b) => {
+        const av = a.sort_order == null ? Infinity : Number(a.sort_order)
+        const bv = b.sort_order == null ? Infinity : Number(b.sort_order)
+        if (av !== bv) return av - bv
+        return (a.drop_off_date || '').localeCompare(b.drop_off_date || '')
+      }))
+    const results = await Promise.all(
+      updates.map(u => supabase.from('jobs').update({ sort_order: u.sort_order }).eq('id', u.id))
+    )
+    const failed = results.find(r => r.error)
+    if (failed) { await fetchAll({ silent: true }); throw failed.error }
+  }
+
   async function archiveJob(id) {
     const { error } = await supabase.from('jobs').update({ archived: true }).eq('id', id)
     if (error) throw error
@@ -183,5 +208,5 @@ export function useData() {
     await fetchAll()
   }
 
-  return { jobs, customers, todos, loading, error, saveJob, deleteJob, archiveJob, restoreJob, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, refresh: fetchAll }
+  return { jobs, customers, todos, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, refresh: fetchAll }
 }

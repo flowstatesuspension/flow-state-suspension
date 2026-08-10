@@ -174,7 +174,7 @@ function TodoItemRow({ todo, onToggle, onEdit, onDelete }) {
   )
 }
 
-export default function JobsScreen({ jobs, customers, todos = [], loading, saveJob, deleteJob, archiveJob, restoreJob, addTodo, updateTodo, toggleTodo, deleteTodo, settings, onStartTimer, activeTimer, timerStopKey }) {
+export default function JobsScreen({ jobs, customers, todos = [], loading, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, addTodo, updateTodo, toggleTodo, deleteTodo, settings, onStartTimer, activeTimer, timerStopKey }) {
   const [calView, setCalView]       = useState('week')
   const [viewMode, setViewMode]     = useState('work')
   const [selectedJob, setSelectedJob] = useState(null)
@@ -213,6 +213,29 @@ export default function JobsScreen({ jobs, customers, todos = [], loading, saveJ
     }
     return { start: format(startOfMonth(monthAnchor), 'yyyy-MM-dd'), end: format(endOfMonth(monthAnchor), 'yyyy-MM-dd') }
   })()
+
+  // Reorder within the list a view is showing. The moved job takes over one of
+  // the sort_order slots this set already occupies, so jobs outside the list
+  // keep their place in the global order.
+  async function handleReorder(list, fromIndex, toIndex) {
+    if (!reorderJobs || fromIndex === toIndex) return
+    // Bail rather than scramble if any row hasn't been given a slot yet
+    if (list.some(j => j.sort_order == null)) return
+    const slots = list.map(j => Number(j.sort_order))
+    if (slots.some(v => !Number.isFinite(v))) return
+    slots.sort((a, b) => a - b)
+
+    const next = [...list]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(toIndex, 0, moved)
+
+    const current = new Map(list.map(j => [j.id, Number(j.sort_order)]))
+    const updates = next
+      .map((j, k) => ({ id: j.id, sort_order: slots[k] }))
+      .filter(u => current.get(u.id) !== u.sort_order)
+
+    try { await reorderJobs(updates) } catch { /* optimistic state is rolled back by the refetch */ }
+  }
 
   function openNew() {
     const defaultDate = calView === 'week' ? format(weekAnchor, 'yyyy-MM-dd') : undefined
@@ -307,10 +330,12 @@ export default function JobsScreen({ jobs, customers, todos = [], loading, saveJ
           </div>
         ) : calView === 'day' ? (
           <DayView jobs={jobs} onJobClick={openJob} viewMode={viewMode}
-            anchor={dayAnchor} onAnchorChange={setDayAnchor} settings={settings} />
+            anchor={dayAnchor} onAnchorChange={setDayAnchor} settings={settings}
+            onReorder={handleReorder} />
         ) : calView === 'week' ? (
           <GanttWeekView jobs={jobs} onJobClick={openJob} viewMode={viewMode}
-            anchor={weekAnchor} onAnchorChange={setWeekAnchor} settings={settings} />
+            anchor={weekAnchor} onAnchorChange={setWeekAnchor} settings={settings}
+            onReorder={handleReorder} />
         ) : (
           <MonthCalendar jobs={jobs} onJobClick={openJob} viewMode={viewMode}
             anchor={monthAnchor} onAnchorChange={setMonthAnchor} settings={settings} />

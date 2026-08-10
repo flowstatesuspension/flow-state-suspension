@@ -5,11 +5,14 @@ import {
   differenceInDays, max, min, isToday,
 } from 'date-fns'
 import { STATUS_CONFIG as BASE_STATUS_CONFIG, STATUS_ORDER as BASE_STATUS_ORDER } from '../constants'
+import { useDragReorder } from '../hooks/useDragReorder'
+import GripIcon from './GripIcon'
 
 const ROW_PAD = 8
 const UNIT_H = 26
 const UNIT_GAP = 3
 const MIN_COL_W = 80
+const GUTTER = 24 // sticky left column holding the drag handles
 
 function rowHeight(job) {
   const n = job.units?.length || 1
@@ -25,7 +28,7 @@ function copyToClipboard(text, e) {
   navigator.clipboard.writeText(text).catch(() => {})
 }
 
-export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange, settings }) {
+export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anchorProp, onAnchorChange, settings, onReorder }) {
   const STATUS_CONFIG = settings?.statusConfig ?? BASE_STATUS_CONFIG
   const STATUS_ORDER = settings?.statusOrder ?? BASE_STATUS_ORDER
   const [anchorLocal, setAnchorLocal] = useState(
@@ -35,12 +38,13 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anch
   const setAnchor = onAnchorChange ?? setAnchorLocal
   const [copied, setCopied] = useState(null)
   const containerRef = useRef(null)
+  const rowsRef = useRef(null)
   const [colW, setColW] = useState(MIN_COL_W)
 
   useLayoutEffect(() => {
     function measure() {
       if (!containerRef.current) return
-      const available = containerRef.current.clientWidth
+      const available = containerRef.current.clientWidth - GUTTER
       setColW(Math.max(MIN_COL_W, Math.floor(available / 7)))
     }
     measure()
@@ -51,7 +55,7 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anch
 
   const weekEnd = endOfWeek(anchor, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: anchor, end: weekEnd })
-  const chartW = days.length * colW
+  const chartW = GUTTER + days.length * colW
 
   const visible = jobs.filter(j => {
     if (!j.drop_off_date) return false
@@ -70,17 +74,24 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anch
   const allUnits = filtered.flatMap(j => j.units || [])
   const totalUnits = allUnits.length
 
+  const canReorder = viewMode === 'work' && !!onReorder
+  const { handleProps, rowStyle, isDragging } = useDragReorder({
+    containerRef: rowsRef,
+    enabled: canReorder,
+    onReorder: (from, to) => onReorder(filtered, from, to),
+  })
+
   function barBounds(job) {
     if (viewMode === 'booking') {
       // Single-day bar on drop-off date
       const d = parseISO(job.drop_off_date)
-      const left = differenceInDays(d, anchor) * colW + 2
+      const left = GUTTER + differenceInDays(d, anchor) * colW + 2
       const width = colW - 4
       return { left, width }
     }
     const s = max([parseISO(job.drop_off_date), anchor])
     const e = min([parseISO(job.pickup_date), weekEnd])
-    const left = differenceInDays(s, anchor) * colW + 2
+    const left = GUTTER + differenceInDays(s, anchor) * colW + 2
     const width = (differenceInDays(e, s) + 1) * colW - 4
     return { left, width }
   }
@@ -130,12 +141,18 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anch
       </div>
 
       {/* Chart — full width, no label column */}
-      <div className="flex-1 overflow-auto scrollbar-none" ref={containerRef} style={{ overscrollBehavior: 'none' }}>
+      <div className="flex-1 overflow-auto scrollbar-none" ref={containerRef}
+        style={{ overscrollBehavior: 'none', touchAction: isDragging ? 'none' : undefined }}>
         {/* Day headers */}
         <div
           className="sticky top-0 z-10 flex bg-white border-b border-slate-200"
           style={{ height: 40, width: chartW }}
         >
+          {/* Gutter spacer — matches the drag-handle column below */}
+          <div
+            className="shrink-0 bg-white border-r border-slate-100"
+            style={{ position: 'sticky', left: 0, width: GUTTER, zIndex: 2 }}
+          />
           {days.map(day => (
             <div
               key={day.toISOString()}
@@ -155,31 +172,52 @@ export default function GanttWeekView({ jobs, onJobClick, viewMode, anchor: anch
         </div>
 
         {/* Job rows */}
-        <div style={{ width: chartW }}>
+        <div style={{ width: chartW }} ref={rowsRef}>
           {filtered.length === 0 && (
             <div className="flex items-center justify-center h-32 text-slate-300 text-sm">
               No jobs this week
             </div>
           )}
 
-          {filtered.map(job => {
+          {filtered.map((job, index) => {
             const { left, width } = barBounds(job)
             const h = rowHeight(job)
             const firstName = firstNames(job.customers?.name)
             return (
               <div
                 key={job.id}
-                className="relative border-b border-slate-100"
-                style={{ height: h }}
+                data-reorder-row
+                className="relative border-b border-slate-100 bg-white"
+                style={{ height: h, ...rowStyle(index) }}
               >
                 {/* Grid lines */}
                 {days.map((_, i) => (
                   <div
                     key={i}
                     className="absolute top-0 bottom-0 border-r border-slate-100"
-                    style={{ left: i * colW, width: colW }}
+                    style={{ left: GUTTER + i * colW, width: colW }}
                   />
                 ))}
+
+                {/* Sticky drag handle */}
+                {canReorder && (
+                  <div
+                    {...handleProps(index)}
+                    className="flex items-center justify-center bg-white border-r border-slate-100 text-slate-300 active:text-sky-500 cursor-grab active:cursor-grabbing select-none"
+                    style={{
+                      ...handleProps(index).style,
+                      position: 'sticky',
+                      left: 0,
+                      top: 0,
+                      width: GUTTER,
+                      height: '100%',
+                      zIndex: 6,
+                    }}
+                    aria-label={`Reorder ${firstName}'s job`}
+                  >
+                    <GripIcon />
+                  </div>
+                )}
 
                 {/* Unit bars */}
                 {(job.units || []).map((unit, idx) => {
