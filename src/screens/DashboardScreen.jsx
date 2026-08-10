@@ -350,14 +350,15 @@ function CompactJobRow({ job, today, statusConfig, expanded, onToggle, onOpen, a
 }
 
 // ── Glance tiles + workshop state bar ────────────────────────────────────────
-function GlanceCard({ benchJobs, benchUnits, dueToday, blocked, monthRev, target, statusConfig, statusOrder, onJump }) {
+function GlanceCard({ benchJobs, benchUnits, weekUnits, dueIn, dueOut, blocked, monthRev, target, statusConfig, statusOrder, onJump }) {
   const targetPct = target > 0 ? Math.round((monthRev / target) * 100) : 0
   const counts = (statusOrder || []).map(s => ({
     key: s,
     cfg: statusConfig?.[s] ?? FALLBACK_CFG,
-    n: benchUnits.filter(u => u.status === s).length,
+    n: weekUnits.filter(u => u.status === s).length,
   })).filter(s => s.n > 0)
-  const totalUnits = benchUnits.length
+  const totalUnits = weekUnits.length
+  const benchCount = benchUnits.length
 
   const Tile = ({ value, label, sub, tone, target: jumpTo }) => (
     <button onClick={() => onJump?.(jumpTo)}
@@ -371,8 +372,8 @@ function GlanceCard({ benchJobs, benchUnits, dueToday, blocked, monthRev, target
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <div className="grid grid-cols-4">
-        <Tile value={benchJobs} label="Bench" sub={`${totalUnits} unit${totalUnits !== 1 ? 's' : ''}`} jumpTo="bench" />
-        <Tile value={dueToday} label="Due today" sub="pickups" jumpTo="today" />
+        <Tile value={benchJobs} label="Bench" sub={`${benchCount} unit${benchCount !== 1 ? 's' : ''}`} jumpTo="bench" />
+        <Tile value={dueIn + dueOut} label="Due today" sub={`${dueIn} in · ${dueOut} out`} jumpTo="today" />
         <Tile value={blocked} label="Blocked" sub="on parts" tone={blocked > 0 ? 'text-red-500' : undefined} jumpTo="bench" />
         <Tile
           value={`£${monthRev >= 1000 ? `${(monthRev / 1000).toFixed(1)}k` : monthRev.toFixed(0)}`}
@@ -385,7 +386,7 @@ function GlanceCard({ benchJobs, benchUnits, dueToday, blocked, monthRev, target
       {totalUnits > 0 && (
         <div className="border-t border-slate-100 px-3 py-2.5">
           <div className="flex items-baseline justify-between mb-1.5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Workshop state</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">This week</p>
             <span className="text-[10px] text-slate-400">{totalUnits} units</span>
           </div>
           <div className="flex gap-[1.5px] h-2 rounded-full overflow-hidden">
@@ -597,6 +598,19 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
   const blockedUnits = benchUnits.filter(u => u.status === 'awaiting_parts').length
   const revThisMonth = monthRevenue(jobs, today)
 
+  // Units passing through the workshop at any point this week — what the status
+  // bar reflects. Completed work is included so you can see the week filling in.
+  const weekStartStr = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekEndStr   = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekUnits = jobs
+    .filter(j => {
+      if (!j.drop_off_date || allOnHold(j)) return false
+      if (j.drop_off_date > weekEndStr) return false
+      if (j.pickup_date && j.pickup_date < weekStartStr) return false
+      return true
+    })
+    .flatMap(j => (j.units || []).filter(u => u.status !== 'on_hold'))
+
   // Alert buckets (live, unfiltered)
   const overdueJobs      = inWorkshop.filter(j => isOverdue(j, today))
   const awaitingPartJobs = inWorkshop.filter(j => j.units?.some(u => u.status === 'awaiting_parts'))
@@ -655,7 +669,9 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
           <GlanceCard
             benchJobs={inWorkshop.length}
             benchUnits={benchUnits}
-            dueToday={pickupsToday.length}
+            weekUnits={weekUnits}
+            dueIn={dropOffsToday.length}
+            dueOut={pickupsToday.length}
             blocked={blockedUnits}
             monthRev={revThisMonth}
             target={settings?.revenueTarget ?? 3000}
