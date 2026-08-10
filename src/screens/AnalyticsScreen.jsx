@@ -338,12 +338,14 @@ function ForecastChart({ historical, y1, y2, target, capacity }) {
   const divX1    = hLen > 0 ? toX(hLen - 0.5) : null
   const divX2    = hLen > 0 && y1.length > 0 ? toX(hLen + y1.length - 0.5) : null
 
-  const hovTip = (pts, seg, data) => {
+  // y1Pts/y2Pts carry a prepended connector point, so the data index lags the point index
+  const hovTip = (pts, seg, data, offset = 0) => {
     if (!hovered || hovered.seg !== seg) return null
     const idx = hovered.i
-    if (!pts[idx]) return null
+    const item = data[idx - offset]
+    if (!pts[idx] || !item) return null
     const [x, y] = pts[idx]
-    const label = `£${data[idx].revenue.toLocaleString()}`
+    const label = `£${item.revenue.toLocaleString()}`
     const tipW = label.length * 5.5 + 10
     const tipX = Math.min(Math.max(x - tipW / 2, padL), W - padR - tipW)
     return (
@@ -401,7 +403,7 @@ function ForecastChart({ historical, y1, y2, target, capacity }) {
         {y2Pts.length > 1 && <path d={pathOf(y2Pts)} fill="none" stroke="#a855f7" strokeWidth="1.8" strokeDasharray="5 3" strokeLinejoin="round" />}
         {y2Pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={hovered?.seg==='y2'&&hovered.i===i?4:2} fill="#a855f7" stroke="#fff" strokeWidth="1.2" />)}
         {y2Pts.map(([x], i) => <rect key={i} x={x-10} y={padT} width={20} height={cH} fill="transparent" onMouseEnter={() => setHovered({ seg:'y2', i })} onMouseLeave={() => setHovered(null)} />)}
-        {hovTip(y2Pts, 'y2', y2)}
+        {hovTip(y2Pts, 'y2', y2, y1Pts.length ? 1 : 0)}
 
         {/* 2026 green area spanning full year (actual + projected) — drawn before the lines */}
         {(() => {
@@ -413,7 +415,7 @@ function ForecastChart({ historical, y1, y2, target, capacity }) {
         {y1Pts.length > 1 && <path d={pathOf(y1Pts)} fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeDasharray="5 3" strokeLinejoin="round" />}
         {y1Pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={hovered?.seg==='y1'&&hovered.i===i?4:2} fill="#38bdf8" stroke="#fff" strokeWidth="1.2" />)}
         {y1Pts.map(([x], i) => <rect key={i} x={x-10} y={padT} width={20} height={cH} fill="transparent" onMouseEnter={() => setHovered({ seg:'y1', i })} onMouseLeave={() => setHovered(null)} />)}
-        {hovTip(y1Pts, 'y1', y1)}
+        {hovTip(y1Pts, 'y1', y1, histPts.length ? 1 : 0)}
 
         {/* Actual green solid line on top */}
         {histPts.length > 1 && <path d={pathOf(histPts)} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
@@ -969,62 +971,135 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     const unitsChartData = months.map(m => ({ label: m.label, value: m.unitCount || 0 }))
     const todayFrac = thisMonthIdx >= 0 ? thisMonthIdx : null
 
-    // Revenue forecast — calendar year 2026 (actual + projected) and 2027 (fully projected)
+    // ── Revenue forecast ──────────────────────────────────────────────────────
+    // Method: deseasonalise completed months, fit a linear trend, then project
+    // forward with a damped slope and re-apply the seasonal shape.
+    //
+    // Damping matters: compounding a monthly growth % over 29 months sends any
+    // positive rate through the roof, which just pins every future month to the
+    // capacity ceiling and erases the seasonal pattern. A damped linear trend
+    // grows quickly near term and flattens out long term, which is how a
+    // one-bench workshop actually behaves.
+    const FORECAST_Y1 = 2026
+    const FORECAST_Y2 = 2027
+    const thisMonthNum = today.getMonth()
+    const thisYearNum = today.getFullYear()
+
+    // Seasonal indices normalised to mean 1.0 — the raw table averages 0.91,
+    // which would inflate every deseasonalised figure by ~10%.
+    const seasonMean = SEASONAL_IDX.reduce((s, v) => s + v, 0) / SEASONAL_IDX.length
+    const SEASON = SEASONAL_IDX.map(v => v / seasonMean)
+
+    // A stable unit price for the capacity ceiling — this month's average is
+    // based on a partial month and swings around too much to anchor a forecast.
+    const pricedUnits = allUnits.filter(u => (parseFloat(u.price) || 0) > 0)
+    const avgUnitPriceOverall = pricedUnits.length
+      ? pricedUnits.reduce((s, u) => s + (parseFloat(u.price) || 0), 0) / pricedUnits.length
+      : avgUnitPriceThisMonth
+
     function monthCapacityRevenue(d) {
       const wd = workingDays(startOfMonth(d), endOfMonth(d))
-      return (wd / 5) * weeklyCapacity * avgUnitPriceThisMonth
+      return (wd / 5) * weeklyCapacity * avgUnitPriceOverall
     }
-    // Growth rate: seasonal decomposition per adjacent completed-month pair
-    // For each pair: business growth = raw revenue change ÷ seasonal index change
-    // This isolates real business growth from seasonal uplift.
-    // Linear regression on adjusted values fails for a Jan-start business growing into summer
-    // because the business grew in proportion to the season, making the adjusted slope ~0.
-    const businessMomRates = []
-    for (let i = 1; i < activeHistMonths.length; i++) {
-      const prev = activeHistMonths[i - 1]
-      const curr = activeHistMonths[i]
-      if (prev.revenue > 0) {
-        const rawChange = curr.revenue / prev.revenue
-        const seasonalChange = SEASONAL_IDX[curr.start.getMonth()] / SEASONAL_IDX[prev.start.getMonth()]
-        businessMomRates.push(rawChange / seasonalChange - 1)
-      }
-    }
-    const avgBusinessMom = businessMomRates.length > 0
-      ? businessMomRates.reduce((s, v) => s + v, 0) / businessMomRates.length
-      : 0.05
-    // Floor at 3%/month — a new business with confirmed growing customers/jobs
-    // cannot have zero underlying growth even if seasonal adjustment suggests otherwise
-    let effectiveGrowthRate = Math.max(Math.min(avgBusinessMom, 0.20), 0.03)
-    const forecastBase = seasonallyAdjRevenue > 0 ? seasonallyAdjRevenue : (settings?.defaultUnitPrice ?? 120) * weeklyCapacity * 4
-    const thisMonthNum = today.getMonth()
 
-    // Calendar year 2026: actual months where data exists, projected for rest
-    const year2026 = Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(2026, i, 1)
-      const isPast = d < startOfMonth(today)
-      const matchMonth = months.find(m => m.start.getFullYear() === 2026 && m.start.getMonth() === i)
-      if (isPast && matchMonth?.revenue > 0) {
-        return { label: format(d, 'MMM'), revenue: matchMonth.revenue, cap: Math.round(monthCapacityRevenue(d)), type: 'actual' }
+    // Revenue for a calendar month, straight from jobs. The `months` window only
+    // reaches 6 months back, so anything earlier in the year has to come from here.
+    function revenueForMonth(year, monthIdx) {
+      const start = new Date(year, monthIdx, 1)
+      const end = endOfMonth(start)
+      return jobs.reduce((s, j) => {
+        if (!j.drop_off_date) return s
+        const d = parseISO(j.drop_off_date)
+        return d >= start && d <= end ? s + jobTotal(j) : s
+      }, 0)
+    }
+
+    // Absolute month index, 0 = Jan 2026 … 23 = Dec 2027
+    const absOf = (year, mi) => (year - FORECAST_Y1) * 12 + mi
+    const nowAbs = absOf(thisYearNum, thisMonthNum)
+
+    // Fit on completed months only — the in-progress month is partial and would
+    // drag the trend down.
+    const monthRevenue = Array.from({ length: 24 }, (_, m) =>
+      revenueForMonth(FORECAST_Y1 + Math.floor(m / 12), m % 12)
+    )
+    const fitPoints = []
+    for (let m = 0; m < Math.min(nowAbs, 24); m++) {
+      if (monthRevenue[m] > 0) fitPoints.push({ x: m, y: monthRevenue[m] / SEASON[m % 12] })
+    }
+
+    // Least-squares trend on the deseasonalised series
+    let trendLevel, trendSlope
+    if (fitPoints.length >= 3) {
+      const n = fitPoints.length
+      const sx = fitPoints.reduce((s, p) => s + p.x, 0)
+      const sy = fitPoints.reduce((s, p) => s + p.y, 0)
+      const sxx = fitPoints.reduce((s, p) => s + p.x * p.x, 0)
+      const sxy = fitPoints.reduce((s, p) => s + p.x * p.y, 0)
+      const denom = n * sxx - sx * sx
+      trendSlope = denom !== 0 ? (n * sxy - sx * sy) / denom : 0
+      const intercept = (sy - trendSlope * sx) / n
+      trendLevel = intercept + trendSlope * (nowAbs - 1) // fitted value at the last completed month
+    } else if (fitPoints.length > 0) {
+      trendLevel = fitPoints.reduce((s, p) => s + p.y, 0) / fitPoints.length
+      trendSlope = 0
+    } else {
+      trendLevel = ((21 / 5) * weeklyCapacity * avgUnitPriceOverall) * 0.5
+      trendSlope = 0
+    }
+    trendLevel = Math.max(trendLevel, 0)
+
+    // Damped trend: slope × (φ + φ² + … + φᵏ). Converges to slope × φ/(1−φ),
+    // so the long-run forecast stays bounded instead of compounding away.
+    const DAMP = 0.85
+    const dampedGain = k => (k <= 0 ? 0 : trendSlope * DAMP * (1 - Math.pow(DAMP, k)) / (1 - DAMP))
+
+    // Soft ceiling — keeps the seasonal shape visible as the forecast approaches
+    // capacity instead of clipping it into a dead-flat plateau.
+    function softCap(v, cap) {
+      if (!cap || cap <= 0) return v
+      const knee = cap * 0.8
+      if (v <= knee) return v
+      const room = cap - knee
+      return knee + room * (1 - Math.exp(-(v - knee) / room))
+    }
+
+    // 24 months, Jan 2026 → Dec 2027, always in calendar order
+    const forecastMonths = Array.from({ length: 24 }, (_, m) => {
+      const year = FORECAST_Y1 + Math.floor(m / 12)
+      const mi = m % 12
+      const d = new Date(year, mi, 1)
+      const cap = Math.round(monthCapacityRevenue(d))
+      const base = { label: format(d, 'MMM'), year, month: mi, cap }
+
+      if (m < nowAbs) {
+        return { ...base, revenue: Math.round(monthRevenue[m]), type: 'actual' }
       }
-      const monthsAhead = i - thisMonthNum
-      const growFactor = Math.pow(1 + effectiveGrowthRate, Math.max(monthsAhead, 0))
-      const cap = monthCapacityRevenue(d)
-      return { label: format(d, 'MMM'), revenue: Math.round(Math.min(forecastBase * growFactor * SEASONAL_IDX[i], cap)), cap: Math.round(cap), type: 'projected' }
+      const projected = softCap(Math.max(0, trendLevel + dampedGain(m - (nowAbs - 1))) * SEASON[mi], cap)
+      if (m === nowAbs) {
+        // In progress — never show less than what's already booked
+        return { ...base, revenue: Math.round(Math.max(projected, monthRevenue[m])), type: 'current' }
+      }
+      return { ...base, revenue: Math.round(projected), type: 'projected' }
     })
 
-    // Calendar year 2027: all projected, growth compounded from current month forward
-    const monthsToJan2027 = 12 - thisMonthNum
-    const year2027 = Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(2027, i, 1)
-      const cap = monthCapacityRevenue(d)
-      const growFactor = Math.pow(1 + effectiveGrowthRate, monthsToJan2027 + i)
-      return { label: format(d, 'MMM'), revenue: Math.round(Math.min(forecastBase * growFactor * SEASONAL_IDX[i], cap)), cap: Math.round(cap), type: 'projected' }
-    })
+    // Split as a prefix/suffix so months can never be reordered into the wrong bucket
+    const splitIdx = Math.min(Math.max(nowAbs + 1, 0), 24)
+    const settled = forecastMonths.slice(0, splitIdx)
+    const pending = forecastMonths.slice(splitIdx)
+    const year2026 = forecastMonths.slice(0, 12)
+    const year2027 = forecastMonths.slice(12, 24)
+    const forecastActual = settled
+    const forecastY1 = pending.filter(m => m.year === FORECAST_Y1)
+    const forecastY2 = pending.filter(m => m.year === FORECAST_Y2)
 
     const y1Total = Math.round(year2026.reduce((s, m) => s + m.revenue, 0))
     const y2Total = Math.round(year2027.reduce((s, m) => s + m.revenue, 0))
-    const avgMonthlyCapacityRevenue = Math.round((21 / 5) * weeklyCapacity * avgUnitPriceThisMonth)
-    // Keep aliases for legacy references
+    const avgMonthlyCapacityRevenue = Math.round((21 / 5) * weeklyCapacity * avgUnitPriceOverall)
+
+    // Underlying month-on-month growth at today's level, before damping
+    const effectiveGrowthRate = trendLevel > 0 ? trendSlope / trendLevel : 0
+    const forecastFitMonths = fitPoints.length
     const y1Forecast = year2026, y2Forecast = year2027
 
     return {
@@ -1049,6 +1124,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
       unitsChartData, todayFrac, historicalMonths, pipelineMonths,
       year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
+      forecastActual, forecastY1, forecastY2, forecastFitMonths,
       avgUnitPriceThisMonth,
 
       // Stock predictor: based on the same recent window as the revenue rolling avg (last 3 completed months)
@@ -1128,6 +1204,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
     unitsChartData, todayFrac, historicalMonths, pipelineMonths,
     year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
+    forecastActual, forecastY1, forecastY2, forecastFitMonths,
     avgUnitPriceThisMonth, weeklyRevenue,
     stockRates, stockHistoryWeeks, stockWindowLabel,
   } = data
@@ -1219,18 +1296,31 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
   }
 
   function forecastInsight() {
+    if (forecastFitMonths < 3) {
+      return `Only ${forecastFitMonths} completed month${forecastFitMonths !== 1 ? 's' : ''} of revenue so far, so the forecast holds your current level flat and just applies the seasonal pattern. Once you have three completed months a growth trend can be fitted and these numbers will sharpen considerably.`
+    }
     const growthPct = Math.round(effectiveGrowthRate * 100)
     const y2VsY1 = y1Total > 0 ? Math.round(((y2Total - y1Total) / y1Total) * 100) : 0
     const y1Monthly = Math.round(y1Total / 12)
     const y2Monthly = Math.round(y2Total / 12)
-    const hitTargetY1 = y1Monthly >= REVENUE_TARGET
-    let txt = `Forecast uses your current seasonally-adjusted base and ${growthPct}% monthly underlying growth (linear trend on completed months). `
-    txt += `2026 projects £${y1Total.toLocaleString()} annual revenue (£${y1Monthly.toLocaleString()}/month avg) — `
-    txt += hitTargetY1 ? `averaging above your £${REVENUE_TARGET.toLocaleString()} monthly target. ` : `averaging below your £${REVENUE_TARGET.toLocaleString()} target — keep growing. `
-    txt += `2027 projects £${y2Total.toLocaleString()} (£${y2Monthly.toLocaleString()}/month avg), ${y2VsY1 >= 0 ? '+' : ''}${y2VsY1}% vs 2026. `
+    const actualSoFar = year2026.filter(m => m.type === 'actual').reduce((s, m) => s + m.revenue, 0)
+
+    let txt = `Built from ${forecastFitMonths} completed months: each is stripped of its seasonal factor, a trend is fitted through them, then the seasonal shape is put back on top. `
+    txt += growthPct > 0
+      ? `Underlying growth is running at about ${growthPct}% a month, damped as it projects further out so the long-range numbers stay realistic rather than compounding away. `
+      : `The underlying trend is flat, so the forecast is your current level shaped by season alone. `
+    txt += `2026 lands at £${y1Total.toLocaleString()} (£${actualSoFar.toLocaleString()} banked so far, £${y1Monthly.toLocaleString()}/month average) — `
+    txt += y1Monthly >= REVENUE_TARGET
+      ? `above your £${REVENUE_TARGET.toLocaleString()} monthly target. `
+      : `below your £${REVENUE_TARGET.toLocaleString()} target on a full-year average, though peak months clear it. `
+    txt += `2027 projects £${y2Total.toLocaleString()} (£${y2Monthly.toLocaleString()}/month), ${y2VsY1 >= 0 ? '+' : ''}${y2VsY1}% on 2026. `
+
     const capPeak27 = year2027.reduce((max, m) => Math.max(max, m.revenue), 0)
-    if (capPeak27 >= avgMonthlyCapacityRevenue * 0.9) txt += `Peak months in 2027 approach full capacity — you'll need to consider increasing your weekly throughput to capture that demand.`
-    else txt += `2027 peak months remain within your current capacity, so growth can be absorbed without adding resource.`
+    if (capPeak27 >= avgMonthlyCapacityRevenue * 0.9) {
+      txt += `Summer 2027 runs into your capacity ceiling of roughly £${avgMonthlyCapacityRevenue.toLocaleString()}/month — that is the binding constraint on growth, not demand. More throughput or a higher average unit price is the only way past it.`
+    } else {
+      txt += `2027 peaks stay inside your current capacity, so the growth can be absorbed on the existing bench.`
+    }
     return txt
   }
 
@@ -1605,7 +1695,9 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
             <div className="flex items-start justify-between mb-1">
               <div>
                 <p className="text-sm font-semibold text-slate-700">2026 & 2027 Projection</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Based on current growth · seasonal pattern · capacity ceiling</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {forecastFitMonths} completed months · damped trend · seasonal · capacity ceiling
+                </p>
               </div>
               <div className="text-right">
                 <div className="flex gap-3 text-[10px]">
@@ -1616,9 +1708,9 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
               </div>
             </div>
             <ForecastChart
-              historical={year2026.filter(m => m.type === 'actual')}
-              y1={year2026.filter(m => m.type === 'projected')}
-              y2={year2027}
+              historical={forecastActual}
+              y1={forecastY1}
+              y2={forecastY2}
               target={REVENUE_TARGET}
               capacity={avgMonthlyCapacityRevenue}
             />
@@ -1629,14 +1721,14 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
               label="2026 Annual"
               sub={`£${Math.round(y1Total/12).toLocaleString()}/mo avg`}
               accentColor={y1Total / 12 >= REVENUE_TARGET ? '#22c55e' : '#ef4444'}
-              tip="Full calendar year 2026: actual revenue for completed months, projected for remainder using your growth trend and seasonal pattern."
+              tip="Full calendar year 2026 — actual revenue for completed months, plus a seasonally-shaped projection of your trend for the rest."
             />
             <KPICard
               value={`£${y2Total.toLocaleString()}`}
               label="2027 Annual"
               sub={`£${Math.round(y2Total/12).toLocaleString()}/mo avg`}
               accentColor={y2Total / 12 >= REVENUE_TARGET ? '#22c55e' : '#f97316'}
-              tip={`2027 forecast applies ${Math.round(effectiveGrowthRate*100)}% monthly underlying growth (linear trend on your completed months) compounded forward, then shapes it to the seasonal pattern.`}
+              tip={`2027 continues your ${Math.round(effectiveGrowthRate * 100)}%/month underlying trend, damped as it runs further out, shaped by the seasonal pattern and held under your capacity ceiling.`}
             />
           </div>
           <Insight text={forecastInsight()} />
