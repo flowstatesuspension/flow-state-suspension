@@ -548,6 +548,19 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
   const [addTodoDate, setAddTodoDate] = useState(null)
   const [stockScope, setStockScope] = useState('week')
   const [expandedJob, setExpandedJob] = useState(null)
+  const [tickError, setTickError] = useState(null)
+
+  // Ticks write optimistically and roll back on failure — surface why, otherwise
+  // the checkbox just silently un-ticks itself.
+  async function toggleMovement(fn, job, currentValue) {
+    if (!fn) return
+    setTickError(null)
+    try {
+      await fn(job.id, !currentValue)
+    } catch (e) {
+      setTickError(e?.message || 'Could not save that — check your connection.')
+    }
+  }
 
   function closeModal() {
     setEditJob(null)
@@ -730,19 +743,29 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
                 {todayTodos.map(t => (
                   <TodoRow key={t.id} todo={t} onToggle={toggleTodo} onEdit={updateTodo} onDelete={deleteTodo} />
                 ))}
+                {tickError && (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                    <p className="flex-1 text-[11px] text-red-700 leading-snug">{tickError}</p>
+                    <button onClick={() => setTickError(null)} className="text-red-400 active:text-red-600 shrink-0">
+                      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
                 {dropOffsToday.map(job => (
                   <ScheduleRow key={`in-${job.id}`} job={job}
                     label="IN" sublabel="arrived"
                     onClick={() => setEditJob(job)}
                     done={!!job.arrived_at}
-                    onToggleDone={setJobArrived && (() => setJobArrived(job.id, !job.arrived_at))} />
+                    onToggleDone={setJobArrived && (() => toggleMovement(setJobArrived, job, job.arrived_at))} />
                 ))}
                 {pickupsToday.map(job => (
                   <ScheduleRow key={`out-${job.id}`} job={job}
                     label="OUT" sublabel="collected"
                     onClick={() => setEditJob(job)}
                     done={!!job.collected_at}
-                    onToggleDone={setJobCollected && (() => setJobCollected(job.id, !job.collected_at))} />
+                    onToggleDone={setJobCollected && (() => toggleMovement(setJobCollected, job, job.collected_at))} />
                 ))}
               </div>
             </div>
