@@ -362,6 +362,14 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
   const targetY = target != null ? toY(target) : null
   const lastIdx = n - 1
 
+  // Value labels on every point. When points are packed tighter than the text
+  // is wide, thin them out so they stay readable on a narrow screen. Counting
+  // back from the last point keeps the most recent value always labelled.
+  const spacing = n > 1 ? cW / (n - 1) : cW
+  const widestLabel = values.reduce((w, v) => Math.max(w, valueFormat(v).length), 1)
+  const labelStride = Math.max(1, Math.ceil((widestLabel * 4.4 + 3) / Math.max(spacing, 1)))
+  const showValueAt = i => (lastIdx - i) % labelStride === 0
+
   return (
     <div ref={wrapRef} style={{ height: H }}>
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} overflow="visible">
@@ -415,12 +423,21 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
           )
         })()}
 
-        {data[lastIdx]?.value > 0 && hovered === null && (
-          <text x={pts[lastIdx][0]} y={pts[lastIdx][1] - 5} textAnchor="middle"
-            fontSize="8" fill={color} fontWeight="700">
-            {valueFormat(data[lastIdx].value)}
-          </text>
-        )}
+        {/* Point values — white halo keeps them legible over the line and fill */}
+        {data.map((d, i) => {
+          if (d.value === 0 || hovered === i || !showValueAt(i)) return null
+          const [x, y] = pts[i]
+          const isLast = i === lastIdx
+          return (
+            <text key={`val-${i}`} x={x} y={y - 5} textAnchor="middle"
+              fontSize={isLast ? 8 : 7}
+              fill={isLast ? color : '#64748b'}
+              fontWeight={isLast ? 700 : 600}
+              stroke="#fff" strokeWidth="2.5" paintOrder="stroke">
+              {valueFormat(d.value)}
+            </text>
+          )
+        })}
 
         {/* Invisible hit areas for hover */}
         {data.map((d, i) => {
