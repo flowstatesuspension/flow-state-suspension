@@ -88,11 +88,6 @@ function AddTodoForm({ defaultDate, onAdd, onClose }) {
 
 const STATUS_URGENCY = { awaiting_parts: 0, ready: 1, in_progress: 2, booked_in: 3, on_hold: 4, complete: 5 }
 
-function jobUrgency(job) {
-  const statuses = job.units?.map(u => u.status) || ['booked_in']
-  return Math.min(...statuses.map(s => STATUS_URGENCY[s] ?? 99))
-}
-
 function jobTotal(job) {
   return (job.units || []).reduce((s, u) => s + (parseFloat(u.price) || 0), 0)
 }
@@ -167,91 +162,248 @@ function AlertBanner({ label, count, color, bg, onClick }) {
   )
 }
 
-// ── Job card ─────────────────────────────────────────────────────────────────
-function JobCard({ job, today, onClick, statusConfig, activeTimer, onStartTimer }) {
-  const isTimerRunningHere = activeTimer?.job?.id === job?.id
-  const overdue = isOverdue(job, today)
-  const days = daysInWorkshop(job, today)
-  const urgency = jobUrgency(job)
-  const total = jobTotal(job)
+const FALLBACK_CFG = { bg: '#94a3b8', light: '#f8fafc', border: '#e2e8f0', text: '#64748b', label: '—' }
 
-  // Dominant status colour for left border
+function dominantStatusOf(job) {
   const units = job.units || []
-  const dominantStatus = units.reduce((best, u) => {
-    return (STATUS_URGENCY[u.status] ?? 99) < (STATUS_URGENCY[best] ?? 99) ? u.status : best
-  }, units[0]?.status || 'booked_in')
-  const cfg = statusConfig?.[dominantStatus] ?? { bg: '#94a3b8', light: '#f8fafc', border: '#e2e8f0', text: '#64748b' }
+  return units.reduce(
+    (best, u) => ((STATUS_URGENCY[u.status] ?? 99) < (STATUS_URGENCY[best] ?? 99) ? u.status : best),
+    units[0]?.status || 'booked_in'
+  )
+}
+
+function dueLabelFor(job, today) {
+  if (isOverdue(job, today)) return { text: 'OVERDUE', overdue: true }
+  if (!job.pickup_date) return null
+  const d = parseISO(job.pickup_date)
+  if (isToday(d)) return { text: 'Today' }
+  if (isTomorrow(d)) return { text: 'Tmrw' }
+  return { text: format(d, 'd MMM') }
+}
+
+// The unit a timer should attach to — first one still being worked on
+function timerUnitFor(job) {
+  return (job.units || []).find(u => u.status !== 'complete' && u.status !== 'on_hold') || job.units?.[0]
+}
+
+// ── Unit pills with timer buttons — shared by the hero and expanded rows ─────
+function UnitPills({ job, statusConfig, activeTimer, onStartTimer }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {(job.units || []).map(u => {
+        const sc = statusConfig?.[u.status] ?? FALLBACK_CFG
+        const isRecording = activeTimer?.unit?.id === u.id
+        return (
+          <div key={u.id} className="flex items-center gap-1">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: sc.light, color: sc.text, border: `1px solid ${sc.border}` }}>
+              {u.brand} {u.model}
+            </span>
+            {onStartTimer && (
+              <button
+                onClick={e => { e.stopPropagation(); onStartTimer(job, u) }}
+                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                  isRecording
+                    ? 'bg-sky-500 text-white border-sky-500'
+                    : 'bg-white text-slate-400 border-slate-200 active:bg-slate-50'
+                }`}
+                aria-label={isRecording ? 'Recording' : `Start timer for ${u.brand} ${u.model}`}
+              >
+                {isRecording
+                  ? <><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse block" /> Rec</>
+                  : <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                }
+              </button>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Up next — the top job in your manual work order ──────────────────────────
+function UpNextHero({ job, today, statusConfig, activeTimer, onStartTimer, onOpen, benchCount }) {
+  const cfg = statusConfig?.[dominantStatusOf(job)] ?? FALLBACK_CFG
+  const days = daysInWorkshop(job, today)
+  const due = dueLabelFor(job, today)
+  const unit = timerUnitFor(job)
+  const isRecording = activeTimer?.job?.id === job.id
+  const unitLine = (job.units || []).map(u => [u.brand, u.model].filter(Boolean).join(' ')).join(' · ')
 
   return (
-    <button onClick={onClick}
-      className="w-full bg-white rounded-xl border text-left active:bg-slate-50 transition-colors overflow-hidden"
-      style={{ borderColor: overdue ? '#fca5a5' : cfg.border, borderLeftWidth: 4, borderLeftColor: overdue ? '#ef4444' : cfg.bg }}>
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex-1 min-w-0">
-            <span className="font-bold text-slate-900 text-sm leading-tight">{job.customers?.name || '—'}</span>
-            {job.notes ? <p className="text-xs text-slate-400 mt-0.5 truncate">{job.notes}</p> : null}
-          </div>
-          <div className="text-right shrink-0">
-            <span className="text-sm font-bold text-slate-800">£{total.toFixed(0)}</span>
-            {overdue ? (
-              <p className="text-[10px] font-bold text-red-500 mt-0.5">OVERDUE</p>
-            ) : job.pickup_date ? (
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Due {isToday(parseISO(job.pickup_date)) ? 'today' : isTomorrow(parseISO(job.pickup_date)) ? 'tomorrow' : format(parseISO(job.pickup_date), 'd MMM')}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1 mb-2">
-          {job.units?.map(u => {
-            const sc = statusConfig?.[u.status] ?? { light: '#f8fafc', text: '#64748b', border: '#e2e8f0' }
-            const isRecording = activeTimer?.unit?.id === u.id
-            return (
-              <div key={u.id} className="flex items-center gap-1">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: sc.light, color: sc.text, border: `1px solid ${sc.border}` }}>
-                  {u.brand} {u.model}
-                </span>
-                {onStartTimer && (
-                  <button
-                    onClick={e => { e.stopPropagation(); onStartTimer(job, u) }}
-                    className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
-                      isRecording
-                        ? 'bg-sky-500 text-white border-sky-500'
-                        : 'bg-white text-slate-400 border-slate-200 active:bg-slate-50'
-                    }`}
-                  >
-                    {isRecording
-                      ? <><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse block" /> Rec</>
-                      : <><svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></>
-                    }
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white"
-            style={{ backgroundColor: cfg.bg }}>
-            {statusConfig?.[dominantStatus]?.label ?? dominantStatus}
-          </span>
-          {days > 0 && (
-            <span className={`text-[10px] font-medium ${days > 14 ? 'text-red-500' : days > 7 ? 'text-amber-500' : 'text-slate-400'}`}>
-              {days}d in workshop
-            </span>
-          )}
-          {isTimerRunningHere && (
-            <span className="flex items-center gap-1 text-[10px] font-bold text-sky-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse block" /> Recording
-            </span>
-          )}
-        </div>
+    <div className="bg-white rounded-2xl border p-3.5"
+      style={{ borderColor: cfg.border, boxShadow: `0 3px 14px -6px ${cfg.bg}80` }}>
+      <div className="flex items-center gap-2 mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: cfg.text }}>Up next</p>
+        <span className="ml-auto text-[10px] text-slate-400">1st of {benchCount} in your order</span>
       </div>
+
+      <button onClick={onOpen} className="w-full text-left active:opacity-70">
+        <p className="text-lg font-bold text-slate-900 leading-tight">{job.customers?.name || '—'}</p>
+        {unitLine && <p className="text-[13px] text-slate-600 mt-0.5 font-medium">{unitLine}</p>}
+        {job.notes && <p className="text-xs text-slate-400 mt-0.5 truncate">{job.notes}</p>}
+      </button>
+
+      <div className="flex items-center gap-2 flex-wrap mt-2.5">
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cfg.bg }}>
+          {cfg.label}
+        </span>
+        {days > 0 && (
+          <span className={`text-[10px] font-medium ${days > 14 ? 'text-red-500' : days > 7 ? 'text-amber-500' : 'text-slate-400'}`}>
+            {days}d in workshop
+          </span>
+        )}
+        {due && (
+          <span className={`text-[10px] font-medium ${due.overdue ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+            {due.overdue ? 'OVERDUE' : `Due ${due.text.toLowerCase()}`}
+          </span>
+        )}
+        <span className="ml-auto text-sm font-bold text-slate-800">£{jobTotal(job).toFixed(0)}</span>
+      </div>
+
+      <div className="flex gap-2 mt-3">
+        {onStartTimer && unit && (
+          <button
+            onClick={() => onStartTimer(job, unit)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold transition-colors ${
+              isRecording ? 'bg-sky-600 text-white' : 'bg-sky-500 active:bg-sky-600 text-white'
+            }`}
+          >
+            {isRecording ? (
+              <><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse block" /> Recording</>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                  <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" />
+                </svg>
+                Start timer
+              </>
+            )}
+          </button>
+        )}
+        <button onClick={onOpen}
+          className="px-4 py-2.5 rounded-xl text-[13px] font-semibold text-slate-600 bg-white border border-slate-200 active:bg-slate-50">
+          Open
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Compact bench row — tap to reveal units and timers ───────────────────────
+function CompactJobRow({ job, today, statusConfig, expanded, onToggle, onOpen, activeTimer, onStartTimer }) {
+  const overdue = isOverdue(job, today)
+  const days = daysInWorkshop(job, today)
+  const cfg = statusConfig?.[dominantStatusOf(job)] ?? FALLBACK_CFG
+  const due = dueLabelFor(job, today)
+  const units = job.units || []
+  const unitLine = units.map(u => [u.brand, u.model].filter(Boolean).join(' ')).join(' · ')
+  const isRecording = activeTimer?.job?.id === job.id
+
+  return (
+    <div className="bg-white rounded-xl border overflow-hidden"
+      style={{ borderColor: overdue ? '#fca5a5' : cfg.border, borderLeftWidth: 3, borderLeftColor: overdue ? '#ef4444' : cfg.bg }}>
+      <button onClick={onToggle}
+        className="w-full flex items-center gap-2.5 pl-2.5 pr-2 py-2 text-left active:bg-slate-50 transition-colors">
+        <div className="flex gap-1 shrink-0">
+          {units.slice(0, 4).map(u => (
+            <span key={u.id} className="w-[7px] h-[7px] rounded-full block"
+              style={{ backgroundColor: (statusConfig?.[u.status] ?? FALLBACK_CFG).bg }} />
+          ))}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold text-slate-900 leading-tight truncate">
+            {job.customers?.name || '—'}
+          </p>
+          <p className="text-[11px] text-slate-400 truncate">
+            {unitLine}{days > 0 ? ` · ${days}d` : ''}
+          </p>
+        </div>
+        {isRecording && <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse block shrink-0" />}
+        <div className="text-right shrink-0">
+          <p className="text-[13px] font-bold text-slate-800 leading-tight">£{jobTotal(job).toFixed(0)}</p>
+          {due && (
+            <p className={due.overdue ? 'text-[9px] font-bold text-red-500' : 'text-[9px] text-slate-400'}>
+              {due.text}
+            </p>
+          )}
+        </div>
+        <svg viewBox="0 0 24 24" className={`w-3.5 h-3.5 shrink-0 text-slate-300 transition-transform ${expanded ? 'rotate-90' : ''}`}
+          fill="none" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
+      </button>
+
+      {expanded && (
+        <div className="px-2.5 pb-2.5 pt-2 border-t border-slate-50 space-y-2">
+          <UnitPills job={job} statusConfig={statusConfig} activeTimer={activeTimer} onStartTimer={onStartTimer} />
+          {job.notes && <p className="text-[11px] text-slate-400">{job.notes}</p>}
+          <button onClick={onOpen}
+            className="w-full py-1.5 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-50 border border-slate-200 active:bg-slate-100">
+            Open job
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Glance tiles + workshop state bar ────────────────────────────────────────
+function GlanceCard({ benchJobs, benchUnits, dueToday, blocked, monthRev, target, statusConfig, statusOrder, onJump }) {
+  const targetPct = target > 0 ? Math.round((monthRev / target) * 100) : 0
+  const counts = (statusOrder || []).map(s => ({
+    key: s,
+    cfg: statusConfig?.[s] ?? FALLBACK_CFG,
+    n: benchUnits.filter(u => u.status === s).length,
+  })).filter(s => s.n > 0)
+  const totalUnits = benchUnits.length
+
+  const Tile = ({ value, label, sub, tone, target: jumpTo }) => (
+    <button onClick={() => onJump?.(jumpTo)}
+      className="py-2.5 px-1 text-center border-r border-slate-100 last:border-r-0 active:bg-slate-50 transition-colors">
+      <p className={`text-[19px] font-bold leading-none tracking-tight ${tone || 'text-slate-900'}`}>{value}</p>
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mt-1">{label}</p>
+      {sub && <p className="text-[9px] text-slate-400 mt-0.5">{sub}</p>}
     </button>
+  )
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="grid grid-cols-4">
+        <Tile value={benchJobs} label="Bench" sub={`${totalUnits} unit${totalUnits !== 1 ? 's' : ''}`} jumpTo="bench" />
+        <Tile value={dueToday} label="Due today" sub="pickups" jumpTo="today" />
+        <Tile value={blocked} label="Blocked" sub="on parts" tone={blocked > 0 ? 'text-red-500' : undefined} jumpTo="bench" />
+        <Tile
+          value={`£${monthRev >= 1000 ? `${(monthRev / 1000).toFixed(1)}k` : monthRev.toFixed(0)}`}
+          label="Month"
+          sub={`${targetPct}% of target`}
+          tone={targetPct >= 100 ? 'text-green-600' : targetPct >= 60 ? 'text-amber-500' : undefined}
+        />
+      </div>
+
+      {totalUnits > 0 && (
+        <div className="border-t border-slate-100 px-3 py-2.5">
+          <div className="flex items-baseline justify-between mb-1.5">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Workshop state</p>
+            <span className="text-[10px] text-slate-400">{totalUnits} units</span>
+          </div>
+          <div className="flex gap-[1.5px] h-2 rounded-full overflow-hidden">
+            {counts.map(s => (
+              <span key={s.key} className="block" style={{ width: `${(s.n / totalUnits) * 100}%`, backgroundColor: s.cfg.bg }} />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+            {counts.map(s => (
+              <span key={s.key} className="inline-flex items-center gap-1.5 text-[10px] text-slate-500">
+                <span className="w-[7px] h-[7px] rounded-full block shrink-0" style={{ backgroundColor: s.cfg.bg }} />
+                <b className="font-bold text-slate-700">{s.n}</b> {s.cfg.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -293,49 +445,12 @@ function EmptyRow({ text }) {
   return <p className="text-sm text-slate-400 text-center py-3">{text}</p>
 }
 
-// ── Revenue strip ────────────────────────────────────────────────────────────
-function RevenueStrip({ jobs, settings }) {
-  const today = new Date()
-  const todayStr = format(today, 'yyyy-MM-dd')
-  const wo = { weekStartsOn: 1 }
-  const startOfThisWeek = new Date(today)
-  startOfThisWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7))
-  startOfThisWeek.setHours(0, 0, 0, 0)
-  const endOfThisWeek = new Date(startOfThisWeek)
-  endOfThisWeek.setDate(startOfThisWeek.getDate() + 6)
-
-  const thisMonthStr = format(today, 'yyyy-MM')
-  const weekJobs = jobs.filter(j => j.drop_off_date >= format(startOfThisWeek, 'yyyy-MM-dd') && j.drop_off_date <= format(endOfThisWeek, 'yyyy-MM-dd'))
-  const monthJobs = jobs.filter(j => j.drop_off_date?.startsWith(thisMonthStr))
-  const weekRev = weekJobs.reduce((s, j) => s + jobTotal(j), 0)
-  const monthRev = monthJobs.reduce((s, j) => s + jobTotal(j), 0)
-  const target = settings?.revenueTarget ?? 3000
-  const targetPct = Math.min(Math.round((monthRev / target) * 100), 999)
-
-  return (
-    <div className="bg-white rounded-xl border border-slate-100 px-4 py-3">
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Revenue</p>
-      <div className="grid grid-cols-3 gap-4 text-center">
-        <div>
-          <p className="text-base font-bold text-slate-900">£{weekRev.toFixed(0)}</p>
-          <p className="text-[10px] text-slate-400">This week</p>
-        </div>
-        <div>
-          <p className="text-base font-bold text-slate-900">£{monthRev.toFixed(0)}</p>
-          <p className="text-[10px] text-slate-400">This month</p>
-        </div>
-        <div>
-          <p className={`text-base font-bold ${targetPct >= 100 ? 'text-green-600' : targetPct >= 60 ? 'text-amber-500' : 'text-slate-900'}`}>{targetPct}%</p>
-          <p className="text-[10px] text-slate-400">of target</p>
-        </div>
-      </div>
-      {/* Progress bar */}
-      <div className="mt-2.5 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all"
-          style={{ width: `${Math.min(targetPct, 100)}%`, backgroundColor: targetPct >= 100 ? '#22c55e' : targetPct >= 60 ? '#f59e0b' : '#38bdf8' }} />
-      </div>
-    </div>
-  )
+// Month-to-date revenue, by drop-off date — feeds the Month glance tile
+function monthRevenue(jobs, today) {
+  const thisMonth = format(today, 'yyyy-MM')
+  return jobs
+    .filter(j => j.drop_off_date?.startsWith(thisMonth))
+    .reduce((s, j) => s + jobTotal(j), 0)
 }
 
 // ── Stock view ───────────────────────────────────────────────────────────────
@@ -355,31 +470,49 @@ function buildStockGroups(jobs) {
   return byBrand
 }
 
-function StockView({ title, jobs, onPillClick }) {
-  const byBrand = buildStockGroups(jobs)
-  if (!Object.keys(byBrand).length) return null
+// One card, two scopes — these were previously two stacked copies of the same thing
+function StockView({ weekJobs, allJobs, scope, onScopeChange, onPillClick }) {
+  const byBrand = buildStockGroups(scope === 'week' ? weekJobs : allJobs)
   const brands = Object.entries(byBrand).sort(([a], [b]) => a.localeCompare(b))
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 px-4 py-3">
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">{title}</p>
-      <div className="space-y-2.5">
-        {brands.map(([brand, models]) => (
-          <div key={brand}>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">{brand}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(models).sort(([, a], [, b]) => b.length - a.length).map(([model, modelJobs]) => (
-                <button key={model}
-                  onClick={() => onPillClick(modelJobs, `${brand} ${model}`)}
-                  className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 active:bg-slate-100">
-                  <span className="text-xs text-slate-700 font-medium">{model}</span>
-                  <span className="text-[10px] font-bold text-slate-400">×{modelJobs.length}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stock Requirements</p>
+        <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5 shrink-0">
+          {[['week', 'This week'], ['all', 'All active']].map(([id, label]) => (
+            <button key={id} onClick={() => onScopeChange(id)}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                scope === id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
+      {brands.length === 0 ? (
+        <p className="text-xs text-slate-400 text-center py-2">
+          {scope === 'week' ? 'Nothing booked in this week' : 'No active units'}
+        </p>
+      ) : (
+        <div className="space-y-2.5">
+          {brands.map(([brand, models]) => (
+            <div key={brand}>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">{brand}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(models).sort(([, a], [, b]) => b.length - a.length).map(([model, modelJobs]) => (
+                  <button key={model}
+                    onClick={() => onPillClick(modelJobs, `${brand} ${model}`)}
+                    className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 active:bg-slate-100">
+                    <span className="text-xs text-slate-700 font-medium">{model}</span>
+                    <span className="text-[10px] font-bold text-slate-400">×{modelJobs.length}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -390,10 +523,16 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
   const [alertPicker, setAlertPicker] = useState(null) // { jobs, title, color }
   const [showAddTodo, setShowAddTodo] = useState(false)
   const [addTodoDate, setAddTodoDate] = useState(null)
+  const [stockScope, setStockScope] = useState('week')
+  const [expandedJob, setExpandedJob] = useState(null)
 
   function closeModal() {
     setEditJob(null)
     refresh?.()
+  }
+
+  function jumpTo(id) {
+    document.getElementById(`dash-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function openAlert(alertJobs, title, color) {
@@ -405,27 +544,26 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
   const todayStr = format(today, 'yyyy-MM-dd')
   const statusConfig = settings?.statusConfig
 
-  // Jobs physically in the workshop: dropped off on or before today, not all complete
-  const inWorkshop = jobs
-    .filter(j => {
-      if (!j.drop_off_date || j.drop_off_date > todayStr) return false
-      if (!j.units?.length) return false
-      if (j.units.every(u => u.status === 'complete' || u.status === 'on_hold')) return false
-      return true
-    })
-    .sort((a, b) => {
-      const aOver = isOverdue(a, today) ? 0 : 1
-      const bOver = isOverdue(b, today) ? 0 : 1
-      if (aOver !== bOver) return aOver - bOver
-      const urgDiff = jobUrgency(a) - jobUrgency(b)
-      if (urgDiff !== 0) return urgDiff
-      return (a.drop_off_date || '').localeCompare(b.drop_off_date || '')
-    })
+  // Jobs physically in the workshop: dropped off on or before today, not all complete.
+  // Order comes from sort_order — the sequence you set by dragging on the Jobs screen —
+  // so "Up next" is genuinely your next job. Overdue work is surfaced by the alert
+  // banner and flagged red in the rows rather than being force-sorted to the top.
+  const inWorkshop = jobs.filter(j => {
+    if (!j.drop_off_date || j.drop_off_date > todayStr) return false
+    if (!j.units?.length) return false
+    if (j.units.every(u => u.status === 'complete' || u.status === 'on_hold')) return false
+    return true
+  })
+  const [upNext, ...restOfBench] = inWorkshop
+
+  // Glance metrics
+  const benchUnits = inWorkshop.flatMap(j => (j.units || []).filter(u => u.status !== 'complete' && u.status !== 'on_hold'))
+  const blockedUnits = benchUnits.filter(u => u.status === 'awaiting_parts').length
+  const revThisMonth = monthRevenue(jobs, today)
 
   // Alert buckets (live, unfiltered)
   const overdueJobs      = inWorkshop.filter(j => isOverdue(j, today))
   const awaitingPartJobs = inWorkshop.filter(j => j.units?.some(u => u.status === 'awaiting_parts'))
-  const readyJobs        = []
   const onHoldJobs       = jobs.filter(j => j.units?.some(u => u.status === 'on_hold') && !j.units.every(u => u.status === 'complete'))
 
   // Today's schedule — exclude all-on-hold jobs
@@ -471,6 +609,19 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
       <div className="flex-1 overflow-y-auto scrollbar-none">
         <div className="max-w-2xl mx-auto p-4 space-y-5">
 
+          {/* Glance tiles + workshop state */}
+          <GlanceCard
+            benchJobs={inWorkshop.length}
+            benchUnits={benchUnits}
+            dueToday={pickupsToday.length}
+            blocked={blockedUnits}
+            monthRev={revThisMonth}
+            target={settings?.revenueTarget ?? 3000}
+            statusConfig={statusConfig}
+            statusOrder={settings?.statusOrder}
+            onJump={jumpTo}
+          />
+
           {/* Alerts */}
           {hasAlerts > 0 && (
             <div className="space-y-2">
@@ -486,26 +637,44 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
             </div>
           )}
 
-          {/* In the Workshop */}
-          <div>
-            <SectionHeader count={inWorkshop.length} color="#0ea5e9">In the Workshop</SectionHeader>
-            {inWorkshop.length === 0
-              ? <EmptyRow text="Nothing on the bench right now" />
-              : <div className="space-y-2">
-                  {inWorkshop.map(job => (
-                    <JobCard key={job.id} job={job} today={today}
-                      statusConfig={statusConfig}
-                      onClick={() => setEditJob(job)}
-                      activeTimer={activeTimer}
-                      onStartTimer={onStartTimer} />
-                  ))}
-                </div>
-            }
+          {/* In the Workshop — hero + compact rows */}
+          <div id="dash-bench">
+            {inWorkshop.length === 0 ? (
+              <>
+                <SectionHeader count={0} color="#0ea5e9">In the Workshop</SectionHeader>
+                <EmptyRow text="Nothing on the bench right now" />
+              </>
+            ) : (
+              <div className="space-y-3">
+                <UpNextHero
+                  job={upNext} today={today} statusConfig={statusConfig}
+                  activeTimer={activeTimer} onStartTimer={onStartTimer}
+                  onOpen={() => setEditJob(upNext)}
+                  benchCount={inWorkshop.length}
+                />
+                {restOfBench.length > 0 && (
+                  <div>
+                    <SectionHeader count={restOfBench.length} color="#0ea5e9">Then</SectionHeader>
+                    <div className="space-y-1.5">
+                      {restOfBench.map(job => (
+                        <CompactJobRow key={job.id} job={job} today={today}
+                          statusConfig={statusConfig}
+                          expanded={expandedJob === job.id}
+                          onToggle={() => setExpandedJob(id => id === job.id ? null : job.id)}
+                          onOpen={() => setEditJob(job)}
+                          activeTimer={activeTimer}
+                          onStartTimer={onStartTimer} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Today */}
           {(dropOffsToday.length > 0 || pickupsToday.length > 0 || todayTodos.length > 0 || showAddTodo) && (
-            <div>
+            <div id="dash-today">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today</p>
                 <button onClick={() => { setAddTodoDate(todayStr); setShowAddTodo(true) }}
@@ -583,26 +752,18 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
             </div>
           )}
 
-          {/* Revenue */}
-          <RevenueStrip jobs={jobs} settings={settings} />
-
-          {/* Stock view — this week */}
+          {/* Stock — one card, scope toggle */}
           <StockView
-            title="This Week · Stock Requirements"
-            jobs={jobs.filter(j => {
+            scope={stockScope}
+            onScopeChange={setStockScope}
+            weekJobs={jobs.filter(j => {
               if (!j.drop_off_date) return false
               const wo = { weekStartsOn: 1 }
               const ws = format(startOfWeek(today, wo), 'yyyy-MM-dd')
               const we = format(endOfWeek(today, wo), 'yyyy-MM-dd')
               return j.drop_off_date >= ws && j.drop_off_date <= we
             })}
-            onPillClick={(pillJobs, title) => openAlert(pillJobs, title, '#0ea5e9')}
-          />
-
-          {/* Stock view — all active */}
-          <StockView
-            title="All Active Units · Stock View"
-            jobs={jobs}
+            allJobs={jobs}
             onPillClick={(pillJobs, title) => openAlert(pillJobs, title, '#0ea5e9')}
           />
 
