@@ -971,33 +971,33 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     }
 
     // ── Capacity ceiling ──────────────────────────────────────────────────────
-    // Two candidates: what the settings say you can do, and what you have
-    // actually done. A completed month is proof of throughput, so the ceiling
-    // takes whichever is higher — otherwise a stale setting caps the forecast
-    // below your own track record and projects you going backwards.
-    // Both are held as a weekly rate so months with more working days scale up.
+    // Two candidates: what the settings say you can do, and the best month you
+    // have actually delivered. A completed month is proof of throughput, so the
+    // ceiling takes whichever is higher — otherwise a stale setting caps the
+    // forecast below your own track record and projects you going backwards.
     const configuredWeeklyRevenue = weeklyCapacity * avgUnitPriceOverall
 
-    let demonstratedWeeklyRevenue = 0
     let bestMonthRevenue = 0
     let bestMonthLabel = null
     for (let m = 0; m < Math.min(nowAbs, 24); m++) {
-      if (monthRevenue[m] <= 0) continue
-      const d = new Date(FORECAST_Y1 + Math.floor(m / 12), m % 12, 1)
-      const wd = workingDays(startOfMonth(d), endOfMonth(d))
-      if (wd <= 0) continue
-      const weekly = monthRevenue[m] / (wd / 5)
-      if (weekly > demonstratedWeeklyRevenue) {
-        demonstratedWeeklyRevenue = weekly
-        bestMonthRevenue = monthRevenue[m]
-        bestMonthLabel = format(d, 'MMM yyyy')
-      }
+      if (monthRevenue[m] <= bestMonthRevenue) continue
+      bestMonthRevenue = monthRevenue[m]
+      bestMonthLabel = format(new Date(FORECAST_Y1 + Math.floor(m / 12), m % 12, 1), 'MMM yyyy')
     }
 
-    const ceilingWeeklyRevenue = Math.max(configuredWeeklyRevenue, demonstratedWeeklyRevenue)
-    const capacityFromActuals = demonstratedWeeklyRevenue > configuredWeeklyRevenue
+    // Held as a flat monthly figure rather than scaled by each month's weekday
+    // count. That scaling swung the ceiling ±7% month to month on nothing more
+    // than where weekends fell, which is noise, not throughput — and it made the
+    // line unreadable. A nominal 4.2-week month keeps it to one number per regime.
+    const WEEKS_PER_MONTH = 21 / 5
+    const configuredMonthlyRevenue = WEEKS_PER_MONTH * configuredWeeklyRevenue
+    const demonstratedMonthlyRevenue = bestMonthRevenue
+
+    const ceilingMonthlyRevenue = Math.max(configuredMonthlyRevenue, demonstratedMonthlyRevenue)
+    const capacityFromActuals = demonstratedMonthlyRevenue > configuredMonthlyRevenue
     const ceilingWeeklyUnits = avgUnitPriceOverall > 0
-      ? ceilingWeeklyRevenue / avgUnitPriceOverall : weeklyCapacity
+      ? ceilingMonthlyRevenue / WEEKS_PER_MONTH / avgUnitPriceOverall
+      : weeklyCapacity
 
     // A planned step change in throughput — going full time, taking on help.
     // Without this the ceiling is frozen at what you managed part-time, which
@@ -1008,19 +1008,14 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       ? absOf(parseInt(stepMatch[1], 10), parseInt(stepMatch[2], 10) - 1)
       : null
     const stepWeeklyUnits = Math.max(settings?.stepCapacity ?? 0, 0)
-    const stepWeeklyRevenue = stepWeeklyUnits * avgUnitPriceOverall
-    const hasCapacityStep = stepAbs != null && stepWeeklyRevenue > 0
-
-    // Weekly ceiling for a given absolute month index
-    function weeklyCeilingAt(m) {
-      if (hasCapacityStep && m >= stepAbs) return Math.max(stepWeeklyRevenue, ceilingWeeklyRevenue)
-      return ceilingWeeklyRevenue
-    }
+    const stepMonthlyRevenue = WEEKS_PER_MONTH * stepWeeklyUnits * avgUnitPriceOverall
+    const hasCapacityStep = stepAbs != null && stepMonthlyRevenue > 0
 
     function monthCapacityRevenue(d, m) {
-      const wd = workingDays(startOfMonth(d), endOfMonth(d))
-      const weekly = m == null ? ceilingWeeklyRevenue : weeklyCeilingAt(m)
-      return (wd / 5) * weekly
+      if (hasCapacityStep && m != null && m >= stepAbs) {
+        return Math.max(stepMonthlyRevenue, ceilingMonthlyRevenue)
+      }
+      return ceilingMonthlyRevenue
     }
 
     // Least-squares trend on the deseasonalised series
@@ -1090,9 +1085,9 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
 
     const y1Total = Math.round(year2026.reduce((s, m) => s + m.revenue, 0))
     const y2Total = Math.round(year2027.reduce((s, m) => s + m.revenue, 0))
-    const avgMonthlyCapacityRevenue = Math.round((21 / 5) * ceilingWeeklyRevenue)
+    const avgMonthlyCapacityRevenue = Math.round(ceilingMonthlyRevenue)
     const avgMonthlyCapacityAfterStep = hasCapacityStep
-      ? Math.round((21 / 5) * Math.max(stepWeeklyRevenue, ceilingWeeklyRevenue))
+      ? Math.round(Math.max(stepMonthlyRevenue, ceilingMonthlyRevenue))
       : null
     const stepFromLabel = hasCapacityStep
       ? format(new Date(FORECAST_Y1 + Math.floor(stepAbs / 12), stepAbs % 12, 1), 'MMM yyyy')
