@@ -6,6 +6,10 @@ const DEFAULTS = {
   workshopName: 'Flow State Suspension',
   revenueTarget: 3000,
   weeklyCapacity: 8,
+  // Planned step change in throughput, e.g. going full time. Empty = no change.
+  // stepCapacityFrom is a 'YYYY-MM' month string.
+  stepCapacityFrom: '',
+  stepCapacity: 20,
   turnaroundDays: 3,
   defaultUnitPrice: 120,
   brands: ['Fox', 'Rockshox', 'Postage', 'Other'],

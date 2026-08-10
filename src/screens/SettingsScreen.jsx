@@ -317,6 +317,22 @@ export default function SettingsScreen({ jobs, customers, settings, updateSettin
           <FieldRow label="Weekly Capacity">
             <InlineInput type="number" suffix="units/wk" value={settings.weeklyCapacity} onChange={v => patch('weeklyCapacity', parseInt(v) || 1)} placeholder="8" />
           </FieldRow>
+          <FieldRow label="Capacity Changes From">
+            <input
+              type="month"
+              value={settings.stepCapacityFrom || ''}
+              onChange={e => patch('stepCapacityFrom', e.target.value)}
+              className="text-sm text-right bg-transparent outline-none text-slate-800 w-full"
+            />
+          </FieldRow>
+          <FieldRow label="New Weekly Capacity">
+            <InlineInput type="number" suffix="units/wk" value={settings.stepCapacity} onChange={v => patch('stepCapacity', parseInt(v) || 1)} placeholder="20" />
+          </FieldRow>
+          <p className="px-4 pb-3 -mt-1 text-[11px] leading-relaxed text-slate-400">
+            Set these if your throughput changes on a known date — going full time, taking on help,
+            adding a bench. The revenue forecast holds you to your current ceiling until that month,
+            then to the new one. Leave the date blank if nothing is planned.
+          </p>
         </Accordion>
 
         <Accordion title="Statuses" icon={iconStatus}>
