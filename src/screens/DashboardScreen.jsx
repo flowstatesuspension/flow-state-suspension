@@ -164,6 +164,10 @@ function AlertBanner({ label, count, color, bg, onClick }) {
 
 const FALLBACK_CFG = { bg: '#94a3b8', light: '#f8fafc', border: '#e2e8f0', text: '#64748b', label: '—' }
 
+// Week bar reads most-finished to least: done, working, ready to start,
+// not arrived, blocked, parked. Deliberately not STATUS_ORDER.
+const WEEK_BAR_ORDER = ['complete', 'in_progress', 'ready', 'booked_in', 'awaiting_parts', 'on_hold']
+
 function dominantStatusOf(job) {
   const units = job.units || []
   return units.reduce(
@@ -350,9 +354,9 @@ function CompactJobRow({ job, today, statusConfig, expanded, onToggle, onOpen, a
 }
 
 // ── Glance tiles + workshop state bar ────────────────────────────────────────
-function GlanceCard({ benchJobs, benchUnits, weekUnits, dueIn, dueOut, blocked, monthRev, target, statusConfig, statusOrder, onJump }) {
+function GlanceCard({ benchJobs, benchUnits, weekUnits, dueIn, dueOut, blocked, monthRev, target, statusConfig, onJump }) {
   const targetPct = target > 0 ? Math.round((monthRev / target) * 100) : 0
-  const counts = (statusOrder || []).map(s => ({
+  const counts = WEEK_BAR_ORDER.map(s => ({
     key: s,
     cfg: statusConfig?.[s] ?? FALLBACK_CFG,
     n: weekUnits.filter(u => u.status === s).length,
@@ -599,17 +603,18 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
   const revThisMonth = monthRevenue(jobs, today)
 
   // Units passing through the workshop at any point this week — what the status
-  // bar reflects. Completed work is included so you can see the week filling in.
+  // bar reflects. Every status counts, including complete so the week visibly
+  // fills in, and on hold so parked work stays accounted for.
   const weekStartStr = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const weekEndStr   = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const weekUnits = jobs
     .filter(j => {
-      if (!j.drop_off_date || allOnHold(j)) return false
+      if (!j.drop_off_date) return false
       if (j.drop_off_date > weekEndStr) return false
       if (j.pickup_date && j.pickup_date < weekStartStr) return false
       return true
     })
-    .flatMap(j => (j.units || []).filter(u => u.status !== 'on_hold'))
+    .flatMap(j => j.units || [])
 
   // Alert buckets (live, unfiltered)
   const overdueJobs      = inWorkshop.filter(j => isOverdue(j, today))
@@ -676,7 +681,6 @@ export default function DashboardScreen({ jobs, customers, todos = [], loading, 
             monthRev={revThisMonth}
             target={settings?.revenueTarget ?? 3000}
             statusConfig={statusConfig}
-            statusOrder={settings?.statusOrder}
             onJump={jumpTo}
           />
 
