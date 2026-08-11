@@ -6,7 +6,7 @@ export function useData() {
   const [customers, setCustomers] = useState([])
   const [todos, setTodos] = useState([])
   const [bookingRequests, setBookingRequests] = useState([])
-  const [bookingSlots, setBookingSlots] = useState([])
+  const [bookingClosures, setClosuresState] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -20,7 +20,7 @@ export function useData() {
         { data: custsData, error: custsErr },
         { data: todosData, error: todosErr },
         { data: bookingData, error: bookingErr },
-        { data: slotData, error: slotErr },
+        { data: closureData, error: closureErr },
       ] = await Promise.all([
         supabase
           .from('jobs')
@@ -31,7 +31,7 @@ export function useData() {
         supabase.from('customers').select('*').order('name'),
         supabase.from('todos').select('*').order('due_date').order('created_at'),
         supabase.from('booking_requests').select('*').order('created_at', { ascending: false }),
-        supabase.from('booking_slots').select('*').order('slot_date'),
+        supabase.from('booking_closures').select('*').order('closed_date'),
       ])
       if (jobsErr) throw jobsErr
       if (custsErr) throw custsErr
@@ -42,7 +42,7 @@ export function useData() {
       // Booking tables are newer — don't take the whole app down if the
       // migration hasn't been run yet
       setBookingRequests(bookingErr ? [] : (bookingData || []))
-      setBookingSlots(slotErr ? [] : (slotData || []))
+      setClosuresState(closureErr ? [] : (closureData || []))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -61,7 +61,7 @@ export function useData() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, silentRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, silentRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, silentRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_slots' }, silentRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_closures' }, silentRefresh)
       .subscribe()
 
     return () => supabase.removeChannel(jobsSub)
@@ -266,23 +266,24 @@ export function useData() {
     await fetchAll({ silent: true })
   }
 
-  async function addBookingSlot(slotDate, capacity) {
-    const { error } = await supabase.from('booking_slots').insert({ slot_date: slotDate, capacity })
-    if (error) throw error
+  // Availability is a blocklist: a row here means that day is shut.
+  async function setBookingClosures(dates, closed) {
+    if (!dates?.length) return
+    // Optimistic — the calendar should respond to the tap, not the round trip
+    setClosuresState(prev => closed
+      ? [...prev.filter(c => !dates.includes(c.closed_date)), ...dates.map(d => ({ closed_date: d }))]
+      : prev.filter(c => !dates.includes(c.closed_date)))
+
+    const { error } = closed
+      ? await supabase.from('booking_closures').upsert(
+          dates.map(d => ({ closed_date: d })), { onConflict: 'closed_date' })
+      : await supabase.from('booking_closures').delete().in('closed_date', dates)
+
+    if (error) { await fetchAll({ silent: true }); throw error }
     await fetchAll({ silent: true })
   }
 
-  async function updateBookingSlot(id, capacity) {
-    const { error } = await supabase.from('booking_slots').update({ capacity }).eq('id', id)
-    if (error) throw error
-    await fetchAll({ silent: true })
-  }
-
-  async function removeBookingSlot(id) {
-    const { error } = await supabase.from('booking_slots').delete().eq('id', id)
-    if (error) throw error
-    await fetchAll({ silent: true })
-  }
+  const setBookingClosure = (date, closed) => setBookingClosures([date], closed)
 
   // Physical movement in and out of the workshop, tracked separately from work
   // status — a job can be finished but still on the shelf waiting to be collected.
@@ -314,5 +315,5 @@ export function useData() {
     await fetchAll()
   }
 
-  return { jobs, customers, todos, bookingRequests, bookingSlots, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, setJobArrived, setJobCollected, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, acceptBooking, rejectBooking, addBookingSlot, updateBookingSlot, removeBookingSlot, refresh: fetchAll }
+  return { jobs, customers, todos, bookingRequests, bookingClosures, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, setJobArrived, setJobCollected, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, acceptBooking, rejectBooking, setBookingClosure, setBookingClosures, refresh: fetchAll }
 }

@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { format, parseISO, addDays } from 'date-fns'
+import { format, parseISO, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { rankCustomerMatches, suggestAction } from '../lib/bookingMatch'
+import MonthGrid from '../components/MonthGrid'
+import { BOOKING_HORIZON_DAYS } from '../lib/booking'
 
 const CONFIDENCE_STYLE = {
   strong:   { label: 'Strong match',   bg: '#f0fdf4', border: '#86efac', text: '#16a34a' },
@@ -156,86 +158,110 @@ function RequestCard({ req, customers, defaultPrice, onAccept, onReject }) {
 }
 
 // ── Availability ─────────────────────────────────────────────────────────────
-function SlotManager({ slots, onAdd, onUpdate, onRemove }) {
+// Every day is bookable by default. Tapping one closes it; tapping again
+// reopens it. Bookings never close a day — that stays your call.
+function AvailabilityCalendar({ closures, requests, onToggle, onToggleMany }) {
   const todayStr = format(new Date(), 'yyyy-MM-dd')
-  const [date, setDate] = useState(format(addDays(new Date(), 1), 'yyyy-MM-dd'))
-  const [capacity, setCapacity] = useState(2)
+  const [month, setMonth] = useState(startOfMonth(new Date()))
   const [error, setError] = useState(null)
-  const upcoming = slots.filter(s => s.slot_date >= todayStr)
 
-  async function add() {
-    setError(null)
-    try { await onAdd(date, capacity) }
-    catch (e) {
-      setError(/duplicate|unique/i.test(e?.message || '') ? 'That day is already open.' : (e?.message || 'Could not add that day.'))
+  const closedSet = new Set(closures.map(c => c.closed_date))
+  const horizonStr = format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM-dd')
+
+  // How many live bookings already sit on each day — shown so you know what
+  // you're affecting before shutting a day
+  const bookingCount = {}
+  requests.filter(r => r.status !== 'rejected').forEach(r => {
+    bookingCount[r.slot_date] = (bookingCount[r.slot_date] || 0) + 1
+  })
+
+  function getDay(dateStr) {
+    return {
+      closed: closedSet.has(dateStr),
+      disabled: dateStr < todayStr || dateStr > horizonStr,
+      count: bookingCount[dateStr] || 0,
     }
   }
 
+  async function toggle(dateStr) {
+    setError(null)
+    try { await onToggle(dateStr, !closedSet.has(dateStr)) }
+    catch (e) { setError(e?.message || 'Could not save that.') }
+  }
+
+  // Tap a weekday header to shut or reopen that whole column for the month
+  async function toggleWeekday(weekdayIndex) {
+    const first = startOfMonth(month)
+    const last = endOfMonth(month)
+    const dates = eachDayOfInterval({ start: first, end: last })
+      .filter(d => ((d.getDay() + 6) % 7) === weekdayIndex)
+      .map(d => format(d, 'yyyy-MM-dd'))
+      .filter(ds => ds >= todayStr && ds <= horizonStr)
+    if (!dates.length) return
+    // If any are still open, close the lot; otherwise reopen them
+    const shouldClose = dates.some(ds => !closedSet.has(ds))
+    setError(null)
+    try { await onToggleMany(dates, shouldClose) }
+    catch (e) { setError(e?.message || 'Could not save that.') }
+  }
+
+  const closedThisMonth = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
+    .filter(d => closedSet.has(format(d, 'yyyy-MM-dd'))).length
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-3.5 space-y-3">
-      <div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Days open for booking</p>
-        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-          Only these days appear on your booking page. When a day is full it drops off automatically.
-        </p>
-      </div>
-
-      <div className="flex gap-2">
-        <input type="date" value={date} min={todayStr} onChange={e => setDate(e.target.value)}
-          className="flex-1 min-w-0 text-sm border border-slate-300 rounded-lg px-2 py-1.5 outline-none focus:border-sky-500" />
-        <input type="number" min={1} max={20} value={capacity}
-          onChange={e => setCapacity(Math.max(1, parseInt(e.target.value) || 1))}
-          className="w-16 text-sm border border-slate-300 rounded-lg px-2 py-1.5 outline-none focus:border-sky-500"
-          aria-label="Places available" />
-        <button onClick={add}
-          className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold active:bg-slate-700">
-          Open
-        </button>
-      </div>
-
-      {error && <p className="text-[11px] text-red-600">{error}</p>}
-
-      {upcoming.length === 0 ? (
-        <p className="text-xs text-slate-400 text-center py-2">
-          No days open — your booking page will tell people to message you instead.
-        </p>
-      ) : (
-        <div className="space-y-1.5">
-          {upcoming.map(s => {
-            const full = s.booked_count >= s.capacity
-            return (
-              <div key={s.id} className="flex items-center gap-2 rounded-lg border border-slate-100 px-2.5 py-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-slate-800">
-                    {format(parseISO(s.slot_date), 'EEE d MMM')}
-                  </p>
-                  <p className={`text-[10px] ${full ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>
-                    {s.booked_count} of {s.capacity} taken{full ? ' · full' : ''}
-                  </p>
-                </div>
-                <input type="number" min={s.booked_count || 1} max={20} value={s.capacity}
-                  onChange={e => onUpdate(s.id, Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-14 text-xs border border-slate-200 rounded-md px-1.5 py-1 outline-none focus:border-sky-500"
-                  aria-label={`Places on ${s.slot_date}`} />
-                <button onClick={() => onRemove(s.id)} className="text-slate-300 active:text-red-500 shrink-0 p-1"
-                  aria-label={`Close ${s.slot_date}`}>
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )
-          })}
+    <div className="space-y-3">
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5">
+        <div className="mb-3">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">When you'll take drop-offs</p>
+          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+            Every day is open unless you close it. Tap a date to close it, tap again to reopen.
+            Tap a weekday name to do the whole column.
+          </p>
         </div>
-      )}
+
+        <MonthGrid
+          month={month}
+          onPrev={() => setMonth(m => subMonths(m, 1))}
+          onNext={() => setMonth(m => addMonths(m, 1))}
+          canPrev={format(month, 'yyyy-MM') > format(new Date(), 'yyyy-MM')}
+          canNext={format(month, 'yyyy-MM') < format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM')}
+          getDay={getDay}
+          onDayClick={toggle}
+          onWeekdayClick={toggleWeekday}
+        />
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3.5 pt-3 border-t border-slate-100">
+          <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500">
+            <span className="w-3 h-3 rounded border border-slate-200 bg-white block" /> Open
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500">
+            <span className="w-3 h-3 rounded border border-slate-200 bg-slate-100 block" /> Closed
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500">
+            <span className="w-3 h-3 rounded-full bg-amber-400 block" /> Bookings on that day
+          </span>
+          {closedThisMonth > 0 && (
+            <span className="ml-auto text-[10px] font-semibold text-slate-400">
+              {closedThisMonth} closed this month
+            </span>
+          )}
+        </div>
+
+        {error && <p className="text-[11px] text-red-600 mt-2">{error}</p>}
+      </div>
+
+      <p className="text-[11px] text-slate-400 leading-relaxed px-1">
+        Customers can book up to {BOOKING_HORIZON_DAYS} days ahead. Closing a day doesn't affect
+        bookings already made on it — those stay in your queue.
+      </p>
     </div>
   )
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function AutoBookScreen({
-  bookingRequests = [], bookingSlots = [], customers = [], settings,
-  acceptBooking, rejectBooking, addBookingSlot, updateBookingSlot, removeBookingSlot,
+  bookingRequests = [], bookingClosures = [], customers = [], settings,
+  acceptBooking, rejectBooking, setBookingClosure, setBookingClosures,
 }) {
   const [tab, setTab] = useState('queue')
   const pending = bookingRequests.filter(r => r.status === 'pending')
@@ -312,8 +338,8 @@ export default function AutoBookScreen({
           )}
 
           {tab === 'slots' && (
-            <SlotManager slots={bookingSlots} onAdd={addBookingSlot}
-              onUpdate={updateBookingSlot} onRemove={removeBookingSlot} />
+            <AvailabilityCalendar closures={bookingClosures} requests={bookingRequests}
+              onToggle={setBookingClosure} onToggleMany={setBookingClosures} />
           )}
 
           {tab === 'done' && (

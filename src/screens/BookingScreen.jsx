@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, addDays, addMonths, subMonths, startOfMonth } from 'date-fns'
 import { supabase } from '../lib/supabase'
+import MonthGrid from '../components/MonthGrid'
+import { BOOKING_HORIZON_DAYS } from '../lib/booking'
 
 // Public booking form. Served at /book with no login.
 //
 // Writes only to booking_requests, which anonymous visitors can insert into and
 // never read back — so this page cannot be used to find out who is a customer.
-// Availability comes from booking_slots, which exposes dates and remaining
-// places and nothing else.
+// Availability comes from booking_closures — every day is bookable unless it
+// appears there. That table exposes dates and nothing else.
 
 const BRANDS = ['Fox', 'Rockshox', 'Öhlins', 'Marzocchi', 'DVO', 'Cane Creek', 'Manitou', 'Other']
 
@@ -32,26 +34,27 @@ const inputCls =
   'outline-none placeholder-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20'
 
 export default function BookingScreen() {
-  const [slots, setSlots] = useState(null) // null = loading
+  const [closures, setClosures] = useState(null) // null = loading
+  const [month, setMonth] = useState(startOfMonth(new Date()))
   const [form, setForm] = useState({ name: '', phone: '', email: '', slot_date: '', notes: '' })
   const [items, setItems] = useState([blankItem()])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [done, setDone] = useState(null)
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd')
+  const horizonStr = format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM-dd')
+
   useEffect(() => {
-    async function loadSlots() {
-      const todayStr = format(new Date(), 'yyyy-MM-dd')
+    async function loadClosures() {
       const { data, error: err } = await supabase
-        .from('booking_slots')
-        .select('slot_date, capacity, booked_count')
-        .gte('slot_date', todayStr)
-        .order('slot_date')
-      if (err) { setSlots([]); return }
-      setSlots((data || []).filter(s => s.booked_count < s.capacity))
+        .from('booking_closures')
+        .select('closed_date')
+        .gte('closed_date', todayStr)
+      setClosures(err ? [] : (data || []).map(c => c.closed_date))
     }
-    loadSlots()
-  }, [])
+    loadClosures()
+  }, [todayStr])
 
   function setField(k, v) { setForm(f => ({ ...f, [k]: v })) }
   function setItem(i, k, v) { setItems(us => us.map((u, n) => (n === i ? { ...u, [k]: v } : u))) }
@@ -200,34 +203,27 @@ export default function BookingScreen() {
 
         <section className="space-y-3">
           <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Drop-off day</h2>
-          {slots === null ? (
+          {closures === null ? (
             <p className="text-sm text-slate-400">Loading available days…</p>
-          ) : slots.length === 0 ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm text-amber-800 font-semibold">No days open at the moment</p>
-              <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                Drop me a message on WhatsApp and we'll sort something out.
-              </p>
-            </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {slots.map(s => {
-                const selected = form.slot_date === s.slot_date
-                const left = s.capacity - s.booked_count
-                return (
-                  <button key={s.slot_date} type="button" onClick={() => setField('slot_date', s.slot_date)}
-                    className={`rounded-xl border p-3 text-left transition-colors ${
-                      selected ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-500/20' : 'border-slate-200 bg-white active:bg-slate-50'
-                    }`}>
-                    <p className={`text-[13px] font-bold ${selected ? 'text-sky-700' : 'text-slate-800'}`}>
-                      {format(parseISO(s.slot_date), 'EEE d MMM')}
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      {left} {left === 1 ? 'place' : 'places'} left
-                    </p>
-                  </button>
-                )
-              })}
+            <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+              <MonthGrid
+                month={month}
+                onPrev={() => setMonth(m => subMonths(m, 1))}
+                onNext={() => setMonth(m => addMonths(m, 1))}
+                canPrev={format(month, 'yyyy-MM') > format(new Date(), 'yyyy-MM')}
+                canNext={format(month, 'yyyy-MM') < format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM')}
+                getDay={dateStr => ({
+                  selected: form.slot_date === dateStr,
+                  disabled: dateStr < todayStr || dateStr > horizonStr || closures.includes(dateStr),
+                })}
+                onDayClick={dateStr => setField('slot_date', dateStr)}
+              />
+              {form.slot_date && (
+                <p className="text-[13px] text-slate-700 mt-3 pt-3 border-t border-slate-100">
+                  Dropping off <b>{format(parseISO(form.slot_date), 'EEEE d MMMM')}</b>
+                </p>
+              )}
             </div>
           )}
         </section>
@@ -246,7 +242,7 @@ export default function BookingScreen() {
           </div>
         )}
 
-        <button type="submit" disabled={submitting || slots?.length === 0}
+        <button type="submit" disabled={submitting}
           className="w-full rounded-xl bg-sky-500 py-3.5 text-[15px] font-bold text-white active:bg-sky-600 disabled:opacity-50 transition-colors">
           {submitting ? 'Sending…' : 'Request booking'}
         </button>
