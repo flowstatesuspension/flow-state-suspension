@@ -93,7 +93,11 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
             {!confirmDelete
               ? <button onClick={() => setConfirmDelete(true)} className="text-red-400 text-sm font-medium">Delete</button>
               : <div className="flex gap-2 items-center">
-                  <span className="text-xs text-red-300">Sure?</span>
+                  <span className="text-xs text-red-300">
+                    {custJobs.length + archivedJobs.length > 0
+                      ? `Delete ${custJobs.length + archivedJobs.length} job${custJobs.length + archivedJobs.length !== 1 ? 's' : ''} too?`
+                      : 'Sure?'}
+                  </span>
                   <button onClick={() => setConfirmDelete(false)} className="text-slate-400 text-xs">No</button>
                   <button onClick={handleDeleteCustomer} disabled={deleting} className="text-red-400 text-xs font-semibold">{deleting ? '…' : 'Yes'}</button>
                 </div>

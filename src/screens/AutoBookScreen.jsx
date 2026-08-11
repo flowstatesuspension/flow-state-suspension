@@ -168,12 +168,13 @@ function AvailabilityCalendar({ closures, requests, onToggle, onToggleMany }) {
   const closedSet = new Set(closures.map(c => c.closed_date))
   const horizonStr = format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM-dd')
 
-  // How many live bookings already sit on each day — shown so you know what
-  // you're affecting before shutting a day
+  // How many live bookings sit on each day — shown so you know what you're
+  // affecting before shutting one. Accepted requests whose job was since
+  // deleted don't count; there's nothing in the workshop for them any more.
   const bookingCount = {}
-  requests.filter(r => r.status !== 'rejected').forEach(r => {
-    bookingCount[r.slot_date] = (bookingCount[r.slot_date] || 0) + 1
-  })
+  requests
+    .filter(r => r.status === 'pending' || (r.status === 'accepted' && r.job_id))
+    .forEach(r => { bookingCount[r.slot_date] = (bookingCount[r.slot_date] || 0) + 1 })
 
   function getDay(dateStr) {
     return {
@@ -261,9 +262,11 @@ function AvailabilityCalendar({ closures, requests, onToggle, onToggleMany }) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function AutoBookScreen({
   bookingRequests = [], bookingClosures = [], customers = [], settings,
-  acceptBooking, rejectBooking, setBookingClosure, setBookingClosures,
+  acceptBooking, rejectBooking, deleteBookingRequest, setBookingClosure, setBookingClosures,
 }) {
   const [tab, setTab] = useState('queue')
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const onDelete = deleteBookingRequest
   const pending = bookingRequests.filter(r => r.status === 'pending')
   const decided = bookingRequests.filter(r => r.status !== 'pending').slice(0, 25)
   const bookingUrl = `${window.location.origin}/book`
@@ -349,24 +352,46 @@ export default function AutoBookScreen({
               </div>
             ) : (
               <div className="space-y-1.5">
-                {decided.map(r => (
-                  <div key={r.id} className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 px-3 py-2.5">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      r.status === 'accepted' ? 'bg-green-500' : 'bg-slate-300'
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-slate-800 truncate">{r.name}</p>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {itemsOf(r).map(i => [i.brand, i.model].filter(Boolean).join(' ')).join(' · ')}
-                      </p>
+                {decided.map(r => {
+                  const jobGone = r.status === 'accepted' && !r.job_id
+                  return (
+                    <div key={r.id} className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 pl-3 pr-2 py-2.5">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        jobGone ? 'bg-slate-200' : r.status === 'accepted' ? 'bg-green-500' : 'bg-slate-300'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[13px] font-semibold truncate ${jobGone ? 'text-slate-400' : 'text-slate-800'}`}>
+                          {r.name}
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {itemsOf(r).map(i => [i.brand, i.model].filter(Boolean).join(' ')).join(' · ')}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-bold shrink-0 ${
+                        jobGone ? 'text-slate-400' : r.status === 'accepted' ? 'text-green-600' : 'text-slate-400'
+                      }`}>
+                        {jobGone ? 'Job deleted' : r.status === 'accepted' ? 'Accepted' : 'Rejected'}
+                      </span>
+                      {onDelete && (
+                        <button
+                          onClick={() => setConfirmDelete(confirmDelete === r.id ? null : r.id)}
+                          className="shrink-0 p-1 text-slate-300 active:text-red-500"
+                          aria-label={`Remove ${r.name}'s booking record`}>
+                          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.35 9m-4.78 0L9.26 9m9.97-3.21c.34.05.68.1 1.02.16M3.75 5.79A48.1 48.1 0 0 1 7.5 5.4m0 0v-1.5a1.5 1.5 0 0 1 1.5-1.5h6a1.5 1.5 0 0 1 1.5 1.5v1.5m-9 0h9" />
+                          </svg>
+                        </button>
+                      )}
+                      {confirmDelete === r.id && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button onClick={() => setConfirmDelete(null)} className="text-[10px] text-slate-400 px-1">No</button>
+                          <button onClick={async () => { await onDelete(r.id); setConfirmDelete(null) }}
+                            className="text-[10px] font-bold text-red-500 px-1">Delete</button>
+                        </div>
+                      )}
                     </div>
-                    <span className={`text-[10px] font-bold shrink-0 ${
-                      r.status === 'accepted' ? 'text-green-600' : 'text-slate-400'
-                    }`}>
-                      {r.status === 'accepted' ? 'Accepted' : 'Rejected'}
-                    </span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )
           )}

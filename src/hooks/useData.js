@@ -102,7 +102,21 @@ export function useData() {
     await fetchAll()
   }
 
+  // Takes their jobs and units with it. Without this the jobs survive with a
+  // dangling customer_id and turn up nameless across the app.
   async function deleteCustomer(id) {
+    const { data: theirJobs, error: findErr } = await supabase
+      .from('jobs').select('id').eq('customer_id', id)
+    if (findErr) throw findErr
+
+    const jobIds = (theirJobs || []).map(j => j.id)
+    if (jobIds.length) {
+      const { error: unitErr } = await supabase.from('units').delete().in('job_id', jobIds)
+      if (unitErr) throw unitErr
+      const { error: jobErr } = await supabase.from('jobs').delete().in('id', jobIds)
+      if (jobErr) throw jobErr
+    }
+
     const { error } = await supabase.from('customers').delete().eq('id', id)
     if (error) throw error
     await fetchAll()
@@ -257,6 +271,14 @@ export function useData() {
     return job.id
   }
 
+  // Remove a request outright — for tests and mistakes. Rejecting keeps the
+  // record; this erases it.
+  async function deleteBookingRequest(id) {
+    const { error } = await supabase.from('booking_requests').delete().eq('id', id)
+    if (error) throw error
+    await fetchAll({ silent: true })
+  }
+
   async function rejectBooking(req) {
     const { error } = await supabase
       .from('booking_requests')
@@ -315,5 +337,5 @@ export function useData() {
     await fetchAll()
   }
 
-  return { jobs, customers, todos, bookingRequests, bookingClosures, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, setJobArrived, setJobCollected, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, acceptBooking, rejectBooking, setBookingClosure, setBookingClosures, refresh: fetchAll }
+  return { jobs, customers, todos, bookingRequests, bookingClosures, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, setJobArrived, setJobCollected, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, acceptBooking, rejectBooking, deleteBookingRequest, setBookingClosure, setBookingClosures, refresh: fetchAll }
 }
