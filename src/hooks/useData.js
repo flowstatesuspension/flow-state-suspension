@@ -5,6 +5,8 @@ export function useData() {
   const [jobs, setJobs] = useState([])
   const [customers, setCustomers] = useState([])
   const [todos, setTodos] = useState([])
+  const [bookingRequests, setBookingRequests] = useState([])
+  const [bookingSlots, setBookingSlots] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -13,23 +15,34 @@ export function useData() {
     if (!opts?.silent) setLoading(true)
     setError(null)
     try {
-      const [{ data: jobsData, error: jobsErr }, { data: custsData, error: custsErr }, { data: todosData, error: todosErr }] =
-        await Promise.all([
-          supabase
-            .from('jobs')
-            .select('*, units(*), customers(id, name, email, phone)')
-            .eq('archived', false)
-            .order('sort_order', { ascending: true, nullsFirst: false })
-            .order('drop_off_date', { ascending: true }),
-          supabase.from('customers').select('*').order('name'),
-          supabase.from('todos').select('*').order('due_date').order('created_at'),
-        ])
+      const [
+        { data: jobsData, error: jobsErr },
+        { data: custsData, error: custsErr },
+        { data: todosData, error: todosErr },
+        { data: bookingData, error: bookingErr },
+        { data: slotData, error: slotErr },
+      ] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('*, units(*), customers(id, name, email, phone)')
+          .eq('archived', false)
+          .order('sort_order', { ascending: true, nullsFirst: false })
+          .order('drop_off_date', { ascending: true }),
+        supabase.from('customers').select('*').order('name'),
+        supabase.from('todos').select('*').order('due_date').order('created_at'),
+        supabase.from('booking_requests').select('*').order('created_at', { ascending: false }),
+        supabase.from('booking_slots').select('*').order('slot_date'),
+      ])
       if (jobsErr) throw jobsErr
       if (custsErr) throw custsErr
       if (todosErr) throw todosErr
       setJobs(jobsData || [])
       setCustomers(custsData || [])
       setTodos(todosData || [])
+      // Booking tables are newer — don't take the whole app down if the
+      // migration hasn't been run yet
+      setBookingRequests(bookingErr ? [] : (bookingData || []))
+      setBookingSlots(slotErr ? [] : (slotData || []))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -47,6 +60,8 @@ export function useData() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, silentRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, silentRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, silentRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, silentRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_slots' }, silentRefresh)
       .subscribe()
 
     return () => supabase.removeChannel(jobsSub)
@@ -190,6 +205,85 @@ export function useData() {
     if (failed) { await fetchAll({ silent: true }); throw failed.error }
   }
 
+  // --- Booking ---
+  // Turn a public request into a real customer + job. Nothing reaches the jobs
+  // table until this runs, so a submission alone can never create workshop data.
+  async function acceptBooking(req, existingCustomerId, defaultPrice = 120) {
+    const customerId = await upsertCustomer(
+      { name: req.name, email: req.email || '', phone: req.phone || '' },
+      existingCustomerId || null
+    )
+
+    const turnaround = 3
+    const pickup = new Date(req.slot_date)
+    pickup.setDate(pickup.getDate() + turnaround)
+
+    const { data: job, error: jobErr } = await supabase
+      .from('jobs')
+      .insert({
+        customer_id: customerId,
+        drop_off_date: req.slot_date,
+        pickup_date: pickup.toISOString().slice(0, 10),
+        notes: req.notes || null,
+        sort_order: Date.now(),
+      })
+      .select('id')
+      .single()
+    if (jobErr) throw jobErr
+
+    const items = Array.isArray(req.items) ? req.items : []
+    if (items.length) {
+      const { error: unitErr } = await supabase.from('units').insert(
+        items.map(it => ({
+          job_id: job.id,
+          brand: it.brand || '',
+          model: it.model || '',
+          serial_number: it.serial_number || '',
+          status: 'booked_in',
+          parts_notes: it.notes || '',
+          price: defaultPrice,
+        }))
+      )
+      if (unitErr) throw unitErr
+    }
+
+    const { error: reqErr } = await supabase
+      .from('booking_requests')
+      .update({ status: 'accepted', customer_id: customerId, job_id: job.id, decided_at: new Date().toISOString() })
+      .eq('id', req.id)
+    if (reqErr) throw reqErr
+
+    await fetchAll({ silent: true })
+    return job.id
+  }
+
+  async function rejectBooking(req) {
+    const { error } = await supabase
+      .from('booking_requests')
+      .update({ status: 'rejected', decided_at: new Date().toISOString() })
+      .eq('id', req.id)
+    if (error) throw error
+    await fetchAll({ silent: true })
+  }
+
+  async function addBookingSlot(slotDate, capacity) {
+    const { error } = await supabase.from('booking_slots').insert({ slot_date: slotDate, capacity })
+    if (error) throw error
+    await fetchAll({ silent: true })
+  }
+
+  async function updateBookingSlot(id, capacity) {
+    const { error } = await supabase.from('booking_slots').update({ capacity }).eq('id', id)
+    if (error) throw error
+    await fetchAll({ silent: true })
+  }
+
+  async function removeBookingSlot(id) {
+    const { error } = await supabase.from('booking_slots').delete().eq('id', id)
+    if (error) throw error
+    await fetchAll({ silent: true })
+  }
+
   // Physical movement in and out of the workshop, tracked separately from work
   // status — a job can be finished but still on the shelf waiting to be collected.
   async function setJobTimestamp(id, field, on) {
@@ -220,5 +314,5 @@ export function useData() {
     await fetchAll()
   }
 
-  return { jobs, customers, todos, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, setJobArrived, setJobCollected, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, refresh: fetchAll }
+  return { jobs, customers, todos, bookingRequests, bookingSlots, loading, error, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, setJobArrived, setJobCollected, deleteCustomer, updateCustomer, updateUnitStatus, addTodo, updateTodo, toggleTodo, deleteTodo, acceptBooking, rejectBooking, addBookingSlot, updateBookingSlot, removeBookingSlot, refresh: fetchAll }
 }

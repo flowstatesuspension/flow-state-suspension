@@ -11,6 +11,8 @@ import CustomersScreen from './screens/CustomersScreen'
 import DashboardScreen from './screens/DashboardScreen'
 import AnalyticsScreen from './screens/AnalyticsScreen'
 import SettingsScreen from './screens/SettingsScreen'
+import AutoBookScreen from './screens/AutoBookScreen'
+import BookingScreen from './screens/BookingScreen'
 import LoginScreen from './screens/LoginScreen'
 import FloatingTimer from './components/FloatingTimer'
 
@@ -179,10 +181,12 @@ function MainApp() {
         {activeTab === 'jobs'      && <JobsScreen      {...data} settings={enrichedSettings} {...timerProps} {...todoProps} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
         {activeTab === 'dashboard' && <DashboardScreen {...data} settings={enrichedSettings} refresh={data.refresh} {...timerProps} {...todoProps} />}
+        {activeTab === 'autobook'  && <AutoBookScreen  {...data} settings={enrichedSettings} />}
         {activeTab === 'analytics' && <AnalyticsScreen {...data} settings={enrichedSettings} />}
         {activeTab === 'settings'  && <SettingsScreen  jobs={data.jobs} customers={data.customers} settings={enrichedSettings} updateSettings={updateSettings} />}
       </div>
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab}
+        badges={{ autobook: data.bookingRequests?.filter(r => r.status === 'pending').length || 0 }} />
       {activeTimer && (
         <FloatingTimer timer={activeTimer} onStop={handleStopTimer} onClose={handleCloseTimer} />
       )}
@@ -200,6 +204,11 @@ function MainApp() {
 export default function App() {
   const [session, setSession] = useState(undefined) // undefined = loading
 
+  // Public booking page — checked before anything else so it renders for
+  // customers with no account. No router needed for a single public path.
+  const isPublicBooking = typeof window !== 'undefined' &&
+    /^\/book\/?$/.test(window.location.pathname)
+
   useEffect(() => {
     // Get existing session immediately (from localStorage)
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -213,6 +222,8 @@ export default function App() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  if (isPublicBooking) return <BookingScreen />
 
   // Still checking localStorage for existing session
   if (session === undefined) {
