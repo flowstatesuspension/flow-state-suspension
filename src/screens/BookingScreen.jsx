@@ -3,6 +3,7 @@ import { format, parseISO, addDays, addMonths, subMonths, startOfMonth } from 'd
 import { supabase } from '../lib/supabase'
 import MonthGrid from '../components/MonthGrid'
 import { BOOKING_HORIZON_DAYS } from '../lib/booking'
+import { DEFAULT_BRANDS, PUBLIC_BRAND_EXCLUDE } from '../constants'
 
 // Public booking form. Served at /book with no login.
 //
@@ -11,7 +12,8 @@ import { BOOKING_HORIZON_DAYS } from '../lib/booking'
 // Availability comes from booking_closures — every day is bookable unless it
 // appears there. That table exposes dates and nothing else.
 
-const BRANDS = ['Fox', 'Rockshox', 'Öhlins', 'Marzocchi', 'DVO', 'Cane Creek', 'Manitou', 'Other']
+// Chosen when the listed models don't cover what someone's bringing in
+const OTHER_MODEL = '__other__'
 
 function blankItem() {
   return { brand: '', model: '', serial_number: '', notes: '' }
@@ -45,6 +47,8 @@ export default function BookingScreen() {
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const horizonStr = format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM-dd')
 
+  const [catalogue, setCatalogue] = useState([])
+
   useEffect(() => {
     async function loadClosures() {
       const { data, error: err } = await supabase
@@ -53,8 +57,26 @@ export default function BookingScreen() {
         .gte('closed_date', todayStr)
       setClosures(err ? [] : (data || []).map(c => c.closed_date))
     }
+    async function loadCatalogue() {
+      const { data } = await supabase.from('public_unit_catalogue').select('brand, model')
+      setCatalogue(data || [])
+    }
     loadClosures()
+    loadCatalogue()
   }, [todayStr])
+
+  // Brands actually seen in the workshop, plus the standing list, minus
+  // anything customers should never pick
+  const brands = [...new Set([
+    ...catalogue.map(c => c.brand),
+    ...DEFAULT_BRANDS,
+  ])]
+    .filter(b => b && !PUBLIC_BRAND_EXCLUDE.includes(b))
+    .sort((a, b) => (a === 'Other' ? 1 : b === 'Other' ? -1 : a.localeCompare(b)))
+
+  const modelsFor = brand => [...new Set(
+    catalogue.filter(c => c.brand === brand && c.model).map(c => c.model)
+  )].sort((a, b) => a.localeCompare(b))
 
   function setField(k, v) { setForm(f => ({ ...f, [k]: v })) }
   function setItem(i, k, v) { setItems(us => us.map((u, n) => (n === i ? { ...u, [k]: v } : u))) }
@@ -129,8 +151,8 @@ export default function BookingScreen() {
         <div className="max-w-md mx-auto px-5 py-6 flex items-center gap-3">
           <img src="/logo.png" alt="" className="h-11 w-auto shrink-0" />
           <div>
-            <h1 className="text-white font-bold text-lg leading-none tracking-tight">Book a service</h1>
-            <p className="text-slate-400 text-xs mt-1.5">Flow State Suspension</p>
+            <h1 className="text-white font-bold text-lg leading-none tracking-tight">Work State</h1>
+            <p className="text-slate-400 text-xs mt-1.5">Book a Service</p>
           </div>
         </div>
       </div>
@@ -176,18 +198,38 @@ export default function BookingScreen() {
               </div>
 
               <Field label="Brand" required>
-                <select className={inputCls} value={item.brand} onChange={e => setItem(i, 'brand', e.target.value)}>
+                <select className={inputCls} value={item.brand}
+                  onChange={e => { setItem(i, 'brand', e.target.value); setItem(i, 'model', '') }}>
                   <option value="">Choose…</option>
-                  {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+                  {brands.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </Field>
 
-              <Field label="Model" hint="e.g. 36 Factory, Pike Ultimate">
-                <input className={inputCls} value={item.model} onChange={e => setItem(i, 'model', e.target.value)}
-                  placeholder="If you know it" />
+              <Field label="Model">
+                {modelsFor(item.brand).length > 0 ? (
+                  <>
+                    <select className={inputCls}
+                      value={modelsFor(item.brand).includes(item.model) || !item.model ? item.model : OTHER_MODEL}
+                      onChange={e => setItem(i, 'model', e.target.value === OTHER_MODEL ? ' ' : e.target.value)}>
+                      <option value="">Choose…</option>
+                      {modelsFor(item.brand).map(m => <option key={m} value={m}>{m}</option>)}
+                      <option value={OTHER_MODEL}>Not listed…</option>
+                    </select>
+                    {item.model && !modelsFor(item.brand).includes(item.model) && (
+                      <input className={`${inputCls} mt-2`} value={item.model.trim()}
+                        onChange={e => setItem(i, 'model', e.target.value || ' ')}
+                        placeholder="Which model?" autoFocus />
+                    )}
+                  </>
+                ) : (
+                  <input className={inputCls} value={item.model}
+                    onChange={e => setItem(i, 'model', e.target.value)}
+                    placeholder={item.brand ? 'Model' : 'Choose a brand first'} disabled={!item.brand} />
+                )}
               </Field>
 
-              <Field label="Serial number" hint="Usually on the lower leg or shock body — leave blank if you can't find it">
+              <Field label="Serial number"
+                hint="On forks it's on the back of the CSU, not the lower leg. Leave blank if you can't find it.">
                 <input className={inputCls} value={item.serial_number}
                   onChange={e => setItem(i, 'serial_number', e.target.value)} placeholder="Optional" />
               </Field>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { DEFAULT_BRANDS } from '../constants'
 
 const STORAGE_KEY = 'flowstate_settings'
 
@@ -12,7 +13,7 @@ const DEFAULTS = {
   stepCapacity: 20,
   turnaroundDays: 3,
   defaultUnitPrice: 120,
-  brands: ['Fox', 'Rockshox', 'Postage', 'Other'],
+  brands: DEFAULT_BRANDS,
   models: {},
   // statusLabels: overrides for display labels only. Keys are the DB values.
   statusLabels: {

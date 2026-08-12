@@ -50,3 +50,10 @@ export const STATUS_CONFIG = {
 }
 
 export const STATUS_ORDER = ['booked_in', 'awaiting_parts', 'ready', 'in_progress', 'on_hold', 'complete']
+
+// Seeds the brand list in Settings, and gives the public booking form a base
+// list to fall back on — it can't read your Settings from a customer's device.
+export const DEFAULT_BRANDS = ['Fox', 'Rockshox', 'Postage', 'Other']
+
+// Never offered to customers: not something anyone books in.
+export const PUBLIC_BRAND_EXCLUDE = ['Postage']
