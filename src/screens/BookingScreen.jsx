@@ -229,7 +229,7 @@ export default function BookingScreen() {
               </Field>
 
               <Field label="Serial number"
-                hint="On forks it's on the back of the CSU, not the lower leg. Leave blank if you can't find it.">
+                hint="Usually found on the back of the fork crown, or on the shock body">
                 <input className={inputCls} value={item.serial_number}
                   onChange={e => setItem(i, 'serial_number', e.target.value)} placeholder="Optional" />
               </Field>
