@@ -229,11 +229,12 @@ function AvailabilityCalendar({ closures, requests, onToggle, onToggleMany }) {
           getDay={getDay}
           onDayClick={toggle}
           onWeekdayClick={toggleWeekday}
+          availableTone="green"
         />
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3.5 pt-3 border-t border-slate-100">
           <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500">
-            <span className="w-3 h-3 rounded border border-slate-200 bg-white block" /> Open
+            <span className="w-3 h-3 rounded border border-green-300 bg-green-50 block" /> Open
           </span>
           <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500">
             <span className="w-3 h-3 rounded border border-slate-200 bg-slate-100 block" /> Closed

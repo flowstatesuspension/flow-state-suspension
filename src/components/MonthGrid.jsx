@@ -12,7 +12,7 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
  * onWeekdayClick(index) is optional — the availability editor uses it to shut a
  * whole column, which is how you kill every Saturday without 5 taps.
  */
-export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, onWeekdayClick, canPrev = true, canNext = true }) {
+export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, onWeekdayClick, canPrev = true, canNext = true, availableTone = 'neutral' }) {
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
   const gridEnd   = endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
@@ -58,7 +58,9 @@ export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, o
           const { closed, selected, disabled, count } = getDay(dateStr, d) || {}
           const isOff = disabled || !inMonth
 
-          let cls = 'bg-white border-slate-200 text-slate-700'
+          let cls = availableTone === 'green'
+            ? 'bg-green-50 border-green-300 text-green-800 font-medium'
+            : 'bg-white border-slate-200 text-slate-700'
           if (isOff)         cls = 'bg-transparent border-transparent text-slate-300'
           else if (selected) cls = 'bg-sky-500 border-sky-500 text-white font-bold'
           else if (closed)   cls = 'bg-slate-100 border-slate-200 text-slate-300 line-through'
