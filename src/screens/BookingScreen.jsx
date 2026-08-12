@@ -289,9 +289,7 @@ export default function BookingScreen() {
           {submitting ? 'Sending…' : 'Request booking'}
         </button>
 
-        <p className="text-center text-[11px] text-slate-400 leading-relaxed pb-6">
-          This sends a request, not a confirmed booking.<br />I'll come back to you on WhatsApp to confirm.
-        </p>
+        <div className="pb-6" />
       </form>
     </div>
   )

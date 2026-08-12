@@ -20,7 +20,7 @@ export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, o
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <button onClick={onPrev} disabled={!canPrev}
+        <button type="button" onClick={onPrev} disabled={!canPrev}
           className="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 active:bg-slate-100 disabled:opacity-25"
           aria-label="Previous month">
           <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -28,7 +28,7 @@ export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, o
           </svg>
         </button>
         <p className="text-sm font-bold text-slate-800">{format(month, 'MMMM yyyy')}</p>
-        <button onClick={onNext} disabled={!canNext}
+        <button type="button" onClick={onNext} disabled={!canNext}
           className="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 active:bg-slate-100 disabled:opacity-25"
           aria-label="Next month">
           <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -40,7 +40,7 @@ export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, o
       <div className="grid grid-cols-7 gap-1 mb-1">
         {WEEKDAYS.map((w, i) => (
           onWeekdayClick ? (
-            <button key={w} onClick={() => onWeekdayClick(i)}
+            <button key={w} type="button" onClick={() => onWeekdayClick(i)}
               className="text-[10px] font-bold text-slate-400 uppercase tracking-wide py-1 rounded active:bg-slate-100 active:text-slate-600"
               title={`Toggle every ${w} this month`}>
               {w}
@@ -68,6 +68,7 @@ export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, o
           return (
             <button
               key={dateStr}
+              type="button"
               onClick={() => !isOff && onDayClick?.(dateStr, d)}
               disabled={isOff}
               aria-pressed={selected ? true : undefined}
