@@ -257,15 +257,14 @@ export function useData() {
   // --- Booking ---
   // Turn a public request into a real customer + job. Nothing reaches the jobs
   // table until this runs, so a submission alone can never create workshop data.
-  async function acceptBooking(req, existingCustomerId, defaultPrice = 120) {
+  async function acceptBooking(req, existingCustomerId, defaultPrice = 120, turnaroundDays = 3) {
     const customerId = await upsertCustomer(
       { name: req.name, email: req.email || '', phone: req.phone || '' },
       existingCustomerId || null
     )
 
-    const turnaround = 3
     const pickup = new Date(req.slot_date)
-    pickup.setDate(pickup.getDate() + turnaround)
+    pickup.setDate(pickup.getDate() + turnaroundDays)
 
     const { data: job, error: jobErr } = await supabase
       .from('jobs')

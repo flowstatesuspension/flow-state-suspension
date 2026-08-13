@@ -16,7 +16,7 @@ function itemsOf(req) {
 }
 
 // ── One pending request ──────────────────────────────────────────────────────
-function RequestCard({ req, customers, defaultPrice, onAccept, onReject }) {
+function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, onReject }) {
   const { matches, conflict } = rankCustomerMatches(req, customers)
   const suggested = suggestAction({ matches, conflict })
 
@@ -51,7 +51,7 @@ function RequestCard({ req, customers, defaultPrice, onAccept, onReject }) {
     setBusy('accept'); setError(null)
     const win = window.open('', '_blank')
     try {
-      await onAccept(req, choice === 'new' ? null : choice, defaultPrice)
+      await onAccept(req, choice === 'new' ? null : choice, defaultPrice, turnaroundDays)
       if (win && !win.closed) win.location.href = whatsapp
       else window.location.href = whatsapp
     } catch (e) {
@@ -179,7 +179,7 @@ function RequestCard({ req, customers, defaultPrice, onAccept, onReject }) {
         )}
         <div className="flex gap-2">
           <button
-            onClick={() => run('accept', () => onAccept(req, choice === 'new' ? null : choice, defaultPrice))}
+            onClick={() => run('accept', () => onAccept(req, choice === 'new' ? null : choice, defaultPrice, turnaroundDays))}
             disabled={!!busy}
             className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold disabled:opacity-50 ${
               whatsapp
@@ -455,6 +455,7 @@ export default function AutoBookScreen({
                 pending.map(req => (
                   <RequestCard key={req.id} req={req} customers={customers}
                     defaultPrice={settings?.defaultUnitPrice ?? 120}
+                    turnaroundDays={settings?.turnaroundDays ?? 3}
                     onAccept={acceptBooking} onReject={rejectBooking} />
                 ))
               )}

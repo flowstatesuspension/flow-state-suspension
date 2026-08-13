@@ -48,6 +48,17 @@ export default function BookingScreen() {
   const horizonStr = format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM-dd')
 
   const [catalogue, setCatalogue] = useState([])
+  const [turnaround, setTurnaround] = useState(null)
+
+  useEffect(() => {
+    async function loadTurnaround() {
+      const { data } = await supabase
+        .from('public_settings').select('value').eq('key', 'turnaround_days').maybeSingle()
+      const n = parseInt(data?.value, 10)
+      setTurnaround(Number.isFinite(n) && n > 0 ? n : null)
+    }
+    loadTurnaround()
+  }, [])
 
   useEffect(() => {
     async function loadClosures() {
@@ -246,7 +257,11 @@ export default function BookingScreen() {
         <section className="space-y-3">
           <div>
             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Drop-off day</h2>
-            <p className="text-[11px] text-slate-400 mt-1">Typical turnaround is 2–3 days.</p>
+            {turnaround && (
+              <p className="text-[11px] text-slate-400 mt-1">
+                Typical turnaround is {turnaround} day{turnaround === 1 ? '' : 's'}.
+              </p>
+            )}
           </div>
           {closures === null ? (
             <p className="text-sm text-slate-400">Loading available days…</p>

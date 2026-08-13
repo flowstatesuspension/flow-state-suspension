@@ -96,6 +96,19 @@ function MainApp() {
     resumeOpenTimer()
   }, [data.jobs])
 
+  // Mirror the settings the public booking page needs. It runs in a customer's
+  // browser with no access to localStorage, so anything it has to display has
+  // to be pushed somewhere it can read.
+  useEffect(() => {
+    const days = settings?.turnaroundDays
+    if (!days) return
+    supabase
+      .from('public_settings')
+      .upsert({ key: 'turnaround_days', value: String(days), updated_at: new Date().toISOString() },
+              { onConflict: 'key' })
+      .then(({ error }) => { if (error) console.warn('[public_settings]', error.message) })
+  }, [settings?.turnaroundDays])
+
   // Show alert for today's incomplete todos once on load
   useEffect(() => {
     if (todoAlertShown || !data.todos.length) return
