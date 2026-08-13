@@ -26,6 +26,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // The public booking page must always come from the network. Serving it
+        // from the precached shell means a customer who opens the link once can
+        // keep getting an old form — wrong dates, wrong brands — with no way to
+        // know. The workshop app itself still works offline.
+        navigateFallbackDenylist: [/^\/book/],
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
