@@ -261,7 +261,7 @@ export default function BookingScreen() {
               <p className="text-[11px] text-slate-500 mt-1">
                 Turnaround right now is around{' '}
                 <b className="font-semibold text-slate-700">
-                  {turnaround} day{turnaround === 1 ? '' : 's'}
+                  {turnaround === 1 ? '1 day' : `1–${turnaround} days`}
                 </b>.
               </p>
             )}
