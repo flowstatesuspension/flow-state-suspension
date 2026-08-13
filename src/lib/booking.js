@@ -25,7 +25,8 @@ export function confirmationMessage({ name, dateLabel, items = [] }) {
   return [
     `Hi ${first}, you're booked in for ${dateLabel}.`,
     list.length ? `Bringing: ${list.join(', ')}.` : null,
-    'Give me a shout if anything changes.',
+    'Just let me know your ETA nearer the time.',
+    'Thanks Keith.',
   ].filter(Boolean).join('\n\n')
 }
 
