@@ -260,12 +260,18 @@ export default function BookingScreen() {
                   disabled: dateStr < todayStr || dateStr > horizonStr || closures.includes(dateStr),
                 })}
                 onDayClick={dateStr => setField('slot_date', dateStr)}
+                availableTone="green"
               />
-              {form.slot_date && (
-                <p className="text-[13px] text-slate-700 mt-3 pt-3 border-t border-slate-100">
-                  Dropping off <b>{format(parseISO(form.slot_date), 'EEEE d MMMM')}</b>
-                </p>
-              )}
+              <p className="text-[12px] mt-3 pt-3 border-t border-slate-100 text-slate-600">
+                {form.slot_date ? (
+                  <>Dropping off <b className="text-slate-900">{format(parseISO(form.slot_date), 'EEEE d MMMM')}</b></>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-slate-500">
+                    <span className="w-3 h-3 rounded border border-green-300 bg-green-50 block shrink-0" />
+                    Green days are available — tap one to choose it
+                  </span>
+                )}
+              </p>
             </div>
           )}
         </section>
