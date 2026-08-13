@@ -205,7 +205,7 @@ function RequestCard({ req, customers, defaultPrice, onAccept, onReject }) {
 // ── Availability ─────────────────────────────────────────────────────────────
 // Every day is bookable by default. Tapping one closes it; tapping again
 // reopens it. Bookings never close a day — that stays your call.
-function AvailabilityCalendar({ closures, requests, onToggle, onToggleMany }) {
+function AvailabilityCalendar({ closures, requests, jobs, onToggle, onToggleMany }) {
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const [month, setMonth] = useState(startOfMonth(new Date()))
   const [error, setError] = useState(null)
@@ -213,19 +213,23 @@ function AvailabilityCalendar({ closures, requests, onToggle, onToggleMany }) {
   const closedSet = new Set(closures.map(c => c.closed_date))
   const horizonStr = format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM-dd')
 
-  // How many live bookings sit on each day — shown so you know what you're
-  // affecting before shutting one. Accepted requests whose job was since
-  // deleted don't count; there's nothing in the workshop for them any more.
-  const bookingCount = {}
+  // Units arriving each day, however they were booked — jobs you entered
+  // yourself count the same as ones that came through the booking page.
+  // Accepting a request creates a job, so counting all jobs plus only the
+  // still-pending requests covers everything without double counting.
+  const unitCount = {}
+  const add = (date, n) => { if (date && n) unitCount[date] = (unitCount[date] || 0) + n }
+
+  jobs.forEach(j => add(j.drop_off_date, (j.units || []).length))
   requests
-    .filter(r => r.status === 'pending' || (r.status === 'accepted' && r.job_id))
-    .forEach(r => { bookingCount[r.slot_date] = (bookingCount[r.slot_date] || 0) + 1 })
+    .filter(r => r.status === 'pending')
+    .forEach(r => add(r.slot_date, Array.isArray(r.items) ? r.items.length : 0))
 
   function getDay(dateStr) {
     return {
       closed: closedSet.has(dateStr),
       disabled: dateStr < todayStr || dateStr > horizonStr,
-      count: bookingCount[dateStr] || 0,
+      count: unitCount[dateStr] || 0,
     }
   }
 
@@ -285,7 +289,7 @@ function AvailabilityCalendar({ closures, requests, onToggle, onToggleMany }) {
             <span className="w-3 h-3 rounded border border-slate-200 bg-slate-100 block" /> Closed
           </span>
           <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-500">
-            <span className="w-3 h-3 rounded-full bg-amber-400 block" /> Bookings on that day
+            <span className="w-3 h-3 rounded-full bg-amber-400 block" /> Units due in
           </span>
           {closedThisMonth > 0 && (
             <span className="ml-auto text-[10px] font-semibold text-slate-400">
@@ -307,7 +311,7 @@ function AvailabilityCalendar({ closures, requests, onToggle, onToggleMany }) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function AutoBookScreen({
-  bookingRequests = [], bookingClosures = [], customers = [], settings,
+  bookingRequests = [], bookingClosures = [], customers = [], jobs = [], settings,
   acceptBooking, rejectBooking, deleteBookingRequest, setBookingClosure, setBookingClosures,
 }) {
   const [tab, setTab] = useState('queue')
@@ -387,7 +391,7 @@ export default function AutoBookScreen({
           )}
 
           {tab === 'slots' && (
-            <AvailabilityCalendar closures={bookingClosures} requests={bookingRequests}
+            <AvailabilityCalendar closures={bookingClosures} requests={bookingRequests} jobs={jobs}
               onToggle={setBookingClosure} onToggleMany={setBookingClosures} />
           )}
 
