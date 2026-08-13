@@ -187,7 +187,7 @@ export default function BookingScreen() {
             <div key={i} className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                  Item {i + 1}
+                  Unit {i + 1}
                 </span>
                 {items.length > 1 && (
                   <button type="button" onClick={() => removeItem(i)}
