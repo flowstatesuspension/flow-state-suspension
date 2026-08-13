@@ -54,15 +54,19 @@ export function useData() {
     fetchAll()
 
     const silentRefresh = () => fetchAll({ silent: true })
-    const jobsSub = supabase
-      .channel('jobs-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, silentRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, silentRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, silentRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, silentRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, silentRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_closures' }, silentRefresh)
-      .subscribe()
+
+    // One channel per table. Supabase bundles every postgres_changes binding on
+    // a channel into a single subscription request, so one table failing
+    // authorisation kills updates for all of them, silently.
+    const TABLES = ['jobs', 'units', 'customers', 'todos', 'booking_requests', 'booking_closures']
+    const channels = TABLES.map(table =>
+      supabase
+        .channel(`rt-${table}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table }, silentRefresh)
+        .subscribe(status => {
+          if (status !== 'SUBSCRIBED') console.warn(`[realtime] ${table}: ${status}`)
+        })
+    )
 
     // Realtime only covers changes that arrive while the socket is alive. A
     // backgrounded PWA has its socket closed, and reconnecting doesn't replay
@@ -81,8 +85,17 @@ export function useData() {
     window.addEventListener('focus', catchUp)
     window.addEventListener('online', catchUp)
 
+    // Backstop. Realtime depends on a websocket surviving mobile networks, PWA
+    // suspension and proxies, and when it quietly stops there's no signal —
+    // you just see stale data. A poll while the app is on screen means the
+    // worst case is a booking showing up 30s late instead of never.
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchAll({ silent: true })
+    }, 30000)
+
     return () => {
-      supabase.removeChannel(jobsSub)
+      channels.forEach(ch => supabase.removeChannel(ch))
+      clearInterval(poll)
       document.removeEventListener('visibilitychange', catchUp)
       window.removeEventListener('focus', catchUp)
       window.removeEventListener('online', catchUp)
