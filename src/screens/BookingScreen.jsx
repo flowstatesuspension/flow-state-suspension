@@ -258,8 +258,11 @@ export default function BookingScreen() {
           <div>
             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Drop-off day</h2>
             {turnaround && (
-              <p className="text-[11px] text-slate-400 mt-1">
-                Typical turnaround is {turnaround} day{turnaround === 1 ? '' : 's'}.
+              <p className="text-[11px] text-slate-500 mt-1">
+                Turnaround right now is around{' '}
+                <b className="font-semibold text-slate-700">
+                  {turnaround} day{turnaround === 1 ? '' : 's'}
+                </b>.
               </p>
             )}
           </div>
