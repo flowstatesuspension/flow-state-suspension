@@ -138,7 +138,7 @@ export default function BookingScreen() {
             <b className="text-slate-900">{format(parseISO(done.date), 'EEEE d MMMM')}</b>.
           </p>
           <p className="text-sm text-slate-500 mt-3 leading-relaxed">
-            I'll confirm on WhatsApp shortly. Nothing is booked in until then.
+            I'll confirm on WhatsApp shortly.
           </p>
         </div>
       </div>

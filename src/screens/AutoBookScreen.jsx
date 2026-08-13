@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { format, parseISO, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { rankCustomerMatches, suggestAction } from '../lib/bookingMatch'
 import MonthGrid from '../components/MonthGrid'
-import { BOOKING_HORIZON_DAYS } from '../lib/booking'
+import { BOOKING_HORIZON_DAYS, confirmationMessage, waLink } from '../lib/booking'
 
 const CONFIDENCE_STYLE = {
   strong:   { label: 'Strong match',   bg: '#f0fdf4', border: '#86efac', text: '#16a34a' },
@@ -30,10 +30,34 @@ function RequestCard({ req, customers, defaultPrice, onAccept, onReject }) {
   const items = itemsOf(req)
   const visibleMatches = showAll ? matches : matches.slice(0, 3)
 
+  const whatsapp = waLink(req.phone, confirmationMessage({
+    name: req.name,
+    dateLabel: format(parseISO(req.slot_date), 'EEEE d MMMM'),
+    items,
+  }))
+
   async function run(action, fn) {
     setBusy(action); setError(null)
     try { await fn() }
     catch (e) { setError(e?.message || 'Could not save that.'); setBusy(null) }
+  }
+
+  // Accept, then hand off to WhatsApp with the confirmation written out.
+  // The tab is opened synchronously inside the tap — iOS blocks window.open
+  // once an await has broken the user-gesture chain — then pointed at the link
+  // only if the accept actually succeeded, and closed if it didn't.
+  async function acceptAndMessage() {
+    setBusy('accept'); setError(null)
+    const win = window.open('', '_blank')
+    try {
+      await onAccept(req, choice === 'new' ? null : choice, defaultPrice)
+      if (win && !win.closed) win.location.href = whatsapp
+      else window.location.href = whatsapp
+    } catch (e) {
+      if (win && !win.closed) win.close()
+      setError(e?.message || 'Could not save that.')
+      setBusy(null)
+    }
   }
 
   return (
@@ -141,17 +165,38 @@ function RequestCard({ req, customers, defaultPrice, onAccept, onReject }) {
         </div>
       )}
 
-      <div className="flex gap-2 px-3.5 pb-3.5">
-        <button
-          onClick={() => run('accept', () => onAccept(req, choice === 'new' ? null : choice, defaultPrice))}
-          disabled={!!busy}
-          className="flex-1 py-2.5 rounded-xl bg-sky-500 text-white text-[13px] font-bold active:bg-sky-600 disabled:opacity-50">
-          {busy === 'accept' ? 'Accepting…' : 'Accept booking'}
-        </button>
-        <button onClick={() => run('reject', () => onReject(req))} disabled={!!busy}
-          className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-[13px] font-semibold active:bg-slate-50 disabled:opacity-50">
-          {busy === 'reject' ? '…' : 'Reject'}
-        </button>
+      <div className="px-3.5 pb-3.5 space-y-2">
+        {whatsapp && (
+          <button onClick={acceptAndMessage} disabled={!!busy}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-[13px] font-bold active:brightness-95 disabled:opacity-50"
+            style={{ backgroundColor: '#25D366' }}>
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white" aria-hidden="true">
+              <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.532 5.854L.057 23.885a.5.5 0 0 0 .612.612l6.03-1.474A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.907 0-3.686-.528-5.2-1.444l-.373-.222-3.868.945.965-3.868-.241-.384A9.944 9.944 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z" />
+            </svg>
+            {busy === 'accept' ? 'Accepting…' : 'Accept & WhatsApp'}
+          </button>
+        )}
+        <div className="flex gap-2">
+          <button
+            onClick={() => run('accept', () => onAccept(req, choice === 'new' ? null : choice, defaultPrice))}
+            disabled={!!busy}
+            className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold disabled:opacity-50 ${
+              whatsapp
+                ? 'bg-white border border-slate-200 text-slate-700 active:bg-slate-50'
+                : 'bg-sky-500 text-white active:bg-sky-600'
+            }`}>
+            {busy === 'accept' && !whatsapp ? 'Accepting…' : whatsapp ? 'Accept only' : 'Accept booking'}
+          </button>
+          <button onClick={() => run('reject', () => onReject(req))} disabled={!!busy}
+            className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-[13px] font-semibold active:bg-slate-50 disabled:opacity-50">
+            {busy === 'reject' ? '…' : 'Reject'}
+          </button>
+        </div>
+        {!whatsapp && (
+          <p className="text-[10px] text-slate-400 text-center">
+            No WhatsApp option — {req.phone ? "couldn't read that phone number" : 'no phone number given'}
+          </p>
+        )}
       </div>
     </div>
   )
