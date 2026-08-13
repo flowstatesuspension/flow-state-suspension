@@ -151,8 +151,8 @@ export default function BookingScreen() {
         <div className="max-w-md mx-auto px-5 py-6 flex items-center gap-3">
           <img src="/logo.png" alt="" className="h-11 w-auto shrink-0" />
           <div>
-            <h1 className="text-white font-bold text-lg leading-none tracking-tight">Work State</h1>
-            <p className="text-slate-400 text-xs mt-1.5">Book a Service</p>
+            <h1 className="text-white font-bold text-[17px] leading-tight tracking-tight">Flow State Suspension Ltd</h1>
+            <p className="text-slate-400 text-xs mt-1">Book a Service</p>
           </div>
         </div>
       </div>
