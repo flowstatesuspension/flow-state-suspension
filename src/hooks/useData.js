@@ -64,7 +64,29 @@ export function useData() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_closures' }, silentRefresh)
       .subscribe()
 
-    return () => supabase.removeChannel(jobsSub)
+    // Realtime only covers changes that arrive while the socket is alive. A
+    // backgrounded PWA has its socket closed, and reconnecting doesn't replay
+    // what was missed — so catch up whenever the app comes back into view.
+    // Throttled, because iOS fires these in bursts when unlocking.
+    let lastCatchUp = 0
+    function catchUp() {
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - lastCatchUp < 3000) return
+      lastCatchUp = now
+      fetchAll({ silent: true })
+    }
+
+    document.addEventListener('visibilitychange', catchUp)
+    window.addEventListener('focus', catchUp)
+    window.addEventListener('online', catchUp)
+
+    return () => {
+      supabase.removeChannel(jobsSub)
+      document.removeEventListener('visibilitychange', catchUp)
+      window.removeEventListener('focus', catchUp)
+      window.removeEventListener('online', catchUp)
+    }
   }, [fetchAll])
 
   // --- Customers ---
