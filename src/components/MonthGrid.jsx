@@ -12,7 +12,7 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
  * onWeekdayClick(index) is optional — the availability editor uses it to shut a
  * whole column, which is how you kill every Saturday without 5 taps.
  */
-export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, onWeekdayClick, canPrev = true, canNext = true, availableTone = 'neutral' }) {
+export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, onWeekdayClick, onCountClick, canPrev = true, canNext = true, availableTone = 'neutral' }) {
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
   const gridEnd   = endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
@@ -66,28 +66,43 @@ export default function MonthGrid({ month, onPrev, onNext, getDay, onDayClick, o
           else if (closed)   cls = 'bg-slate-100 border-slate-200 text-slate-300 line-through'
 
           return (
-            <button
-              key={dateStr}
-              type="button"
-              onClick={() => !isOff && onDayClick?.(dateStr, d)}
-              disabled={isOff}
-              aria-pressed={selected ? true : undefined}
-              aria-label={`${format(d, 'EEEE d MMMM')}${closed ? ' — closed' : ''}`}
-              className={`relative aspect-square rounded-lg border text-[13px] flex items-center justify-center transition-colors ${cls} ${
-                isOff ? 'cursor-default' : 'active:brightness-95'
-              }`}
-            >
-              <span className={isToday(d) && !selected && !isOff ? 'underline underline-offset-2 decoration-2 decoration-sky-400' : ''}>
-                {format(d, 'd')}
-              </span>
-              {count > 0 && !isOff && (
-                <span className={`absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${
-                  selected ? 'bg-white text-sky-600' : 'bg-amber-400 text-white'
-                }`}>
-                  {count}
+            // The count is its own button when it's clickable — nesting one
+            // button inside another is invalid and breaks keyboard use
+            <div key={dateStr} className="relative aspect-square">
+              <button
+                type="button"
+                onClick={() => !isOff && onDayClick?.(dateStr, d)}
+                disabled={isOff}
+                aria-pressed={selected ? true : undefined}
+                aria-label={`${format(d, 'EEEE d MMMM')}${closed ? ' — closed' : ''}`}
+                className={`w-full h-full rounded-lg border text-[13px] flex items-center justify-center transition-colors ${cls} ${
+                  isOff ? 'cursor-default' : 'active:brightness-95'
+                }`}
+              >
+                <span className={isToday(d) && !selected && !isOff ? 'underline underline-offset-2 decoration-2 decoration-sky-400' : ''}>
+                  {format(d, 'd')}
                 </span>
+              </button>
+
+              {count > 0 && !isOff && (
+                onCountClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onCountClick(dateStr, d)}
+                    aria-label={`${count} unit${count === 1 ? '' : 's'} due on ${format(d, 'd MMMM')} — show them`}
+                    className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center bg-amber-400 text-white ring-2 ring-white active:bg-amber-500"
+                  >
+                    {count}
+                  </button>
+                ) : (
+                  <span className={`absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                    selected ? 'bg-white text-sky-600' : 'bg-amber-400 text-white'
+                  }`}>
+                    {count}
+                  </span>
+                )
               )}
-            </button>
+            </div>
           )
         })}
       </div>

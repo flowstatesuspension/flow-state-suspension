@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format, parseISO, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { rankCustomerMatches, suggestAction } from '../lib/bookingMatch'
 import MonthGrid from '../components/MonthGrid'
+import JobModal from '../components/JobModal'
 import { BOOKING_HORIZON_DAYS, confirmationMessage, waLink } from '../lib/booking'
 
 const CONFIDENCE_STYLE = {
@@ -202,10 +203,76 @@ function RequestCard({ req, customers, defaultPrice, onAccept, onReject }) {
   )
 }
 
+// ── What's arriving on a given day ───────────────────────────────────────────
+function DayUnitsModal({ dateStr, jobs, requests, onSelectJob, onGoToQueue, onClose }) {
+  const dayJobs = jobs.filter(j => j.drop_off_date === dateStr)
+  const dayReqs = requests.filter(r => r.status === 'pending' && r.slot_date === dateStr)
+  const unitsOf = j => (j.units || []).map(u => [u.brand, u.model].filter(Boolean).join(' ')).filter(Boolean)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-xl"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <p className="text-sm font-bold text-slate-800">{format(parseISO(dateStr), 'EEEE d MMMM')}</p>
+          <button onClick={onClose} className="text-slate-400 active:text-slate-600" aria-label="Close">
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="overflow-y-auto max-h-96 p-3 space-y-2">
+          {dayJobs.map(job => (
+            <button key={job.id} onClick={() => { onSelectJob(job); onClose() }}
+              className="w-full flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2.5 text-left active:bg-slate-100"
+              style={{ borderLeft: '4px solid #0ea5e9' }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-900 truncate">{job.customers?.name || '—'}</p>
+                <p className="text-xs text-slate-400 truncate">{unitsOf(job).join(', ') || 'No units'}</p>
+                {job.pickup_date && (
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Pickup {format(parseISO(job.pickup_date), 'd MMM yyyy')}
+                  </p>
+                )}
+              </div>
+              <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          ))}
+
+          {dayReqs.map(req => (
+            <button key={req.id} onClick={() => { onGoToQueue(); onClose() }}
+              className="w-full flex items-center gap-3 bg-amber-50 rounded-xl px-3 py-2.5 text-left active:bg-amber-100"
+              style={{ borderLeft: '4px solid #f59e0b' }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-900 truncate">{req.name}</p>
+                <p className="text-xs text-slate-500 truncate">
+                  {itemsOf(req).map(i => [i.brand, i.model].filter(Boolean).join(' ')).filter(Boolean).join(', ') || 'No units'}
+                </p>
+                <p className="text-[10px] font-bold text-amber-600 mt-0.5">Waiting for you to accept</p>
+              </div>
+              <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 text-amber-300" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          ))}
+
+          {dayJobs.length === 0 && dayReqs.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-4">Nothing due in that day</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Availability ─────────────────────────────────────────────────────────────
 // Every day is bookable by default. Tapping one closes it; tapping again
 // reopens it. Bookings never close a day — that stays your call.
-function AvailabilityCalendar({ closures, requests, jobs, onToggle, onToggleMany }) {
+function AvailabilityCalendar({ closures, requests, jobs, onToggle, onToggleMany, onShowDay }) {
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const [month, setMonth] = useState(startOfMonth(new Date()))
   const [error, setError] = useState(null)
@@ -278,6 +345,7 @@ function AvailabilityCalendar({ closures, requests, jobs, onToggle, onToggleMany
           getDay={getDay}
           onDayClick={toggle}
           onWeekdayClick={toggleWeekday}
+          onCountClick={onShowDay}
           availableTone="green"
         />
 
@@ -313,9 +381,12 @@ function AvailabilityCalendar({ closures, requests, jobs, onToggle, onToggleMany
 export default function AutoBookScreen({
   bookingRequests = [], bookingClosures = [], customers = [], jobs = [], settings,
   acceptBooking, rejectBooking, deleteBookingRequest, setBookingClosure, setBookingClosures,
+  saveJob, deleteJob, archiveJob, restoreJob, onStartTimer, activeTimer, timerStopKey,
 }) {
   const [tab, setTab] = useState('queue')
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [dayView, setDayView] = useState(null)   // date string
+  const [editJob, setEditJob] = useState(null)
   const onDelete = deleteBookingRequest
   const pending = bookingRequests.filter(r => r.status === 'pending')
   const decided = bookingRequests.filter(r => r.status !== 'pending').slice(0, 25)
@@ -392,7 +463,8 @@ export default function AutoBookScreen({
 
           {tab === 'slots' && (
             <AvailabilityCalendar closures={bookingClosures} requests={bookingRequests} jobs={jobs}
-              onToggle={setBookingClosure} onToggleMany={setBookingClosures} />
+              onToggle={setBookingClosure} onToggleMany={setBookingClosures}
+              onShowDay={setDayView} />
           )}
 
           {tab === 'done' && (
@@ -448,6 +520,25 @@ export default function AutoBookScreen({
 
         </div>
       </div>
+
+      {dayView && (
+        <DayUnitsModal
+          dateStr={dayView}
+          jobs={jobs}
+          requests={bookingRequests}
+          onSelectJob={setEditJob}
+          onGoToQueue={() => setTab('queue')}
+          onClose={() => setDayView(null)}
+        />
+      )}
+
+      {editJob && (
+        <JobModal job={editJob} customers={customers}
+          onSave={saveJob} onDelete={deleteJob} onArchive={archiveJob} onRestore={restoreJob}
+          onClose={() => setEditJob(null)}
+          settings={settings}
+          onStartTimer={onStartTimer} activeTimer={activeTimer} timerStopKey={timerStopKey} />
+      )}
     </div>
   )
 }

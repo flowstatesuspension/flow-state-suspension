@@ -181,7 +181,7 @@ function MainApp() {
         {activeTab === 'jobs'      && <JobsScreen      {...data} settings={enrichedSettings} {...timerProps} {...todoProps} />}
         {activeTab === 'customers' && <CustomersScreen {...data} onTabChange={setActiveTab} />}
         {activeTab === 'dashboard' && <DashboardScreen {...data} settings={enrichedSettings} refresh={data.refresh} {...timerProps} {...todoProps} />}
-        {activeTab === 'autobook'  && <AutoBookScreen  {...data} settings={enrichedSettings} />}
+        {activeTab === 'autobook'  && <AutoBookScreen  {...data} settings={enrichedSettings} {...timerProps} />}
         {activeTab === 'analytics' && <AnalyticsScreen {...data} settings={enrichedSettings} />}
         {activeTab === 'settings'  && <SettingsScreen  jobs={data.jobs} customers={data.customers} settings={enrichedSettings} updateSettings={updateSettings} />}
       </div>
