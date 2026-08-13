@@ -244,7 +244,10 @@ export default function BookingScreen() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Drop-off day</h2>
+          <div>
+            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Drop-off day</h2>
+            <p className="text-[11px] text-slate-400 mt-1">Typical turnaround is 2–3 days.</p>
+          </div>
           {closures === null ? (
             <p className="text-sm text-slate-400">Loading available days…</p>
           ) : (
