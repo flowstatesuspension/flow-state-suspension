@@ -3,7 +3,8 @@ import { format, parseISO, addDays, addMonths, subMonths, startOfMonth, endOfMon
 import { rankCustomerMatches, suggestAction } from '../lib/bookingMatch'
 import MonthGrid from '../components/MonthGrid'
 import JobModal from '../components/JobModal'
-import { BOOKING_HORIZON_DAYS, confirmationMessage, waLink } from '../lib/booking'
+import { BOOKING_HORIZON_DAYS, confirmationMessage } from '../lib/booking'
+import { waLink } from '../lib/phone'
 
 const CONFIDENCE_STYLE = {
   strong:   { label: 'Strong match',   bg: '#f0fdf4', border: '#86efac', text: '#16a34a' },

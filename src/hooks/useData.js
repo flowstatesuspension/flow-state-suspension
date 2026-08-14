@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { toE164 } from '../lib/phone'
 
 export function useData() {
   const [jobs, setJobs] = useState([])
@@ -104,7 +105,14 @@ export function useData() {
 
   // --- Customers ---
   async function upsertCustomer(data, existingCustomerId) {
-    const payload = { name: data.name.trim(), email: data.email || '', phone: data.phone || '' }
+    // Store phones in one canonical form (+447547585758). A number typed as
+    // 07… can't be used in a wa.me or tel: link, and normalising here catches
+    // every route in — manual entry, edits, and the public booking form.
+    const payload = {
+      name: data.name.trim(),
+      email: data.email || '',
+      phone: toE164(data.phone || ''),
+    }
 
     // If we already know which customer this is, update them directly (handles name changes)
     if (existingCustomerId) {
@@ -132,7 +140,8 @@ export function useData() {
   }
 
   async function updateCustomer(id, data) {
-    const { error } = await supabase.from('customers').update(data).eq('id', id)
+    const patch = 'phone' in data ? { ...data, phone: toE164(data.phone || '') } : data
+    const { error } = await supabase.from('customers').update(patch).eq('id', id)
     if (error) throw error
     await fetchAll()
   }

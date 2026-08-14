@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { format, parseISO } from 'date-fns'
 import StatusBadge from '../components/StatusBadge'
 import JobModal from '../components/JobModal'
+import { waLink } from '../lib/phone'
 
 function jobTotal(job) {
   return (job.units || []).reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
@@ -73,9 +74,8 @@ function CustomerDetail({ customer, jobs, customers, onBack, saveJob, deleteJob,
   }
 
   function handleWhatsApp() {
-    if (!customer.phone) return
-    const phone = customer.phone.replace(/[\s\-().]/g, '')
-    window.open(`https://wa.me/${phone}`, '_blank')
+    const link = waLink(customer.phone)
+    if (link) window.open(link, '_blank')
   }
 
   return (

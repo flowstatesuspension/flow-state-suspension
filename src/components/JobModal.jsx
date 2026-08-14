@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { format, addDays, parseISO } from 'date-fns'
 import { STATUS_CONFIG, STATUS_ORDER } from '../constants'
 import { getEntriesForUnit, updateEntryDuration, deleteEntry, formatHMS } from '../lib/timeEntries'
+import { waLink } from '../lib/phone'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 
@@ -9,10 +10,6 @@ function blankUnit() {
   return { id: null, brand: '', model: '', serial_number: '', status: 'booked_in', parts_notes: '', price: '' }
 }
 
-function formatPhone(raw) {
-  if (!raw) return null
-  return raw.replace(/[\s\-().]/g, '')
-}
 
 function jobTotal(units) {
   return units.reduce((sum, u) => sum + (parseFloat(u.price) || 0), 0)
@@ -105,14 +102,14 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
   function removeUnit(idx) { setUnits(us => us.filter((_, i) => i !== idx)) }
 
   function handleWhatsApp() {
-    const phone = formatPhone(form.customer_phone)
-    if (!phone) {
+    const link = waLink(form.customer_phone)
+    if (!link) {
       setNoPhoneWarning(true)
       phoneRef.current?.focus()
       return
     }
     setNoPhoneWarning(false)
-    window.open(`https://wa.me/${phone}`, '_blank')
+    window.open(link, '_blank')
   }
 
   async function handleSave() {
