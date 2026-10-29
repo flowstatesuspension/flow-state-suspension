@@ -326,11 +326,21 @@ function MiniDonut({ segments, centerLabel, centerSub, size = 160 }) {
   )
 }
 
-// SVG line chart. data = [{ label, value }], target = optional horizontal line value
-// todayFrac = fractional index (e.g. 3.43) where today falls on the x-axis
-function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => String(v), todayFrac = null }) {
-  const H = 90
-  const padT = 14, padB = 18, padL = 2, padR = 2
+const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+// Earlier years, most recent first. Kept grey so the current year reads first.
+const PRIOR_YEAR_COLORS = ['#94a3b8', '#cbd5e1', '#e2e8f0']
+
+/**
+ * Jan–Dec line chart, one line per year.
+ *
+ * series = [{ year, values: number[12] }], ascending by year. The latest year
+ * is drawn in `color` with an area fill and value labels; earlier years sit
+ * behind it in grey so you can read this year against last year directly.
+ */
+function LineChart({ series = [], color = '#38bdf8', target = null, valueFormat = v => String(v), todayIdx = null }) {
+  const H = 104
+  const padT = 16, padB = 18, padL = 2, padR = 2
   const wrapRef = useRef(null)
   const [W, setW] = useState(300)
   const [hovered, setHovered] = useState(null)
@@ -347,130 +357,166 @@ function LineChart({ data, color = '#38bdf8', target = null, valueFormat = v => 
 
   const cW = W - padL - padR
   const cH = H - padT - padB
+  const n = 12
 
-  const values = data.map(d => d.value)
-  const maxVal = Math.max(target ?? 0, ...values, 1) * 1.08
-  const n = data.length
+  const ordered = [...series].sort((a, b) => a.year - b.year)
+  if (!ordered.length) return null
+  const latest = ordered[ordered.length - 1]
 
-  const toX = i => padL + (n > 1 ? (i / (n - 1)) * cW : cW / 2)
+  const allValues = ordered.flatMap(s => s.values)
+  const maxVal = Math.max(target ?? 0, ...allValues, 1) * 1.08
+
+  const toX = i => padL + (i / (n - 1)) * cW
   const toY = v => padT + cH - Math.max(0, Math.min(v / maxVal, 1)) * cH
 
-  const pts = data.map((d, i) => [toX(i), toY(d.value)])
-  const linePath = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
-  const areaPath = `${linePath} L${pts[pts.length - 1][0].toFixed(1)},${(padT + cH).toFixed(1)} L${padL},${(padT + cH).toFixed(1)} Z`
+  // The current year stops at the last month that has anything in it, so an
+  // unstarted December doesn't drag the line down to zero.
+  function lengthOf(s) {
+    if (s.year !== latest.year) return n
+    const lastWithData = s.values.reduce((last, v, i) => (v > 0 ? i : last), -1)
+    return Math.min(n, Math.max(todayIdx ?? n - 1, lastWithData) + 1)
+  }
 
+  const drawn = ordered.map((s, idx) => {
+    const isLatest = s.year === latest.year
+    const back = ordered.length - 1 - idx // 0 = latest
+    return {
+      ...s,
+      isLatest,
+      stroke: isLatest ? color : PRIOR_YEAR_COLORS[Math.min(back - 1, PRIOR_YEAR_COLORS.length - 1)],
+      pts: s.values.slice(0, lengthOf(s)).map((v, i) => [toX(i), toY(v)]),
+    }
+  })
+
+  const pathOf = pts => pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+  const latestDrawn = drawn[drawn.length - 1]
   const targetY = target != null ? toY(target) : null
-  const lastIdx = n - 1
+  const gradId = `grad-${color.replace('#', '')}`
 
-  // Value labels on every point. When points are packed tighter than the text
-  // is wide, thin them out so they stay readable on a narrow screen. Counting
-  // back from the last point keeps the most recent value always labelled.
-  const spacing = n > 1 ? cW / (n - 1) : cW
-  const widestLabel = values.reduce((w, v) => Math.max(w, valueFormat(v).length), 1)
+  // Value labels on the current year only — every year labelled would be
+  // unreadable. Thinned when the text is wider than the spacing allows.
+  const spacing = cW / (n - 1)
+  const widestLabel = latest.values.reduce((w, v) => Math.max(w, valueFormat(v).length), 1)
   const labelStride = Math.max(1, Math.ceil((widestLabel * 4.4 + 3) / Math.max(spacing, 1)))
-  const showValueAt = i => (lastIdx - i) % labelStride === 0
+  const lastLatestIdx = latestDrawn.pts.length - 1
+  const showValueAt = i => (lastLatestIdx - i) % labelStride === 0
 
   return (
-    <div ref={wrapRef} style={{ height: H }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} overflow="visible">
-        <defs>
-          <linearGradient id={`grad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
-          </linearGradient>
-        </defs>
+    <div>
+      {ordered.length > 1 && (
+        <div className="flex items-center gap-3 mb-1.5">
+          {drawn.slice().reverse().map(s => (
+            <span key={s.year} className="inline-flex items-center gap-1.5 text-[10px] font-semibold"
+              style={{ color: s.isLatest ? color : '#94a3b8' }}>
+              <span className="w-3 h-[2px] rounded-full block" style={{ backgroundColor: s.stroke }} />
+              {s.year}
+            </span>
+          ))}
+        </div>
+      )}
 
-        <path d={areaPath} fill={`url(#grad-${color.replace('#','')})`} />
+      <div ref={wrapRef} style={{ height: H }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} overflow="visible">
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+              <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+            </linearGradient>
+          </defs>
 
-        {targetY != null && (
-          <>
-            <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
-              stroke="#ef4444" strokeWidth="1.2" strokeDasharray="5 3" />
-            <text x={W - padR - 1} y={targetY - 2} textAnchor="end" fontSize="8" fill="#ef4444" fontWeight="600">
-              £{target.toLocaleString()} target
-            </text>
-          </>
-        )}
+          {latestDrawn.pts.length > 1 && (
+            <path d={`${pathOf(latestDrawn.pts)} L${latestDrawn.pts[latestDrawn.pts.length - 1][0].toFixed(1)},${(padT + cH).toFixed(1)} L${padL},${(padT + cH).toFixed(1)} Z`}
+              fill={`url(#${gradId})`} />
+          )}
 
-        <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-
-        {data.map((d, i) => {
-          if (d.value === 0) return null
-          const [x, y] = pts[i]
-          const isLast = i === lastIdx
-          const isHovered = hovered === i
-          return (
-            <circle key={i} cx={x} cy={y} r={isHovered ? 4 : isLast ? 3 : 2}
-              fill={isLast || isHovered ? color : '#fff'} stroke={color} strokeWidth="1.5" />
-          )
-        })}
-
-        {/* Hover tooltip */}
-        {hovered !== null && data[hovered]?.value > 0 && (() => {
-          const [x, y] = pts[hovered]
-          const label = valueFormat(data[hovered].value)
-          const tipW = label.length * 5.5 + 8
-          const tipH = 13
-          const tipX = Math.min(Math.max(x - tipW / 2, padL), W - padR - tipW)
-          const tipY = y - tipH - 5
-          return (
+          {targetY != null && (
             <>
-              <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="3"
-                fill="#1e293b" />
-              <text x={tipX + tipW / 2} y={tipY + 9} textAnchor="middle"
-                fontSize="7.5" fill="#fff" fontWeight="600">{label}</text>
+              <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
+                stroke="#ef4444" strokeWidth="1.2" strokeDasharray="5 3" />
+              <text x={W - padR - 1} y={targetY - 2} textAnchor="end" fontSize="8" fill="#ef4444" fontWeight="600">
+                £{target.toLocaleString()} target
+              </text>
             </>
-          )
-        })()}
+          )}
 
-        {/* Point values — white halo keeps them legible over the line and fill */}
-        {data.map((d, i) => {
-          if (d.value === 0 || hovered === i || !showValueAt(i)) return null
-          const [x, y] = pts[i]
-          const isLast = i === lastIdx
-          return (
-            <text key={`val-${i}`} x={x} y={y - 5} textAnchor="middle"
-              fontSize={isLast ? 8 : 7}
-              fill={isLast ? color : '#64748b'}
-              fontWeight={isLast ? 700 : 600}
-              stroke="#fff" strokeWidth="2.5" paintOrder="stroke">
-              {valueFormat(d.value)}
-            </text>
-          )
-        })}
+          {/* Earlier years behind */}
+          {drawn.filter(s => !s.isLatest).map(s => (
+            <path key={s.year} d={pathOf(s.pts)} fill="none" stroke={s.stroke}
+              strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+          ))}
 
-        {/* Invisible hit areas for hover */}
-        {data.map((d, i) => {
-          if (d.value === 0) return null
-          const [x] = pts[i]
-          return (
-            <rect key={`hit-${i}`} x={x - 10} y={padT} width={20} height={cH}
+          {/* Current year on top */}
+          <path d={pathOf(latestDrawn.pts)} fill="none" stroke={color}
+            strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+          {latestDrawn.pts.map(([x, y], i) => {
+            if (latest.values[i] === 0) return null
+            const isHovered = hovered === i
+            return (
+              <circle key={i} cx={x} cy={y} r={isHovered ? 4 : i === lastLatestIdx ? 3 : 2}
+                fill={i === lastLatestIdx || isHovered ? color : '#fff'} stroke={color} strokeWidth="1.5" />
+            )
+          })}
+
+          {/* Hover shows every year for that month */}
+          {hovered !== null && (() => {
+            const rows = drawn
+              .filter(s => s.values[hovered] > 0)
+              .slice().reverse()
+              .map(s => `${s.year}  ${valueFormat(s.values[hovered])}`)
+            if (!rows.length) return null
+            const tipW = Math.max(...rows.map(r => r.length)) * 5.2 + 10
+            const tipH = rows.length * 11 + 6
+            const x = toX(hovered)
+            const tipX = Math.min(Math.max(x - tipW / 2, padL), W - padR - tipW)
+            const tipY = Math.max(padT - 4, toY(latest.values[hovered]) - tipH - 6)
+            return (
+              <>
+                <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="3" fill="#1e293b" />
+                {rows.map((r, i) => (
+                  <text key={i} x={tipX + tipW / 2} y={tipY + 11 + i * 11} textAnchor="middle"
+                    fontSize="7.5" fill="#fff" fontWeight="600">{r}</text>
+                ))}
+              </>
+            )
+          })()}
+
+          {/* Current-year values, white halo so they stay legible over the fill */}
+          {ordered.length === 1 || hovered === null ? latestDrawn.pts.map(([x, y], i) => {
+            if (latest.values[i] === 0 || hovered === i || !showValueAt(i)) return null
+            const isLast = i === lastLatestIdx
+            return (
+              <text key={`v-${i}`} x={x} y={y - 5} textAnchor="middle"
+                fontSize={isLast ? 8 : 7}
+                fill={isLast ? color : '#64748b'}
+                fontWeight={isLast ? 700 : 600}
+                stroke="#fff" strokeWidth="2.5" paintOrder="stroke">
+                {valueFormat(latest.values[i])}
+              </text>
+            )
+          }) : null}
+
+          {/* Hit areas across the full column so any year can be read */}
+          {Array.from({ length: n }, (_, i) => (
+            <rect key={`hit-${i}`} x={toX(i) - spacing / 2} y={padT} width={spacing} height={cH}
               fill="transparent"
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)} />
-          )
-        })}
+          ))}
 
-        {/* Today marker — drops from the line to the baseline, so it never runs
-            up through the point's value label */}
-        {todayFrac !== null && todayFrac >= 0 && todayFrac <= n - 1 && (() => {
-          const i0 = Math.floor(todayFrac)
-          const i1 = Math.min(i0 + 1, n - 1)
-          const t = todayFrac - i0
-          const vAt = data[i0].value + (data[i1].value - data[i0].value) * t
-          const x = toX(todayFrac)
-          return (
-            <line x1={x} y1={toY(vAt)} x2={x} y2={padT + cH}
+          {/* This month */}
+          {todayIdx !== null && todayIdx >= 0 && todayIdx < n && (
+            <line x1={toX(todayIdx)} y1={toY(latest.values[todayIdx])} x2={toX(todayIdx)} y2={padT + cH}
               stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
-          )
-        })()}
+          )}
 
-        {data.map((d, i) => (
-          <text key={i} x={toX(i)} y={H - 1} textAnchor="middle" fontSize="8" fill="#94a3b8">
-            {d.label}
-          </text>
-        ))}
-      </svg>
+          {MONTH_LABELS.map((label, i) => (
+            <text key={i} x={toX(i)} y={H - 1} textAnchor="middle" fontSize="8" fill="#94a3b8">
+              {label}
+            </text>
+          ))}
+        </svg>
+      </div>
     </div>
   )
 }
@@ -699,19 +745,6 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     const avgReturnInterval = returnIntervals.length > 0
       ? Math.round(returnIntervals.reduce((a, b) => a + b, 0) / returnIntervals.length) : null
 
-    // New customers per month
-    const newCustMonths = months.map(m => {
-      const value = customers.filter(c => {
-        const firstJob = jobs
-          .filter(j => j.customer_id === c.id && j.drop_off_date)
-          .sort((a, b) => a.drop_off_date.localeCompare(b.drop_off_date))[0]
-        if (!firstJob) return false
-        const d = parseISO(firstJob.drop_off_date)
-        return d >= m.start && d <= m.end
-      }).length
-      return { label: m.label, value }
-    })
-
     // Brand metrics
     const brandData = {}
     allUnits.forEach(u => {
@@ -744,8 +777,57 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       modelsByBrand[b].sort((a, z) => z.count - a.count)
     })
 
-    const unitsChartData = months.map(m => ({ label: m.label, value: m.unitCount || 0 }))
-    const todayFrac = thisMonthIdx >= 0 ? thisMonthIdx : null
+
+    // ── Calendar-year series for the month charts ─────────────────────────────
+    // The rolling `months` window above still drives every derived statistic.
+    // These are separate: full Jan–Dec per year, so each year can be drawn as
+    // its own line and read against the one before it.
+    const statsByMonth = {}   // 'YYYY-MM' → month totals
+    jobs.forEach(j => {
+      if (!j.drop_off_date) return
+      const key = j.drop_off_date.slice(0, 7)
+      const cell = statsByMonth[key] || (statsByMonth[key] = { revenue: 0, jobCount: 0, unitCount: 0, turns: [] })
+      cell.revenue += jobTotal(j)
+      cell.jobCount += 1
+      cell.unitCount += (j.units || []).length
+      if (j.pickup_date) {
+        cell.turns.push(differenceInDays(parseISO(j.pickup_date), parseISO(j.drop_off_date)))
+      }
+    })
+
+    // A customer counts as new in the month of their first job
+    const newCustByMonth = {}
+    customers.forEach(c => {
+      const first = jobs
+        .filter(j => j.customer_id === c.id && j.drop_off_date)
+        .sort((a, b) => a.drop_off_date.localeCompare(b.drop_off_date))[0]
+      if (!first) return
+      const key = first.drop_off_date.slice(0, 7)
+      newCustByMonth[key] = (newCustByMonth[key] || 0) + 1
+    })
+
+    const thisYear = today.getFullYear()
+    const chartYears = [...new Set([
+      ...Object.keys(statsByMonth).map(k => Number(k.slice(0, 4))),
+      thisYear,
+    ])].sort((a, b) => a - b).slice(-3)   // three years is as many as stays readable
+
+    const yearSeries = chartYears.map(year => ({
+      year,
+      cells: Array.from({ length: 12 }, (_, mi) => {
+        const key = `${year}-${String(mi + 1).padStart(2, '0')}`
+        const c = statsByMonth[key]
+        return {
+          revenue: c?.revenue ?? 0,
+          jobCount: c?.jobCount ?? 0,
+          unitCount: c?.unitCount ?? 0,
+          avgTurnaround: c?.turns.length ? Math.round(c.turns.reduce((a, b) => a + b, 0) / c.turns.length) : 0,
+          newCustomers: newCustByMonth[key] ?? 0,
+        }
+      }),
+    }))
+
+    const thisMonthIdxInYear = today.getMonth()
 
     // ── Revenue forecast ──────────────────────────────────────────────────────
     // Method: deseasonalise completed months, fit a linear trend, then project
@@ -945,10 +1027,11 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
       allUnits, activeUnits, avgUnitsPerJob, unitStatusCounts,
       completedJobs, activeJobs,
       partsByBrandArr, totalAwaitingParts,
-      repeatCustomers, custSpend, topCustomers, maxCustSpend, newCustMonths,
+      repeatCustomers, custSpend, topCustomers, maxCustSpend,
       avgLTV, avgReturnInterval,
       topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
-      unitsChartData, todayFrac, historicalMonths, pipelineMonths,
+      historicalMonths, pipelineMonths,
+      yearSeries, thisMonthIdxInYear,
       year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
       forecastActual, forecastY1, forecastY2, forecastFitMonths,
       capacityFromActuals, bestMonthLabel, bestMonthRevenue, ceilingWeeklyUnits, avgUnitPriceOverall,
@@ -1014,10 +1097,11 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     allUnits, activeUnits, avgUnitsPerJob, unitStatusCounts,
     completedJobs, activeJobs,
     partsByBrandArr, totalAwaitingParts,
-    repeatCustomers, custSpend, topCustomers, maxCustSpend, newCustMonths,
+    repeatCustomers, custSpend, topCustomers, maxCustSpend,
     avgLTV, avgReturnInterval,
     topBrandsByCount, topBrandsByRevenue, maxBrandCount, maxBrandRevenue, modelsByBrand,
-    unitsChartData, todayFrac, historicalMonths, pipelineMonths,
+    historicalMonths, pipelineMonths,
+    yearSeries, thisMonthIdxInYear,
     year2026, year2027, y1Forecast, y2Forecast, y1Total, y2Total, avgMonthlyCapacityRevenue, effectiveGrowthRate,
     forecastActual, forecastY1, forecastY2, forecastFitMonths,
     capacityFromActuals, bestMonthLabel, bestMonthRevenue, ceilingWeeklyUnits, avgUnitPriceOverall,
@@ -1282,10 +1366,13 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     )
   }
 
-  const revenueChartData = months.map(m => ({ label: m.label, value: m.revenue }))
-  const jobsChartData = months.map(m => ({ label: m.label, value: m.jobCount }))
-  const turnaroundChartData = months.map(m => ({ label: m.label, value: Math.round(m.avgTurnaround) }))
-  const newCustChartData = newCustMonths
+  // One line per calendar year for each of the month charts
+  const seriesOf = field => yearSeries.map(y => ({ year: y.year, values: y.cells.map(c => c[field]) }))
+  const revenueSeries    = seriesOf('revenue')
+  const jobsSeries       = seriesOf('jobCount')
+  const unitsSeries      = seriesOf('unitCount')
+  const turnaroundSeries = seriesOf('avgTurnaround')
+  const newCustSeries    = seriesOf('newCustomers')
 
   return (
     <div className="flex flex-col h-full">
@@ -1348,7 +1435,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
                 </p>
               </div>
             </div>
-            <LineChart data={revenueChartData} color="#22c55e" target={REVENUE_TARGET} valueFormat={v => `£${v.toFixed(0)}`} todayFrac={todayFrac} />
+            <LineChart series={revenueSeries} color="#22c55e" target={REVENUE_TARGET} valueFormat={v => `£${v.toFixed(0)}`} todayIdx={thisMonthIdxInYear} />
           </div>
 
           {/* Target progress bar + run rate */}
@@ -1559,7 +1646,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
                 <DeltaBadge current={thisMonth.jobCount} previous={lastMonth.jobCount} />
               </div>
             </div>
-            <LineChart data={jobsChartData} color="#38bdf8" valueFormat={v => String(v)} todayFrac={todayFrac} />
+            <LineChart series={jobsSeries} color="#38bdf8" valueFormat={v => String(v)} todayIdx={thisMonthIdxInYear} />
           </div>
           <div className="grid grid-cols-2 gap-2 mt-2">
             <KPICard value={avgUnitsPerJob.toFixed(1)} label="Avg Units / Job" sub="bikes per booking"
@@ -1589,7 +1676,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
                 <DeltaBadge current={thisMonth.unitCount || 0} previous={lastMonth.unitCount || 0} />
               </div>
             </div>
-            <LineChart data={unitsChartData} color="#f97316" valueFormat={v => String(v)} todayFrac={todayFrac} />
+            <LineChart series={unitsSeries} color="#f97316" valueFormat={v => String(v)} todayIdx={thisMonthIdxInYear} />
           </div>
           <Insight text={unitsInsight()} />
         </Section>
@@ -1605,7 +1692,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
               </div>
               <div className="bg-white rounded-xl border border-slate-200 p-4">
                 <p className="text-sm font-semibold text-slate-700 mb-3">Avg Days per Month</p>
-                <LineChart data={turnaroundChartData} color="#a855f7" valueFormat={v => `${v}d`} todayFrac={todayFrac} />
+                <LineChart series={turnaroundSeries} color="#a855f7" valueFormat={v => `${v}d`} todayIdx={thisMonthIdxInYear} />
               </div>
             </>
           ) : (
@@ -1699,7 +1786,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-2">
             <p className="text-sm font-semibold text-slate-700 mb-3">New Customers per Month</p>
-            <LineChart data={newCustChartData} color="#38bdf8" valueFormat={v => String(v)} todayFrac={todayFrac} />
+            <LineChart series={newCustSeries} color="#38bdf8" valueFormat={v => String(v)} todayIdx={thisMonthIdxInYear} />
           </div>
           {topCustomers.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 p-4">
