@@ -478,24 +478,37 @@ export default function AutoBookScreen({
               <div className="space-y-1.5">
                 {decided.map(r => {
                   const jobGone = r.status === 'accepted' && !r.job_id
+                  // Only accepted requests whose job still exists can be opened
+                  const job = r.job_id ? jobs.find(j => j.id === r.job_id) : null
+                  const Row = job ? 'button' : 'div'
                   return (
                     <div key={r.id} className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 pl-3 pr-2 py-2.5">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                         jobGone ? 'bg-slate-200' : r.status === 'accepted' ? 'bg-green-500' : 'bg-slate-300'
                       }`} />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[13px] font-semibold truncate ${jobGone ? 'text-slate-400' : 'text-slate-800'}`}>
-                          {r.name}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {itemsOf(r).map(i => [i.brand, i.model].filter(Boolean).join(' ')).join(' · ')}
-                        </p>
-                      </div>
-                      <span className={`text-[10px] font-bold shrink-0 ${
-                        jobGone ? 'text-slate-400' : r.status === 'accepted' ? 'text-green-600' : 'text-slate-400'
-                      }`}>
-                        {jobGone ? 'Job deleted' : r.status === 'accepted' ? 'Accepted' : 'Rejected'}
-                      </span>
+                      <Row
+                        {...(job ? { onClick: () => setEditJob(job), type: 'button' } : {})}
+                        className={`flex-1 flex items-center gap-3 min-w-0 text-left ${job ? 'active:opacity-60' : ''}`}
+                      >
+                        <span className="flex-1 min-w-0">
+                          <span className={`block text-[13px] font-semibold truncate ${jobGone ? 'text-slate-400' : 'text-slate-800'}`}>
+                            {r.name}
+                          </span>
+                          <span className="block text-[11px] text-slate-400 truncate">
+                            {itemsOf(r).map(i => [i.brand, i.model].filter(Boolean).join(' ')).join(' · ')}
+                          </span>
+                        </span>
+                        <span className={`text-[10px] font-bold shrink-0 ${
+                          jobGone ? 'text-slate-400' : r.status === 'accepted' ? 'text-green-600' : 'text-slate-400'
+                        }`}>
+                          {jobGone ? 'Job deleted' : r.status === 'accepted' ? 'Accepted' : 'Rejected'}
+                        </span>
+                        {job && (
+                          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                          </svg>
+                        )}
+                      </Row>
                       {onDelete && (
                         <button
                           onClick={() => setConfirmDelete(confirmDelete === r.id ? null : r.id)}
