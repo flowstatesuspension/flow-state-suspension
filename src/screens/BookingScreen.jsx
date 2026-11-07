@@ -149,18 +149,25 @@ export default function BookingScreen() {
             notes: u.notes.trim(),
           })),
       }
-      const { data: created, error: err } = await supabase
-        .from('booking_requests').insert(payload).select('job_number').single()
+      // Via a function, not a plain insert: the form needs the job number
+      // back, and reading the row would mean granting anonymous visitors
+      // SELECT on every booking.
+      const { data: issuedNumber, error: err } = await supabase.rpc('submit_booking_request', {
+        p_name: payload.name,
+        p_phone: payload.phone,
+        p_slot_date: payload.slot_date,
+        p_items: payload.items,
+        p_delivery_method: payload.delivery_method,
+        p_email: payload.email,
+        p_notes: payload.notes,
+        p_return_address: payload.return_address,
+      })
       if (err) throw err
-      setDone({ date: form.slot_date, name: form.name.trim(), posting, jobNumber: created?.job_number ?? null })
+      setDone({ date: form.slot_date, name: form.name.trim(), posting, jobNumber: issuedNumber ?? null })
     } catch (err) {
       // The slot check lives in a database policy, so a day filling up between
       // page load and submit lands here rather than being silently accepted.
-      setError(
-        /row-level security|violates/i.test(err?.message || '')
-          ? 'That day just filled up. Pick another and try again.'
-          : (err?.message || 'Something went wrong. Please try again.')
-      )
+      setError(err?.message || 'Something went wrong. Please try again.')
       setSubmitting(false)
     }
   }
