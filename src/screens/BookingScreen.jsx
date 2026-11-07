@@ -331,7 +331,7 @@ export default function BookingScreen() {
           <div className="grid grid-cols-2 gap-2">
             {[
               ['dropoff', 'Drop It', 'Bring it to the workshop'],
-              ['post', 'Send It', 'Post or courier'],
+              ['post', 'Send It', 'By post or courier'],
             ].map(([id, label, sub]) => {
               const on = form.delivery_method === id
               return (

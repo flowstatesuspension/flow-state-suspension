@@ -244,7 +244,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
                   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25V18a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18V8.25m18 0A2.25 2.25 0 0 0 18.75 6H5.25A2.25 2.25 0 0 0 3 8.25m18 0-9 5.25-9-5.25" />
                   </svg>
-                  Posting back
+                  Send It — returning by post
                 </span>
                 {returnAddress.trim() && (
                   <button type="button" onClick={copyAddress}

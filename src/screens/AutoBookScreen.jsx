@@ -109,7 +109,7 @@ function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, o
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25V18a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18V8.25m18 0A2.25 2.25 0 0 0 18.75 6H5.25A2.25 2.25 0 0 0 3 8.25m18 0-9 5.25-9-5.25" />
               </svg>
-              Being posted in
+              Send It
             </p>
             {req.return_address && (
               <p className="text-[11px] text-slate-600 font-mono leading-snug whitespace-pre-wrap mt-1.5">
