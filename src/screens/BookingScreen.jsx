@@ -149,10 +149,19 @@ export default function BookingScreen() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Booking sent</h1>
+          <h1 className="text-xl font-bold text-slate-900">Nice one, {done.name.split(' ')[0]}</h1>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-            Thanks {done.name.split(' ')[0]}. You've asked to {done.posting ? 'send it to land by' : 'drop off on'}{' '}
-            <b className="text-slate-900">{format(parseISO(done.date), 'EEEE d MMMM')}</b>.
+            {done.posting ? (
+              <>
+                You're going to <b className="text-slate-900">Send It</b> — landing with me by{' '}
+                <b className="text-slate-900">{format(parseISO(done.date), 'EEEE d MMMM')}</b>.
+              </>
+            ) : (
+              <>
+                You're dropping it off{' '}
+                <b className="text-slate-900">{format(parseISO(done.date), 'EEEE d MMMM')}</b>.
+              </>
+            )}
           </p>
           <p className="text-sm text-slate-500 mt-3 leading-relaxed">
             I'll confirm on WhatsApp shortly.
