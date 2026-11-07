@@ -176,38 +176,6 @@ export default function BookingScreen() {
 
       <form onSubmit={handleSubmit} className="max-w-md mx-auto px-5 py-6 space-y-6">
 
-        <section className="space-y-3">
-          <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">How's it getting here?</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ['dropoff', 'Dropping it off', 'In person'],
-              ['post', 'Sending it', 'By post or courier'],
-            ].map(([id, label, sub]) => {
-              const on = form.delivery_method === id
-              return (
-                <button key={id} type="button" onClick={() => setField('delivery_method', id)}
-                  aria-pressed={on}
-                  className={`rounded-xl border p-3 text-left transition-colors ${
-                    on ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-500/20' : 'border-slate-200 bg-white active:bg-slate-50'
-                  }`}>
-                  <p className={`text-[14px] font-bold ${on ? 'text-sky-700' : 'text-slate-800'}`}>{label}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>
-                </button>
-              )
-            })}
-          </div>
-
-          {posting && (
-            <Field label="Return address" required
-              hint="Where we post it back to when it's done">
-              <textarea className={inputCls} rows={4} value={form.return_address}
-                onChange={e => setField('return_address', e.target.value)}
-                autoComplete="street-address"
-                placeholder={'House / flat and street\nTown\nPostcode'} />
-            </Field>
-          )}
-        </section>
-
         <section className="space-y-4">
           <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Your details</h2>
           <Field label="Name" required>
@@ -290,6 +258,38 @@ export default function BookingScreen() {
               </Field>
             </div>
           ))}
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Drop It or Send It</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              ['dropoff', 'Drop It', 'Bring it to the workshop'],
+              ['post', 'Send It', 'Post or courier'],
+            ].map(([id, label, sub]) => {
+              const on = form.delivery_method === id
+              return (
+                <button key={id} type="button" onClick={() => setField('delivery_method', id)}
+                  aria-pressed={on}
+                  className={`rounded-xl border p-3 text-left transition-colors ${
+                    on ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-500/20' : 'border-slate-200 bg-white active:bg-slate-50'
+                  }`}>
+                  <p className={`text-[14px] font-bold ${on ? 'text-sky-700' : 'text-slate-800'}`}>{label}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>
+                </button>
+              )
+            })}
+          </div>
+
+          {posting && (
+            <Field label="Return address" required
+              hint="Where we post it back to when it's done">
+              <textarea className={inputCls} rows={4} value={form.return_address}
+                onChange={e => setField('return_address', e.target.value)}
+                autoComplete="street-address"
+                placeholder={'House / flat and street\nTown\nPostcode'} />
+            </Field>
+          )}
         </section>
 
         <section className="space-y-3">
