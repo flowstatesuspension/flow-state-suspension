@@ -118,7 +118,7 @@ export default function BookingScreen() {
     if (!form.slot_date)    { setError(posting ? 'Please choose a date.' : 'Please choose a drop-off day.'); return }
     if (items.every(u => !u.brand.trim())) { setError('Please tell us what you are sending.'); return }
     if (posting && form.return_address.trim().length < 10) {
-      setError('Please give us the full address to post it back to.'); return
+      setError('Please give us the full address to send it back to.'); return
     }
 
     setSubmitting(true)
@@ -181,7 +181,7 @@ export default function BookingScreen() {
           </p>
           {done.posting && (
             <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Post it to</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Send it to</p>
               <address className="not-italic text-[15px] leading-relaxed text-slate-900 font-medium">
                 {WORKSHOP_ADDRESS.map(line => <span key={line} className="block">{line}</span>)}
               </address>
@@ -349,7 +349,7 @@ export default function BookingScreen() {
 
           {posting && (
             <Field label="Return address" required
-              hint="Where we post it back to when it's done">
+              hint="Where we send it back to when it's done">
               <textarea className={inputCls} rows={4} value={form.return_address}
                 onChange={e => setField('return_address', e.target.value)}
                 autoComplete="street-address"
