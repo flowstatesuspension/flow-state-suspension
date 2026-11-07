@@ -10,7 +10,7 @@ function jobTotal(job) {
 }
 
 function CustomerEditModal({ customer, onSave, onClose }) {
-  const [form, setForm] = useState({ name: customer.name, email: customer.email || '', phone: customer.phone || '' })
+  const [form, setForm] = useState({ name: customer.name, email: customer.email || '', phone: customer.phone || '', address: customer.address || '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -34,6 +34,7 @@ function CustomerEditModal({ customer, onSave, onClose }) {
           <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Name *" className="input w-full" />
           <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Email" type="email" className="input w-full" />
           <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone" type="tel" className="input w-full" />
+          <textarea value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Address — used when posting work back" rows={4} className="input w-full" />
         </div>
       </div>
       <style>{`.input{display:block;width:100%;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.5rem 0.625rem;font-size:0.875rem;background:white;color:#0f172a;outline:none;}.input:focus{border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,0.2);}.input::placeholder{color:#94a3b8;}`}</style>

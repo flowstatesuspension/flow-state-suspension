@@ -38,12 +38,13 @@ const inputCls =
 export default function BookingScreen() {
   const [closures, setClosures] = useState(null) // null = loading
   const [month, setMonth] = useState(startOfMonth(new Date()))
-  const [form, setForm] = useState({ name: '', phone: '', email: '', slot_date: '', notes: '' })
+  const [form, setForm] = useState({ name: '', phone: '', email: '', slot_date: '', notes: '', delivery_method: 'dropoff', return_address: '' })
   const [items, setItems] = useState([blankItem()])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [done, setDone] = useState(null)
 
+  const posting = form.delivery_method === 'post'
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const horizonStr = format(addDays(new Date(), BOOKING_HORIZON_DAYS), 'yyyy-MM-dd')
 
@@ -98,8 +99,11 @@ export default function BookingScreen() {
     e.preventDefault()
     if (!form.name.trim())  { setError('Please give us your name.'); return }
     if (!form.phone.trim()) { setError('Please give us a phone number so we can reach you.'); return }
-    if (!form.slot_date)    { setError('Please choose a drop-off day.'); return }
-    if (items.every(u => !u.brand.trim())) { setError('Please tell us what you are bringing in.'); return }
+    if (!form.slot_date)    { setError(posting ? 'Please choose a date.' : 'Please choose a drop-off day.'); return }
+    if (items.every(u => !u.brand.trim())) { setError('Please tell us what you are sending.'); return }
+    if (posting && form.return_address.trim().length < 10) {
+      setError('Please give us the full address to post it back to.'); return
+    }
 
     setSubmitting(true)
     setError(null)
@@ -110,6 +114,8 @@ export default function BookingScreen() {
         email: form.email.trim() || null,
         slot_date: form.slot_date,
         notes: form.notes.trim() || null,
+        delivery_method: form.delivery_method,
+        return_address: posting ? form.return_address.trim() : null,
         items: items
           .filter(u => u.brand.trim())
           .map(u => ({
@@ -121,7 +127,7 @@ export default function BookingScreen() {
       }
       const { error: err } = await supabase.from('booking_requests').insert(payload)
       if (err) throw err
-      setDone({ date: form.slot_date, name: form.name.trim() })
+      setDone({ date: form.slot_date, name: form.name.trim(), posting })
     } catch (err) {
       // The slot check lives in a database policy, so a day filling up between
       // page load and submit lands here rather than being silently accepted.
@@ -145,7 +151,7 @@ export default function BookingScreen() {
           </div>
           <h1 className="text-xl font-bold text-slate-900">Booking sent</h1>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-            Thanks {done.name.split(' ')[0]}. You've asked to drop off on{' '}
+            Thanks {done.name.split(' ')[0]}. You've asked to {done.posting ? 'post it on' : 'drop off on'}{' '}
             <b className="text-slate-900">{format(parseISO(done.date), 'EEEE d MMMM')}</b>.
           </p>
           <p className="text-sm text-slate-500 mt-3 leading-relaxed">
@@ -170,6 +176,38 @@ export default function BookingScreen() {
 
       <form onSubmit={handleSubmit} className="max-w-md mx-auto px-5 py-6 space-y-6">
 
+        <section className="space-y-3">
+          <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">How's it getting here?</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              ['dropoff', 'Dropping it off', 'In person'],
+              ['post', 'Sending it', 'By post or courier'],
+            ].map(([id, label, sub]) => {
+              const on = form.delivery_method === id
+              return (
+                <button key={id} type="button" onClick={() => setField('delivery_method', id)}
+                  aria-pressed={on}
+                  className={`rounded-xl border p-3 text-left transition-colors ${
+                    on ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-500/20' : 'border-slate-200 bg-white active:bg-slate-50'
+                  }`}>
+                  <p className={`text-[14px] font-bold ${on ? 'text-sky-700' : 'text-slate-800'}`}>{label}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>
+                </button>
+              )
+            })}
+          </div>
+
+          {posting && (
+            <Field label="Return address" required
+              hint="Where we post it back to when it's done">
+              <textarea className={inputCls} rows={4} value={form.return_address}
+                onChange={e => setField('return_address', e.target.value)}
+                autoComplete="street-address"
+                placeholder={'House / flat and street\nTown\nPostcode'} />
+            </Field>
+          )}
+        </section>
+
         <section className="space-y-4">
           <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Your details</h2>
           <Field label="Name" required>
@@ -188,7 +226,7 @@ export default function BookingScreen() {
 
         <section className="space-y-4">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">What's coming in</h2>
+            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">What are we working on?</h2>
             <button type="button" onClick={addItem} className="text-xs font-bold text-sky-600 active:text-sky-700">
               + Add another
             </button>
@@ -256,7 +294,9 @@ export default function BookingScreen() {
 
         <section className="space-y-3">
           <div>
-            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Drop-off day</h2>
+            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {posting ? 'When are you posting it?' : 'Drop-off day'}
+            </h2>
             {turnaround && (
               <p className="text-[11px] text-slate-500 mt-1">
                 Turnaround right now is around{' '}
@@ -285,11 +325,16 @@ export default function BookingScreen() {
               />
               <p className="text-[12px] mt-3 pt-3 border-t border-slate-100 text-slate-600">
                 {form.slot_date ? (
-                  <>Dropping off <b className="text-slate-900">{format(parseISO(form.slot_date), 'EEEE d MMMM')}</b></>
+                  <>
+                    {posting ? 'Posting it ' : 'Dropping off '}
+                    <b className="text-slate-900">{format(parseISO(form.slot_date), 'EEEE d MMMM')}</b>
+                  </>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-slate-500">
                     <span className="w-3 h-3 rounded border border-green-300 bg-green-50 block shrink-0" />
-                    Green days are available — tap one to choose it
+                    {posting
+                      ? 'Pick the day you\'ll put it in the post'
+                      : 'Green days are available — tap one to choose it'}
                   </span>
                 )}
               </p>

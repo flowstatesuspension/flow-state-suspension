@@ -56,6 +56,16 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
   const [error, setError] = useState(null)
   const [copiedSerial, setCopiedSerial] = useState(null)
   const [noPhoneWarning, setNoPhoneWarning] = useState(false)
+  const isPostal = job?.delivery_method === 'post'
+  const [returnAddress, setReturnAddress] = useState(job?.customers?.address || '')
+  const [copiedAddress, setCopiedAddress] = useState(false)
+
+  function copyAddress() {
+    navigator.clipboard?.writeText(returnAddress.trim()).then(() => {
+      setCopiedAddress(true)
+      setTimeout(() => setCopiedAddress(false), 1600)
+    }).catch(() => {})
+  }
   const [pendingConfirm, setPendingConfirm] = useState(null) // { key, onConfirm }
   const [unitEntries, setUnitEntries] = useState({}) // { [unitId]: entries[] }
   const [editingEntry, setEditingEntry] = useState(null) // { id, h, m, s }
@@ -79,6 +89,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
 
   function pickCustomer(c) {
     setForm(f => ({ ...f, customer_name: c.name, customer_email: c.email || '', customer_phone: c.phone || '' }))
+    if (c.address) setReturnAddress(c.address)
     setNameSuggestions([])
     setHasTypedName(false)
   }
@@ -118,7 +129,7 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
     if (units.some(u => !u.brand.trim())) { setError('Each unit needs a brand'); return }
     setSaving(true); setError(null)
     try {
-      await onSave({ ...form, id: job?.id, customer_id: job?.customer_id }, units)
+      await onSave({ ...form, id: job?.id, customer_id: job?.customer_id, customer_address: isPostal ? returnAddress.trim() : undefined }, units)
       onClose()
     } catch (e) {
       setError(e.message)
@@ -222,6 +233,40 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
             </div>
             {noPhoneWarning && <p className="text-xs text-amber-600 font-medium">Add a phone number to use WhatsApp</p>}
           </div>
+
+          {/* Postal job — the return address has to be to hand when it's time
+              to send it back, so it sits in the card rather than the customer
+              record. Editable here, saved back to the customer. */}
+          {isPostal && (
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-violet-700 uppercase tracking-wide">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25V18a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18V8.25m18 0A2.25 2.25 0 0 0 18.75 6H5.25A2.25 2.25 0 0 0 3 8.25m18 0-9 5.25-9-5.25" />
+                  </svg>
+                  Posting back
+                </span>
+                {returnAddress.trim() && (
+                  <button type="button" onClick={copyAddress}
+                    className="text-[11px] font-semibold text-violet-600 active:text-violet-800">
+                    {copiedAddress ? 'Copied' : 'Copy'}
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={returnAddress}
+                onChange={e => setReturnAddress(e.target.value)}
+                rows={4}
+                placeholder="No return address — add one"
+                className="input w-full font-mono text-[13px] leading-snug"
+              />
+              {!returnAddress.trim() && (
+                <p className="text-[11px] text-amber-600 font-medium mt-1.5">
+                  This job is being posted back but has no address.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-2">

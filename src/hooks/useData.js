@@ -25,7 +25,7 @@ export function useData() {
       ] = await Promise.all([
         supabase
           .from('jobs')
-          .select('*, units(*), customers(id, name, email, phone)')
+          .select('*, units(*), customers(id, name, email, phone, address)')
           .eq('archived', false)
           .order('sort_order', { ascending: true, nullsFirst: false })
           .order('drop_off_date', { ascending: true }),
@@ -113,6 +113,11 @@ export function useData() {
       email: data.email || '',
       phone: toE164(data.phone || ''),
     }
+    // Only written when supplied — the job card has no address field, and a
+    // blank there must not clear what the customer gave us when booking.
+    if (data.address != null && String(data.address).trim()) {
+      payload.address = String(data.address).trim()
+    }
 
     // If we already know which customer this is, update them directly (handles name changes)
     if (existingCustomerId) {
@@ -169,7 +174,7 @@ export function useData() {
   // --- Jobs ---
   async function saveJob(jobData, units) {
     const customerId = await upsertCustomer(
-      { name: jobData.customer_name, email: jobData.customer_email || '', phone: jobData.customer_phone || '' },
+      { name: jobData.customer_name, email: jobData.customer_email || '', phone: jobData.customer_phone || '', address: jobData.customer_address },
       jobData.customer_id || null
     )
 
@@ -268,7 +273,12 @@ export function useData() {
   // table until this runs, so a submission alone can never create workshop data.
   async function acceptBooking(req, existingCustomerId, defaultPrice = 120, turnaroundDays = 3) {
     const customerId = await upsertCustomer(
-      { name: req.name, email: req.email || '', phone: req.phone || '' },
+      {
+        name: req.name,
+        email: req.email || '',
+        phone: req.phone || '',
+        address: req.delivery_method === 'post' ? req.return_address : null,
+      },
       existingCustomerId || null
     )
 
@@ -282,6 +292,7 @@ export function useData() {
         drop_off_date: req.slot_date,
         pickup_date: pickup.toISOString().slice(0, 10),
         notes: req.notes || null,
+        delivery_method: req.delivery_method || 'dropoff',
         sort_order: Date.now(),
       })
       .select('id')

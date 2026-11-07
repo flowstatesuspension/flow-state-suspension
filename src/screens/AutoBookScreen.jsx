@@ -101,6 +101,22 @@ function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, o
         {req.notes && (
           <p className="text-[11px] text-slate-500 italic pt-1 border-t border-slate-50">{req.notes}</p>
         )}
+
+        {req.delivery_method === 'post' && (
+          <div className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 mt-1">
+            <p className="inline-flex items-center gap-1.5 text-[10px] font-bold text-violet-700 uppercase tracking-wide">
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25V18a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18V8.25m18 0A2.25 2.25 0 0 0 18.75 6H5.25A2.25 2.25 0 0 0 3 8.25m18 0-9 5.25-9-5.25" />
+              </svg>
+              Being posted in
+            </p>
+            {req.return_address && (
+              <p className="text-[11px] text-slate-600 font-mono leading-snug whitespace-pre-wrap mt-1.5">
+                {req.return_address}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Customer decision */}
