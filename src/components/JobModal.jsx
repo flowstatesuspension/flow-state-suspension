@@ -180,9 +180,13 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
           <button onClick={onClose} className="text-sky-600 font-medium text-sm">Cancel</button>
           {/* The number is the job's identity — no need to label the card as
               well, you know what you opened. New jobs have no number yet. */}
-          <h2 className="font-bold text-slate-900 font-mono tabular-nums tracking-tight">
-            {job?.job_number ?? (isNew ? 'New Job' : 'Job')}
-          </h2>
+          {job?.job_number ? (
+            <h2 className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-sm font-bold text-slate-700 tabular-nums">
+              {job.job_number}
+            </h2>
+          ) : (
+            <h2 className="font-bold text-slate-900">{isNew ? 'New Job' : 'Job'}</h2>
+          )}
           <button onClick={handleSave} disabled={saving} className="text-sky-600 font-semibold text-sm disabled:opacity-40">
             {saving ? 'Saving…' : 'Save'}
           </button>
