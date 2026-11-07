@@ -66,3 +66,7 @@ export const WORKSHOP_ADDRESS = [
   'Edinburgh',
   'EH14 7DL',
 ]
+
+// Shown to anyone dropping off in person, and included in their confirmation.
+export const WORKSHOP_DIRECTIONS =
+  "Ring the bell on my workshop door, right next to my grey van. Let me know when you're coming."

@@ -3,7 +3,7 @@ import { format, parseISO, addDays, addMonths, subMonths, startOfMonth } from 'd
 import { supabase } from '../lib/supabase'
 import MonthGrid from '../components/MonthGrid'
 import { BOOKING_HORIZON_DAYS } from '../lib/booking'
-import { DEFAULT_BRANDS, PUBLIC_BRAND_EXCLUDE, WORKSHOP_ADDRESS } from '../constants'
+import { DEFAULT_BRANDS, PUBLIC_BRAND_EXCLUDE, WORKSHOP_ADDRESS, WORKSHOP_DIRECTIONS } from '../constants'
 
 // Public booking form. Served at /book with no login.
 //
@@ -179,9 +179,10 @@ export default function BookingScreen() {
               </>
             )}
           </p>
-          {done.posting && (
-            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Send it to</p>
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                {done.posting ? 'Send it to' : 'Drop it off at'}
+              </p>
               <address className="not-italic text-[15px] leading-relaxed text-slate-900 font-medium">
                 {WORKSHOP_ADDRESS.map(line => <span key={line} className="block">{line}</span>)}
               </address>
@@ -214,14 +215,15 @@ export default function BookingScreen() {
                   </button>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400 mt-2.5 leading-relaxed">
-                Pop your name inside the box so I know whose it is.
+              <p className="text-[11px] text-slate-500 mt-2.5 leading-relaxed">
+                {done.posting
+                  ? 'Pop your name inside the box so I know whose it is.'
+                  : WORKSHOP_DIRECTIONS}
               </p>
-            </div>
-          )}
+          </div>
 
           <p className="text-sm text-slate-500 mt-3 leading-relaxed">
-            I'll confirm on WhatsApp shortly{done.posting ? ', with this address again' : ''}.
+            I'll confirm on WhatsApp shortly, with these details again.
           </p>
         </div>
       </div>

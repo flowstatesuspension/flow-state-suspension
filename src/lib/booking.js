@@ -1,4 +1,4 @@
-import { WORKSHOP_ADDRESS } from '../constants'
+import { WORKSHOP_ADDRESS, WORKSHOP_DIRECTIONS } from '../constants'
 
 // How far ahead customers can book a drop-off.
 // Must stay in step with the horizon in the booking_requests insert policy —
@@ -22,10 +22,10 @@ export function confirmationMessage({ name, dateLabel, items = [], posting = fal
       ? `Hi ${first}, you're all set — send it over to land with me by ${dateLabel}.`
       : `Hi ${first}, you're booked in for ${dateLabel}.`,
     list.length ? `${posting ? 'Sending' : 'Bringing'}: ${list.join(', ')}.` : null,
-    posting ? `Send it to:\n${WORKSHOP_ADDRESS.join('\n')}` : null,
+    `${posting ? 'Send it to' : 'Drop it off at'}:\n${WORKSHOP_ADDRESS.join('\n')}`,
     posting
       ? 'Pop your name in the box, and send me the tracking number once it\'s gone.'
-      : 'Just let me know your ETA nearer the time.',
+      : `${WORKSHOP_DIRECTIONS}`,
     'Thanks\nKeith',
   ].filter(Boolean).join('\n\n')
 }
