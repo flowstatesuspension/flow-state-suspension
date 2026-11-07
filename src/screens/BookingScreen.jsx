@@ -361,7 +361,7 @@ export default function BookingScreen() {
         <section className="space-y-3">
           <div>
             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              {posting ? 'What day will it land by?' : 'Drop-off day'}
+              {posting ? 'What day will it land on, or before?' : 'Drop-off day'}
             </h2>
             {turnaround && (
               <p className="text-[11px] text-slate-500 mt-1">
