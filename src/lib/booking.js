@@ -22,7 +22,7 @@ export function confirmationMessage({ name, dateLabel, items = [], posting = fal
       ? `Hi ${first}, you're all set — send it over to land with me by ${dateLabel}.`
       : `Hi ${first}, you're booked in for ${dateLabel}.`,
     list.length ? `${posting ? 'Sending' : 'Bringing'}: ${list.join(', ')}.` : null,
-    `${posting ? 'Send it to' : 'Drop it off at'}:\n${WORKSHOP_ADDRESS.join('\n')}`,
+    `${posting ? 'Send it to' : 'Drop it to'}:\n${WORKSHOP_ADDRESS.join('\n')}`,
     posting
       ? 'Pop your name in the box, and send me the tracking number once it\'s gone.'
       : `${WORKSHOP_DIRECTIONS}`,

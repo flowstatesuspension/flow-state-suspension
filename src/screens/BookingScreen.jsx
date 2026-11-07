@@ -174,14 +174,14 @@ export default function BookingScreen() {
               </>
             ) : (
               <>
-                You're dropping it off{' '}
+                You're going to <b className="text-slate-900">Drop It</b> — seeing you{' '}
                 <b className="text-slate-900">{format(parseISO(done.date), 'EEEE d MMMM')}</b>.
               </>
             )}
           </p>
           <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                {done.posting ? 'Send it to' : 'Drop it off at'}
+                {done.posting ? 'Send it to' : 'Drop it to'}
               </p>
               <address className="not-italic text-[15px] leading-relaxed text-slate-900 font-medium">
                 {WORKSHOP_ADDRESS.map(line => <span key={line} className="block">{line}</span>)}
@@ -394,7 +394,7 @@ export default function BookingScreen() {
               <p className="text-[12px] mt-3 pt-3 border-t border-slate-100 text-slate-600">
                 {form.slot_date ? (
                   <>
-                    {posting ? 'Landing by ' : 'Dropping off '}
+                    {posting ? 'Landing by ' : 'Dropping it '}
                     <b className="text-slate-900">{format(parseISO(form.slot_date), 'EEEE d MMMM')}</b>
                   </>
                 ) : (
