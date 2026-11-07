@@ -169,7 +169,7 @@ export default function BookingScreen() {
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
             {done.posting ? (
               <>
-                You're going to <b className="text-slate-900">Send It</b> — landing with me by{' '}
+                You're going to <b className="text-slate-900">Send It</b> — landing with me on or before{' '}
                 <b className="text-slate-900">{format(parseISO(done.date), 'EEEE d MMMM')}</b>.
               </>
             ) : (
