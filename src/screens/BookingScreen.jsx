@@ -165,7 +165,7 @@ export default function BookingScreen() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Nice one, {done.name.split(' ')[0]}</h1>
+          <h1 className="text-xl font-bold text-slate-900">Thank you, {done.name.split(' ')[0]}</h1>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
             {done.posting ? (
               <>
