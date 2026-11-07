@@ -295,7 +295,7 @@ export function useData() {
         delivery_method: req.delivery_method || 'dropoff',
         sort_order: Date.now(),
       })
-      .select('id')
+      .select('id, job_number')
       .single()
     if (jobErr) throw jobErr
 
@@ -322,7 +322,7 @@ export function useData() {
     if (reqErr) throw reqErr
 
     await fetchAll({ silent: true })
-    return job.id
+    return job
   }
 
   // Remove a request outright — for tests and mistakes. Rejecting keeps the

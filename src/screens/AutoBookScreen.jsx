@@ -32,11 +32,13 @@ function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, o
   const items = itemsOf(req)
   const visibleMatches = showAll ? matches : matches.slice(0, 3)
 
-  const whatsapp = waLink(req.phone, confirmationMessage({
+  const hasWhatsapp = !!waLink(req.phone)
+  const buildWhatsapp = jobNumber => waLink(req.phone, confirmationMessage({
     name: req.name,
     dateLabel: format(parseISO(req.slot_date), 'EEEE d MMMM'),
     items,
     posting: req.delivery_method === 'post',
+    jobNumber,
   }))
 
   async function run(action, fn) {
@@ -53,9 +55,12 @@ function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, o
     setBusy('accept'); setError(null)
     const win = window.open('', '_blank')
     try {
-      await onAccept(req, choice === 'new' ? null : choice, defaultPrice, turnaroundDays)
-      if (win && !win.closed) win.location.href = whatsapp
-      else window.location.href = whatsapp
+      // The job number is issued on insert, so the message can only be
+      // completed once the accept has come back
+      const job = await onAccept(req, choice === 'new' ? null : choice, defaultPrice, turnaroundDays)
+      const url = buildWhatsapp(job?.job_number)
+      if (win && !win.closed) win.location.href = url
+      else window.location.href = url
     } catch (e) {
       if (win && !win.closed) win.close()
       setError(e?.message || 'Could not save that.')
@@ -185,7 +190,7 @@ function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, o
       )}
 
       <div className="px-3.5 pb-3.5 space-y-2">
-        {whatsapp && (
+        {hasWhatsapp && (
           <button onClick={acceptAndMessage} disabled={!!busy}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-[13px] font-bold active:brightness-95 disabled:opacity-50"
             style={{ backgroundColor: '#25D366' }}>
@@ -200,18 +205,18 @@ function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, o
             onClick={() => run('accept', () => onAccept(req, choice === 'new' ? null : choice, defaultPrice, turnaroundDays))}
             disabled={!!busy}
             className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold disabled:opacity-50 ${
-              whatsapp
+              hasWhatsapp
                 ? 'bg-white border border-slate-200 text-slate-700 active:bg-slate-50'
                 : 'bg-sky-500 text-white active:bg-sky-600'
             }`}>
-            {busy === 'accept' && !whatsapp ? 'Accepting…' : whatsapp ? 'Accept only' : 'Accept booking'}
+            {busy === 'accept' && !hasWhatsapp ? 'Accepting…' : hasWhatsapp ? 'Accept only' : 'Accept booking'}
           </button>
           <button onClick={() => run('reject', () => onReject(req))} disabled={!!busy}
             className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-[13px] font-semibold active:bg-slate-50 disabled:opacity-50">
             {busy === 'reject' ? '…' : 'Reject'}
           </button>
         </div>
-        {!whatsapp && (
+        {!hasWhatsapp && (
           <p className="text-[10px] text-slate-400 text-center">
             No WhatsApp option — {req.phone ? "couldn't read that phone number" : 'no phone number given'}
           </p>

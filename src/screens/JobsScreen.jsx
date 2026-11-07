@@ -7,6 +7,7 @@ import GanttWeekView from '../components/GanttWeekView'
 import MonthCalendar from '../components/MonthCalendar'
 import DayView from '../components/DayView'
 import JobModal from '../components/JobModal'
+import JobSearch from '../components/JobSearch'
 
 function jobsInPeriod(jobs, calView, viewMode, dayAnchor, weekAnchor, monthAnchor) {
   const d = format(dayAnchor, 'yyyy-MM-dd')
@@ -183,6 +184,7 @@ export default function JobsScreen({ jobs, customers, todos = [], loading, saveJ
   const [weekAnchor, setWeekAnchor] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [monthAnchor, setMonthAnchor] = useState(new Date())
   const [showTodos, setShowTodos]   = useState(false)
+  const [searching, setSearching]   = useState(false)
 
   const allOnHold    = job => job.units?.length > 0 && job.units.every(u => u.status === 'on_hold')
   const allComplete  = job => job.units?.length > 0 && job.units.every(u => u.status === 'complete')
@@ -296,6 +298,15 @@ export default function JobsScreen({ jobs, customers, todos = [], loading, saveJ
               ))}
             </div>
 
+            <button onClick={() => setSearching(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 text-slate-400 active:bg-white/20"
+              aria-label="Search jobs">
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              Find
+            </button>
+
             <button onClick={() => setShowTodos(v => !v)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 showTodos ? 'bg-amber-500 text-white' : 'bg-white/10 text-slate-400'
@@ -351,6 +362,10 @@ export default function JobsScreen({ jobs, customers, todos = [], loading, saveJ
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
       </button>
+
+      {searching && (
+        <JobSearch jobs={jobs} onPick={openJob} onClose={() => setSearching(false)} />
+      )}
 
       {showModal && (
         <JobModal job={selectedJob} customers={customers}

@@ -11,7 +11,7 @@ export const BOOKING_HORIZON_DAYS = 120
  * gets it somewhere they can find again rather than only on the page they
  * saw once after booking.
  */
-export function confirmationMessage({ name, dateLabel, items = [], posting = false }) {
+export function confirmationMessage({ name, dateLabel, items = [], posting = false, jobNumber = null }) {
   const first = String(name || '').trim().split(' ')[0] || 'there'
   const list = items
     .map(i => [i.brand, i.model].filter(Boolean).join(' ').trim())
@@ -26,6 +26,7 @@ export function confirmationMessage({ name, dateLabel, items = [], posting = fal
     posting
       ? 'Pop your name in the box, and send me the tracking number once it\'s gone.'
       : `${WORKSHOP_DIRECTIONS}`,
+    jobNumber ? `Job number ${jobNumber} — quote it if you need to get hold of me about this one.` : null,
     'Thanks\nKeith',
   ].filter(Boolean).join('\n\n')
 }

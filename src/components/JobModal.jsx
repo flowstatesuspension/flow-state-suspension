@@ -178,7 +178,14 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0 safe-top md:pt-3">
           <button onClick={onClose} className="text-sky-600 font-medium text-sm">Cancel</button>
-          <h2 className="font-bold text-slate-900">{isNew ? 'New Job' : 'Edit Job'}</h2>
+          <div className="text-center">
+            <h2 className="font-bold text-slate-900 leading-tight">{isNew ? 'New Job' : 'Edit Job'}</h2>
+            {job?.job_number && (
+              <p className="text-[11px] font-mono font-semibold text-slate-400 tabular-nums leading-none mt-0.5">
+                #{job.job_number}
+              </p>
+            )}
+          </div>
           <button onClick={handleSave} disabled={saving} className="text-sky-600 font-semibold text-sm disabled:opacity-40">
             {saving ? 'Saving…' : 'Save'}
           </button>
