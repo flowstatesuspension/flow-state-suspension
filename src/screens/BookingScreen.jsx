@@ -151,7 +151,7 @@ export default function BookingScreen() {
           </div>
           <h1 className="text-xl font-bold text-slate-900">Booking sent</h1>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-            Thanks {done.name.split(' ')[0]}. You've asked to {done.posting ? 'post it on' : 'drop off on'}{' '}
+            Thanks {done.name.split(' ')[0]}. You've asked to {done.posting ? 'send it to land by' : 'drop off on'}{' '}
             <b className="text-slate-900">{format(parseISO(done.date), 'EEEE d MMMM')}</b>.
           </p>
           <p className="text-sm text-slate-500 mt-3 leading-relaxed">
@@ -287,7 +287,7 @@ export default function BookingScreen() {
               <textarea className={inputCls} rows={4} value={form.return_address}
                 onChange={e => setField('return_address', e.target.value)}
                 autoComplete="street-address"
-                placeholder={'House / flat and street\nTown\nPostcode'} />
+                placeholder={'Street\nTown\nPostcode'} />
             </Field>
           )}
         </section>
@@ -295,7 +295,7 @@ export default function BookingScreen() {
         <section className="space-y-3">
           <div>
             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              {posting ? 'When are you posting it?' : 'Drop-off day'}
+              {posting ? 'What day will it land by?' : 'Drop-off day'}
             </h2>
             {turnaround && (
               <p className="text-[11px] text-slate-500 mt-1">
@@ -326,14 +326,14 @@ export default function BookingScreen() {
               <p className="text-[12px] mt-3 pt-3 border-t border-slate-100 text-slate-600">
                 {form.slot_date ? (
                   <>
-                    {posting ? 'Posting it ' : 'Dropping off '}
+                    {posting ? 'Landing by ' : 'Dropping off '}
                     <b className="text-slate-900">{format(parseISO(form.slot_date), 'EEEE d MMMM')}</b>
                   </>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-slate-500">
                     <span className="w-3 h-3 rounded border border-green-300 bg-green-50 block shrink-0" />
                     {posting
-                      ? 'Pick the day you\'ll put it in the post'
+                      ? 'Pick the day it should reach me by'
                       : 'Green days are available — tap one to choose it'}
                   </span>
                 )}
