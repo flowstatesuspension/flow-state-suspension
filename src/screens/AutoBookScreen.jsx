@@ -36,6 +36,7 @@ function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, o
     name: req.name,
     dateLabel: format(parseISO(req.slot_date), 'EEEE d MMMM'),
     items,
+    posting: req.delivery_method === 'post',
   }))
 
   async function run(action, fn) {

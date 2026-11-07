@@ -57,3 +57,12 @@ export const DEFAULT_BRANDS = ['Fox', 'Rockshox', 'Postage', 'Other']
 
 // Never offered to customers: not something anyone books in.
 export const PUBLIC_BRAND_EXCLUDE = ['Postage']
+
+// Where customers post work to. Shown on the booking confirmation and put in
+// the WhatsApp confirmation — one source so the two can't disagree.
+export const WORKSHOP_ADDRESS = [
+  'Flow State Suspension Ltd',
+  '34 Ravelrig Park',
+  'Edinburgh',
+  'EH14 7DL',
+]
