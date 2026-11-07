@@ -175,7 +175,7 @@ function TodoItemRow({ todo, onToggle, onEdit, onDelete }) {
   )
 }
 
-export default function JobsScreen({ jobs, customers, todos = [], loading, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, addTodo, updateTodo, toggleTodo, deleteTodo, settings, onStartTimer, activeTimer, timerStopKey }) {
+export default function JobsScreen({ jobs, customers, todos = [], bookingRequests = [], loading, saveJob, deleteJob, archiveJob, restoreJob, reorderJobs, addTodo, updateTodo, toggleTodo, deleteTodo, settings, onStartTimer, activeTimer, timerStopKey }) {
   const [calView, setCalView]       = useState('week')
   const [viewMode, setViewMode]     = useState('work')
   const [selectedJob, setSelectedJob] = useState(null)
@@ -364,7 +364,7 @@ export default function JobsScreen({ jobs, customers, todos = [], loading, saveJ
       </button>
 
       {searching && (
-        <JobSearch jobs={jobs} onPick={openJob} onClose={() => setSearching(false)} />
+        <JobSearch jobs={jobs} requests={bookingRequests} onPick={openJob} onClose={() => setSearching(false)} />
       )}
 
       {showModal && (

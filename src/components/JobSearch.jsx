@@ -18,23 +18,36 @@ function rank(job, q) {
   return 0
 }
 
-export default function JobSearch({ jobs, onPick, onClose }) {
+export default function JobSearch({ jobs, requests = [], onPick, onClose }) {
   const [q, setQ] = useState('')
   const inputRef = useRef(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
+  const term = q.trim().toLowerCase()
+  const isNumber = /^\d+$/.test(term)
+
   const results = useMemo(() => {
-    const term = q.trim().toLowerCase()
     if (!term) return []
-    return jobs
+    // Bookings not yet accepted have a number but no job behind them
+    const pending = requests
+      .filter(r => r.status === 'pending')
+      .map(r => ({
+        id: r.id,
+        job_number: r.job_number,
+        customers: { name: r.name },
+        units: Array.isArray(r.items) ? r.items : [],
+        drop_off_date: r.slot_date,
+        __pending: true,
+      }))
+    return [...jobs, ...pending]
       .map(j => ({ job: j, score: rank(j, term) }))
       .filter(r => r.score > 0)
       .sort((a, b) =>
         b.score - a.score ||
         (b.job.drop_off_date || '').localeCompare(a.job.drop_off_date || ''))
       .slice(0, 25)
-  }, [jobs, q])
+  }, [jobs, requests, term])
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col px-4 pt-[12vh]" onClick={onClose}>
@@ -67,9 +80,20 @@ export default function JobSearch({ jobs, onPick, onClose }) {
               Search by job number, customer name, brand or serial
             </p>
           ) : results.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-6">Nothing matches “{q.trim()}”</p>
+            <div className="text-center py-6 px-4">
+              <p className="text-sm text-slate-500">
+                {isNumber ? `No job ${q.trim()}` : `Nothing matches “${q.trim()}”`}
+              </p>
+              {isNumber && (
+                <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                  It may have been deleted, archived, or the number misheard.
+                  Archived jobs are only on the customer's record.
+                </p>
+              )}
+            </div>
           ) : results.map(({ job }) => (
-            <button key={job.id} onClick={() => { onPick(job); onClose() }}
+            <button key={job.id} disabled={job.__pending}
+              onClick={() => { if (!job.__pending) { onPick(job); onClose() } }}
               className="w-full flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5 text-left active:bg-slate-50">
               <span className="font-mono text-[12px] font-bold text-slate-500 shrink-0 tabular-nums">
                 {job.job_number ?? '—'}
@@ -82,7 +106,9 @@ export default function JobSearch({ jobs, onPick, onClose }) {
                   {(job.units || []).map(u => [u.brand, u.model].filter(Boolean).join(' ')).join(' · ') || 'No units'}
                 </span>
               </span>
-              {job.drop_off_date && (
+              {job.__pending ? (
+                <span className="text-[10px] font-bold text-amber-600 shrink-0">Not accepted</span>
+              ) : job.drop_off_date && (
                 <span className="text-[10px] text-slate-400 shrink-0">
                   {format(parseISO(job.drop_off_date), 'd MMM yy')}
                 </span>

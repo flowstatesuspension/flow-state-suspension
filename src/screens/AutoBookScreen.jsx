@@ -73,7 +73,14 @@ function RequestCard({ req, customers, defaultPrice, turnaroundDays, onAccept, o
       <div className="px-3.5 py-3 border-b border-slate-100">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[15px] font-bold text-slate-900 leading-tight">{req.name}</p>
+            <div className="flex items-center gap-2">
+              {req.job_number && (
+                <span className="font-mono text-[11px] font-bold text-slate-500 tabular-nums shrink-0">
+                  {req.job_number}
+                </span>
+              )}
+              <p className="text-[15px] font-bold text-slate-900 leading-tight truncate">{req.name}</p>
+            </div>
             <p className="text-xs text-slate-500 mt-0.5">
               {req.phone}{req.email ? ` · ${req.email}` : ''}
             </p>

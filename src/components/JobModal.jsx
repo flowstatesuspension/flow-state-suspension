@@ -181,9 +181,10 @@ export default function JobModal({ job, customers, onSave, onDelete, onArchive, 
           <div className="text-center">
             <h2 className="font-bold text-slate-900 leading-tight">{isNew ? 'New Job' : 'Edit Job'}</h2>
             {job?.job_number && (
-              <p className="text-[11px] font-mono font-semibold text-slate-400 tabular-nums leading-none mt-0.5">
-                #{job.job_number}
-              </p>
+              <span className="inline-block mt-1 rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5
+                font-mono text-[12px] font-bold text-slate-700 tabular-nums leading-tight">
+                {job.job_number}
+              </span>
             )}
           </div>
           <button onClick={handleSave} disabled={saving} className="text-sky-600 font-semibold text-sm disabled:opacity-40">

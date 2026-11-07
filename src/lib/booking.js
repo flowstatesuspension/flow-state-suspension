@@ -5,6 +5,12 @@ import { WORKSHOP_ADDRESS, WORKSHOP_DIRECTIONS } from '../constants'
 // if this is larger, the form will offer days the database then refuses.
 export const BOOKING_HORIZON_DAYS = 120
 
+/** The workshop address with the job number bracketed after the company name. */
+function addressWithJobNumber(jobNumber) {
+  if (!jobNumber) return WORKSHOP_ADDRESS
+  return WORKSHOP_ADDRESS.map((line, i) => (i === 0 ? `${line} [${jobNumber}]` : line))
+}
+
 /**
  * Pre-filled confirmation. You read it and hit send — nothing goes
  * automatically. Postal jobs carry the workshop address, so the customer
@@ -22,11 +28,15 @@ export function confirmationMessage({ name, dateLabel, items = [], posting = fal
       ? `Hi ${first}, you're all set — send it over to land with me by ${dateLabel}.`
       : `Hi ${first}, you're booked in for ${dateLabel}.`,
     list.length ? `${posting ? 'Sending' : 'Bringing'}: ${list.join(', ')}.` : null,
-    `${posting ? 'Send it to' : 'Drop it to'}:\n${WORKSHOP_ADDRESS.join('\n')}`,
+    `${posting ? 'Send it to' : 'Drop it to'}:\n${addressWithJobNumber(jobNumber).join('\n')}`,
     posting
       ? 'Pop your name in the box, and send me the tracking number once it\'s gone.'
       : `${WORKSHOP_DIRECTIONS}`,
-    jobNumber ? `Job number ${jobNumber} — quote it if you need to get hold of me about this one.` : null,
+    jobNumber
+      ? (posting
+          ? `Write ${jobNumber} on the parcel, and quote it if you need to chase anything.`
+          : `Job number ${jobNumber} — quote it if you need to get hold of me about this one.`)
+      : null,
     'Thanks\nKeith',
   ].filter(Boolean).join('\n\n')
 }

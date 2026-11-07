@@ -149,9 +149,10 @@ export default function BookingScreen() {
             notes: u.notes.trim(),
           })),
       }
-      const { error: err } = await supabase.from('booking_requests').insert(payload)
+      const { data: created, error: err } = await supabase
+        .from('booking_requests').insert(payload).select('job_number').single()
       if (err) throw err
-      setDone({ date: form.slot_date, name: form.name.trim(), posting })
+      setDone({ date: form.slot_date, name: form.name.trim(), posting, jobNumber: created?.job_number ?? null })
     } catch (err) {
       // The slot check lives in a database policy, so a day filling up between
       // page load and submit lands here rather than being silently accepted.
@@ -187,12 +188,26 @@ export default function BookingScreen() {
               </>
             )}
           </p>
-          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
+          {done.jobNumber && (
+            <p className="mt-3 inline-block rounded-lg border border-slate-300 bg-white px-3 py-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Job no.</span>{' '}
+              <span className="font-mono text-[15px] font-bold text-slate-900 tabular-nums">{done.jobNumber}</span>
+            </p>
+          )}
+
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
                 {done.posting ? 'Send it to' : 'Drop it to'}
               </p>
               <address className="not-italic text-[15px] leading-relaxed text-slate-900 font-medium">
-                {WORKSHOP_ADDRESS.map(line => <span key={line} className="block">{line}</span>)}
+                {WORKSHOP_ADDRESS.map((line, i) => (
+                  <span key={line} className="block">
+                    {line}
+                    {i === 0 && done.jobNumber && (
+                      <span className="font-mono font-bold text-violet-700"> [{done.jobNumber}]</span>
+                    )}
+                  </span>
+                ))}
               </address>
               {/* Directions only matter to someone actually travelling here */}
               {!done.posting && (
@@ -237,7 +252,9 @@ export default function BookingScreen() {
               </div>
               <p className="text-[11px] text-slate-500 mt-2.5 leading-relaxed">
                 {done.posting
-                  ? 'Pop your name inside the box so I know whose it is.'
+                  ? (done.jobNumber
+                      ? `Write ${done.jobNumber} on the parcel — it's how I know whose it is.`
+                      : 'Pop your name inside the box so I know whose it is.')
                   : WORKSHOP_DIRECTIONS}
               </p>
           </div>

@@ -293,6 +293,8 @@ export function useData() {
         pickup_date: pickup.toISOString().slice(0, 10),
         notes: req.notes || null,
         delivery_method: req.delivery_method || 'dropoff',
+        // Carried over, not reissued — the customer has already been told it
+        job_number: req.job_number ?? null,
         sort_order: Date.now(),
       })
       .select('id, job_number')
