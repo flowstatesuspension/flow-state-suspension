@@ -45,7 +45,12 @@ export default function BookingScreen() {
   const [done, setDone] = useState(null)
   const [copiedAddr, setCopiedAddr] = useState(false)
 
-  const addressText = WORKSHOP_ADDRESS.join('\n')
+  // Copy and Share must hand over exactly what's on screen — for a parcel
+  // that includes the job number, or it gets left off the label.
+  const addressLines = done?.posting && done?.jobNumber
+    ? WORKSHOP_ADDRESS.map((line, i) => (i === 0 ? `${line} [${done.jobNumber}]` : line))
+    : WORKSHOP_ADDRESS
+  const addressText = addressLines.join('\n')
 
   // Apple Maps on Apple devices so it opens the app they already use for
   // navigation; Google Maps everywhere else. Both take a plain address.
@@ -207,14 +212,7 @@ export default function BookingScreen() {
                 {done.posting ? 'Send it to' : 'Drop it to'}
               </p>
               <address className="not-italic text-[15px] leading-relaxed text-slate-900 font-medium">
-                {WORKSHOP_ADDRESS.map((line, i) => (
-                  <span key={line} className="block">
-                    {line}
-                    {i === 0 && done.posting && done.jobNumber && (
-                      <span className="font-bold text-slate-900"> [{done.jobNumber}]</span>
-                    )}
-                  </span>
-                ))}
+                {addressLines.map(line => <span key={line} className="block">{line}</span>)}
               </address>
               {/* Directions only matter to someone actually travelling here */}
               {!done.posting && (
