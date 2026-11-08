@@ -5,7 +5,7 @@ import { WORKSHOP_ADDRESS, WORKSHOP_DIRECTIONS } from '../constants'
 // if this is larger, the form will offer days the database then refuses.
 export const BOOKING_HORIZON_DAYS = 120
 
-/** The workshop address with the job number bracketed after the company name. */
+/** Address with the job number bracketed after the company name, for parcels. */
 function addressWithJobNumber(jobNumber) {
   if (!jobNumber) return WORKSHOP_ADDRESS
   return WORKSHOP_ADDRESS.map((line, i) => (i === 0 ? `${line} [${jobNumber}]` : line))
@@ -28,7 +28,7 @@ export function confirmationMessage({ name, dateLabel, items = [], posting = fal
       ? `Hi ${first}, you're all set — send it over to land with me by ${dateLabel}.`
       : `Hi ${first}, you're booked in for ${dateLabel}.`,
     list.length ? `${posting ? 'Sending' : 'Bringing'}: ${list.join(', ')}.` : null,
-    `${posting ? 'Send it to' : 'Drop it to'}:\n${addressWithJobNumber(jobNumber).join('\n')}`,
+    `${posting ? 'Send it to' : 'Drop it to'}:\n${(posting ? addressWithJobNumber(jobNumber) : WORKSHOP_ADDRESS).join('\n')}`,
     posting
       ? 'Pop your name in the box, and send me the tracking number once it\'s gone.'
       : `${WORKSHOP_DIRECTIONS}`,
