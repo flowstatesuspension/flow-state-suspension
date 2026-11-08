@@ -210,8 +210,8 @@ export default function BookingScreen() {
                 {WORKSHOP_ADDRESS.map((line, i) => (
                   <span key={line} className="block">
                     {line}
-                    {i === 0 && done.jobNumber && (
-                      <span className="font-mono font-bold text-violet-700"> [{done.jobNumber}]</span>
+                    {i === 0 && done.posting && done.jobNumber && (
+                      <span className="font-bold text-slate-900"> [{done.jobNumber}]</span>
                     )}
                   </span>
                 ))}
