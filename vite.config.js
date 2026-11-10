@@ -14,7 +14,9 @@ export default defineConfig({
         description: 'Mountain bike suspension servicing tracker',
         // Matches the black app headers — see the theme-color note in index.html
         theme_color: '#000000',
-        background_color: '#f8fafc',
+        // iOS 26 colours the standalone status bar from this, not just the
+        // launch splash — light here gives a grey bar above the black header.
+        background_color: '#000000',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
