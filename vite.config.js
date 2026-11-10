@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Build stamp, surfaced in Settings. The service worker can serve a previous
+  // build's index.html on the first launch after a deploy, so without this
+  // there is no way to tell which build is on screen.
+  define: {
+    __BUILD_STAMP__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z'),
+  },
   plugins: [
     react(),
     VitePWA({
