@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { STATUS_ORDER } from '../constants'
+
+// Shown in the footer. Worth keeping: it is the only way to tell at a glance
+// whether the phone is running the build that was just deployed, or an older
+// index.html still being served from the service worker cache.
+const BUILD_STAMP = typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev'
 
 function exportCSV(filename, rows) {
   if (!rows.length) return
@@ -398,82 +403,12 @@ export default function SettingsScreen({ jobs, customers, settings, updateSettin
           </button>
         </Accordion>
 
-        <DisplayDiagnostics />
-
-        <p className="text-center text-xs text-slate-300 pt-2">Flow State Suspension · Work State</p>
+        <p className="text-center text-xs text-slate-300 pt-2">
+          Flow State Suspension · Work State
+          <br />
+          <span className="tabular-nums">Build {BUILD_STAMP}</span>
+        </p>
       </div>
-    </div>
-  )
-}
-
-/**
- * TEMPORARY — remove once the iOS status bar is settled.
- *
- * Reports what is actually on screen rather than what we think we deployed:
- * which build the HTML came from, the status bar style that build asked for,
- * and what the device returns for the top safe-area inset. The service worker
- * can serve an older index.html than the current manifest, so the build stamp
- * and the meta tag are the two things worth seeing together.
- */
-function DisplayDiagnostics() {
-  const [info, setInfo] = useState(null)
-
-  useEffect(() => {
-    const probe = document.createElement('div')
-    probe.style.cssText =
-      'position:fixed;top:0;left:0;width:0;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)'
-    document.body.appendChild(probe)
-    const cs = getComputedStyle(probe)
-    const top = cs.paddingTop
-    const bottom = cs.paddingBottom
-    probe.remove()
-
-    setInfo({
-      build: typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'unknown',
-      statusBar:
-        document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.content ||
-        'not set',
-      themeColor: document.querySelector('meta[name="theme-color"]')?.content || 'not set',
-      viewportFit: /viewport-fit=cover/.test(
-        document.querySelector('meta[name="viewport"]')?.content || ''
-      ) ? 'cover' : 'not cover',
-      standalone:
-        window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
-          ? 'yes'
-          : 'no',
-      insetTop: top,
-      insetBottom: bottom,
-      viewport: `${window.innerWidth}x${window.innerHeight}`,
-    })
-  }, [])
-
-  if (!info) return null
-
-  const rows = [
-    ['Build', info.build],
-    ['Installed app', info.standalone],
-    ['Status bar style', info.statusBar],
-    ['Theme colour', info.themeColor],
-    ['Viewport fit', info.viewportFit],
-    ['Safe area top', info.insetTop],
-    ['Safe area bottom', info.insetBottom],
-    ['Viewport', info.viewport],
-  ]
-
-  return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-white overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-slate-100">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Display check</p>
-        <p className="text-xs text-slate-400">Temporary — for the status bar fix</p>
-      </div>
-      <dl className="divide-y divide-slate-50">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex items-baseline gap-3 px-4 py-2">
-            <dt className="text-xs text-slate-500 flex-1">{label}</dt>
-            <dd className="text-xs font-medium text-slate-800 tabular-nums text-right">{value}</dd>
-          </div>
-        ))}
-      </dl>
     </div>
   )
 }
