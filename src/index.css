@@ -23,6 +23,14 @@
     @apply bg-slate-50 text-slate-900;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Installed app only. iOS paints the reserved status bar area from the page
+     background, so a light body shows as a grey bar above the black header.
+     The fixed app shell covers the body everywhere else, so nothing inside
+     the app changes — and the browser and booking page keep the light one. */
+  @media (display-mode: standalone) {
+    html, body { background-color: #000000; }
+  }
 }
 
 @layer utilities {
