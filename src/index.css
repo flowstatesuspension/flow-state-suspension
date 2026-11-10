@@ -37,6 +37,23 @@
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
   .safe-top    { padding-top: env(safe-area-inset-top); }
   .pb-safe     { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+
+  /* iOS 26 draws a progressive "scroll edge effect" blur as system chrome over
+     the top of an installed web app's view — not in Safari, and not something
+     the page can switch off. It fades out roughly 38-40pt down, which is why
+     the logo and title came out soft while the rest of the header stayed sharp.
+     Blurring flat colour is invisible, so the fix is to keep real content below
+     the ramp: this reserves 28px, which with the headers' own pt-3 starts the
+     logo row at ~40pt. Measured on a 393x852 device — screenshot showed the
+     fade ending between 35 and 43pt.
+
+     Every screen header carries .safe-top exactly once, so this one rule covers
+     all of them. env(safe-area-inset-top) is 0 here because the status bar style
+     is "black" and iOS reserves the bar itself, but it stays in the max() so
+     nothing breaks if that changes. */
+  @media (display-mode: standalone) {
+    .safe-top { padding-top: max(env(safe-area-inset-top), 28px); }
+  }
   .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
   /* Prevent iOS scroll propagation to parent when inner container hits boundary */
