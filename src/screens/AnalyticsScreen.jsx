@@ -429,14 +429,12 @@ function LineChart({ series = [], color = '#38bdf8', target = null, valueFormat 
               fill={`url(#${gradId})`} />
           )}
 
+          {/* No label on the line — it collided with the point value whenever a
+              month landed near the target, and the red "£N to target" figure
+              above the chart already says what the line is. */}
           {targetY != null && (
-            <>
-              <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
-                stroke="#ef4444" strokeWidth="1.2" strokeDasharray="5 3" />
-              <text x={W - padR - 1} y={targetY - 2} textAnchor="end" fontSize="8" fill="#ef4444" fontWeight="600">
-                £{target.toLocaleString()} target
-              </text>
-            </>
+            <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
+              stroke="#ef4444" strokeWidth="1.2" strokeDasharray="5 3" />
           )}
 
           {/* Earlier years behind */}
