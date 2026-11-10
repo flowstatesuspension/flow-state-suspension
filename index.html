@@ -8,7 +8,10 @@
          header rather than a seamless black. -->
     <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- "black": iOS draws an opaque black status bar and starts the web view
+         below it. "black-translucent" put our content underneath, where iOS 26
+         blurs it behind a translucent bar. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="FlowState" />
     <meta name="description" content="Mountain bike suspension servicing tracker" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />

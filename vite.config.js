@@ -14,7 +14,7 @@ export default defineConfig({
         description: 'Mountain bike suspension servicing tracker',
         // Matches the black app headers — see the theme-color note in index.html
         theme_color: '#000000',
-        background_color: '#000000',
+        background_color: '#f8fafc',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
