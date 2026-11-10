@@ -12,8 +12,9 @@ export default defineConfig({
         name: 'Flow State Suspension',
         short_name: 'FlowState',
         description: 'Mountain bike suspension servicing tracker',
-        theme_color: '#0f172a',
-        background_color: '#f8fafc',
+        // Matches the black app headers — see the theme-color note in index.html
+        theme_color: '#000000',
+        background_color: '#000000',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
