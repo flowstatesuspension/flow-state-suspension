@@ -39,7 +39,7 @@ export default defineConfig({
         // from the precached shell means a customer who opens the link once can
         // keep getting an old form — wrong dates, wrong brands — with no way to
         // know. The workshop app itself still works offline.
-        navigateFallbackDenylist: [/^\/book/],
+        navigateFallbackDenylist: [/^\/book/, /^\/intervals/],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {

@@ -13,6 +13,7 @@ import AnalyticsScreen from './screens/AnalyticsScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import AutoBookScreen from './screens/AutoBookScreen'
 import BookingScreen from './screens/BookingScreen'
+import IntervalScreen from './screens/IntervalScreen'
 import LoginScreen from './screens/LoginScreen'
 import FloatingTimer from './components/FloatingTimer'
 
@@ -217,10 +218,11 @@ function MainApp() {
 export default function App() {
   const [session, setSession] = useState(undefined) // undefined = loading
 
-  // Public booking page — checked before anything else so it renders for
-  // customers with no account. No router needed for a single public path.
-  const isPublicBooking = typeof window !== 'undefined' &&
-    /^\/book\/?$/.test(window.location.pathname)
+  // Public pages — checked before anything else so they render for customers
+  // with no account. No router needed for a couple of fixed public paths.
+  const publicPath = typeof window !== 'undefined' ? window.location.pathname : ''
+  const isPublicBooking = /^\/book\/?$/.test(publicPath)
+  const isPublicIntervals = /^\/intervals\/?$/.test(publicPath)
 
   useEffect(() => {
     // Get existing session immediately (from localStorage)
@@ -237,6 +239,7 @@ export default function App() {
   }, [])
 
   if (isPublicBooking) return <BookingScreen />
+  if (isPublicIntervals) return <IntervalScreen />
 
   // Still checking localStorage for existing session
   if (session === undefined) {
