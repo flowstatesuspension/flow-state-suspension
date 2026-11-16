@@ -161,8 +161,15 @@ function Slider({ label, value, display, min, max, step, onChange }) {
  */
 function WearMeter({ severity, label, tone }) {
   const pct = Math.min(100, Math.max(0, ((severity - MIN_FACTOR) / (MAX_FACTOR - MIN_FACTOR)) * 100))
-  const bar = { emerald: 'bg-emerald-500', sky: 'bg-sky-500', amber: 'bg-amber-500', red: 'bg-red-500' }[tone]
-  const text = { emerald: 'text-emerald-700', sky: 'text-sky-700', amber: 'text-amber-600', red: 'text-red-600' }[tone]
+  // Written out in full so Tailwind's scanner emits every class.
+  const bar = {
+    emerald: 'bg-emerald-500', sky: 'bg-sky-500', amber: 'bg-amber-500',
+    orange: 'bg-orange-500', red: 'bg-red-500',
+  }[tone]
+  const text = {
+    emerald: 'text-emerald-700', sky: 'text-sky-700', amber: 'text-amber-600',
+    orange: 'text-orange-600', red: 'text-red-600',
+  }[tone]
 
   return (
     <div>
@@ -176,8 +183,8 @@ function WearMeter({ severity, label, tone }) {
         <div className={`h-full rounded-full transition-all duration-300 ${bar}`} style={{ width: `${pct}%` }} />
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-slate-400">As published</span>
-        <span className="text-[10px] text-slate-400">Brutal</span>
+        <span className="text-[10px] text-slate-400">Trail Cruiser</span>
+        <span className="text-[10px] text-slate-400">Full Gnar Dog</span>
       </div>
     </div>
   )

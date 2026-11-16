@@ -36,10 +36,12 @@
 //         coming in, they need splitting out by model.
 //
 // Two judgement calls that are Keith's, not the manufacturers':
-//   - FOX FORK LOWER LEG, 50 HOURS. Fox's published maintenance table shows
-//     only the 125h/yearly full service, with bath oil and wipers folded in.
-//     Keith services these for a living and puts lowers at 50 hours, which is
-//     also where RockShox put theirs. That figure is his, not Fox's.
+//   - FOX FORK LOWER LEG AND FOX SHOCK AIR CAN, BOTH 50 HOURS. Fox's
+//     published maintenance table shows only the 125h/yearly full service,
+//     with bath oil and wipers folded in, and they give no hour figure for
+//     air sleeve maintenance. Keith services these for a living and puts both
+//     at 50 hours, which is also where RockShox put theirs. Those two figures
+//     are his, not Fox's.
 //   - 'Other' is a middle ground for brands we have no figures for.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -68,7 +70,11 @@ export const SERVICE_PLAN = {
     ],
   },
   shock: {
-    Fox: [{ key: 'full', hours: 125, capMonths: 12 }],
+    Fox: [
+      // Keith's figure — see the note above. Not from Fox's published table.
+      { key: 'air',  hours: 50,  capMonths: 12 },
+      { key: 'full', hours: 125, capMonths: 12 },
+    ],
     Rockshox: [
       { key: 'air',  hours: 50,  capMonths: 12 },
       { key: 'full', hours: 200, capMonths: 24 },
@@ -386,13 +392,14 @@ export function estimate(profile, from = new Date()) {
 }
 
 /**
- * Plain-English read on how hard this profile is on suspension. 1.0 is the
- * manufacturer's own assumption, which is where the page starts before
- * anything has been answered.
+ * What kind of rider this profile describes. 1.0 is the manufacturer's own
+ * assumption — where the page sits before anything has been answered — and
+ * it climbs from there as the answers get rowdier.
  */
 export function severityLabel(severity) {
-  if (severity < 1.05) return { text: 'Manufacturer interval', tone: 'emerald' }
-  if (severity < 1.3) return { text: 'Harder than standard', tone: 'sky' }
-  if (severity < 1.6) return { text: 'Hard on kit', tone: 'amber' }
-  return { text: 'Brutal', tone: 'red' }
+  if (severity < 1.05) return { text: 'Trail Cruiser',      tone: 'emerald' }
+  if (severity < 1.25) return { text: 'Weekend Warrior',    tone: 'sky' }
+  if (severity < 1.45) return { text: 'Proper Sender',      tone: 'amber' }
+  if (severity < 1.65) return { text: 'Certified Hooligan', tone: 'orange' }
+  return { text: 'Full Gnar Dog', tone: 'red' }
 }
