@@ -325,6 +325,10 @@ export default function IntervalScreen() {
 
   const current = STEPS[step]
   const isLast = step === STEPS.length - 1
+  // The one answer the page cannot do without, so it blocks the step it is
+  // asked on as well as the finish — reaching the end by the progress bar
+  // should not get round it either.
+  const blocked = !p.style && (current.id === 'style' || isLast)
   const thisMonth = new Date().toISOString().slice(0, 7)
   const unitLabel = UNITS.find(u => u.key === p.unit)?.label ?? ''
 
@@ -585,7 +589,7 @@ export default function IntervalScreen() {
             <button
               type="button"
               onClick={() => (isLast ? finish() : setStep(s => s + 1))}
-              disabled={isLast && !p.style}
+              disabled={blocked}
               className="rounded-xl bg-sky-500 px-5 py-2 text-[13px] font-bold text-white disabled:opacity-40 active:bg-sky-600"
             >
               {isLast ? 'Finish' : 'Next'}
