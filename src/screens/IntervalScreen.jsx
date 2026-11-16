@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
-import { estimate, riderType } from '../lib/serviceIntervals'
+import { estimate, riderType, gaugePosition } from '../lib/serviceIntervals'
 
 // Public service interval estimator. Served at /intervals with no login.
 //
@@ -471,7 +471,7 @@ export default function IntervalScreen() {
               </span>
             </div>
             {rider ? (
-              <WearMeter severity={result.severity} label={rider.text} tone={rider.tone} gauge={rider.gauge} />
+              <WearMeter severity={result.severity} label={rider.text} tone={rider.tone} gauge={gaugePosition(p)} />
             ) : (
               <p className="text-[12px] text-slate-400 leading-snug">
                 These are the manufacturer's own intervals. Tell us how you ride and we'll

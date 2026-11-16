@@ -147,6 +147,28 @@ export const MONTH_SEVERITY = [1.55, 1.50, 1.35, 1.20, 1.05, 1.00, 1.00, 1.05, 1
 export const WINTER_VOLUME = [0.5, 0.5, 0.75, 1, 1, 1, 1, 1, 1, 0.9, 0.6, 0.5]
 
 /**
+ * What easing off through winter is worth, as a multiplier on wear.
+ *
+ * Partly derived, partly judgement. Weighting MONTH_SEVERITY by WINTER_VOLUME
+ * moves the average hour from 1.29 to 1.23, which is about 4% — the honest
+ * figure for "your hours are now better hours". The rest of the allowance is
+ * for the kit sitting out the worst of the salt, slurry and standing water
+ * rather than being ridden through it, which the per-hour weighting does not
+ * capture. Turn it toward 0.96 to keep only what the months themselves say.
+ */
+export const WINTER_RELIEF = 0.93
+
+/**
+ * How far easing off pulls the needle back, in gauge points.
+ *
+ * Separate from WINTER_RELIEF on purpose. Tier positions are fixed anchors,
+ * so a 7% multiplier against a 25-point anchor moves the bar by less than two
+ * points — real, but invisible. This is the visible acknowledgement, and it
+ * is a presentation choice rather than a measurement.
+ */
+export const WINTER_GAUGE_RELIEF = 10
+
+/**
  * The rider the published intervals are measured against.
  *
  * Without this the factors double-count: a manufacturer's 50 hours already
@@ -216,8 +238,20 @@ export function profileFactor(profile) {
   // page is showing the manufacturer's own figure and has no grounds to move it.
   if (!profile?.style) return 1
 
-  const raw = (conditions(profile) / REFERENCE_CONDITIONS) * LOCAL_PENALTY
+  const raw =
+    (conditions(profile) / REFERENCE_CONDITIONS) *
+    LOCAL_PENALTY *
+    (profile.ridesYearRound === false ? WINTER_RELIEF : 1)
   return Math.min(raw, MAX_FACTOR)
+}
+
+/** Where the needle sits, 0-100: the rider's tier, pulled back if they sit
+ *  the worst of the winter out. */
+export function gaugePosition(profile) {
+  const tier = RIDER_TYPE[profile?.style]
+  if (!tier) return 0
+  const relief = profile.ridesYearRound === false ? WINTER_GAUGE_RELIEF : 0
+  return Math.max(0, tier.gauge - relief)
 }
 
 /**
