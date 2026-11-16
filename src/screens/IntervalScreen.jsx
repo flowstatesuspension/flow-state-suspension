@@ -225,6 +225,8 @@ export default function IntervalScreen() {
   const [p, setP] = useState(() => shared ?? DEFAULTS)
   const [step, setStep] = useState(() => (shared ? STEPS.length - 1 : 0))
   const [copied, setCopied] = useState(false)
+  const monthRef = useRef(null)
+  const [openPicker, setOpenPicker] = useState(false)
 
   const set = patch => setP(prev => ({ ...prev, ...patch }))
   const setLast = patch => setP(prev => ({ ...prev, last: { ...prev.last, ...patch } }))
@@ -255,6 +257,22 @@ export default function IntervalScreen() {
   useEffect(() => {
     window.history.replaceState(null, '', `${window.location.pathname}?${encode(p)}`)
   }, [p])
+
+  // "Pick when" should land the visitor in the date picker, not in front of an
+  // empty field reading dashes. The input only exists once the mode is set, so
+  // the picker is opened here, after that render — still inside the browser's
+  // user-activation window from the tap. showPicker is unsupported on older
+  // browsers and throws if the gesture has expired, in which case the field is
+  // on screen to tap anyway.
+  useEffect(() => {
+    if (!openPicker) return
+    setOpenPicker(false)
+    try {
+      monthRef.current?.showPicker?.()
+    } catch {
+      /* no picker available — the field itself is still there */
+    }
+  }, [openPicker])
 
   const restart = () => {
     setP(DEFAULTS)
@@ -322,8 +340,21 @@ export default function IntervalScreen() {
           <div className="space-y-2">
             <div className="grid grid-cols-3 gap-2">
               {MODES.map(m => (
-                <button key={m.key} type="button" onClick={() => setLast({ mode: m.key })}
-                  className={miniBtn(p.last.mode === m.key)}>
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => {
+                    // Seed the month so the field never shows as empty dashes;
+                    // a blank value already behaved as "this month" anyway.
+                    if (m.key === 'date') {
+                      setLast({ mode: 'date', when: p.last.when || thisMonth })
+                      setOpenPicker(true)
+                    } else {
+                      setLast({ mode: m.key })
+                    }
+                  }}
+                  className={miniBtn(p.last.mode === m.key)}
+                >
                   {m.label}
                 </button>
               ))}
@@ -331,10 +362,12 @@ export default function IntervalScreen() {
             {p.last.mode === 'date' && (
               <div className="space-y-2">
                 <input
+                  ref={monthRef}
                   type="month"
                   max={thisMonth}
                   value={p.last.when}
                   onChange={e => setLast({ when: e.target.value })}
+                  onClick={() => { try { monthRef.current?.showPicker?.() } catch { /* ignore */ } }}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[14px] text-slate-900 outline-none focus:border-sky-500"
                 />
                 {PARTIAL_LABEL[p.unit] && (
