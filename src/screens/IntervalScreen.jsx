@@ -183,8 +183,8 @@ function WearMeter({ severity, label, tone, gauge }) {
         <div className={`h-full rounded-full transition-all duration-300 ${bar}`} style={{ width: `${pct}%` }} />
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-slate-400">Happy Cruiser</span>
-        <span className="text-[10px] text-slate-400">Full Gnar Dog</span>
+        <span className="text-[10px] text-slate-400">Gentle</span>
+        <span className="text-[10px] text-slate-400">Brutal</span>
       </div>
     </div>
   )
