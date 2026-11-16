@@ -45,7 +45,6 @@ const DEFAULTS = {
   // Nothing pre-selected: until they say how they ride, the page has no
   // grounds to move off the manufacturer's own figure.
   style: null,
-  jetwash: false,
   ridesYearRound: true,
 }
 
@@ -60,7 +59,7 @@ const STEPS = [
   { id: 'history', title: 'When was it last done?',  sub: 'The honest answer gives the best date' },
   { id: 'volume',  title: 'How much do you ride?',   sub: 'Roughly — nobody is counting' },
   { id: 'style',   title: 'How do you ride?',        sub: 'Harder riding works the damper harder' },
-  { id: 'winter',  title: 'Winter and washing',      sub: 'The wet months do most of the damage' },
+  { id: 'winter',  title: 'Riding through winter',   sub: 'The wet months do most of the damage' },
 ]
 
 // ── URL round-trip, so a shared link opens on the same answers ─────────────
@@ -75,7 +74,6 @@ function encode(p) {
   q.set('m', p.rideMinutes)
   q.set('r', p.ridesPerWeek)
   if (p.style) q.set('y', p.style)
-  if (p.jetwash) q.set('w', '1')
   if (!p.ridesYearRound) q.set('o', '1')
   return q.toString()
 }
@@ -105,7 +103,6 @@ function decode() {
     rideMinutes: int(q.get('m'), 30, 360, DEFAULTS.rideMinutes),
     ridesPerWeek: int(q.get('r'), 1, 14, DEFAULTS.ridesPerWeek),
     style: STYLES.some(s => s.key === q.get('y')) ? q.get('y') : null,
-    jetwash: q.get('w') === '1',
     ridesYearRound: q.get('o') !== '1',
   }
 }
@@ -247,7 +244,6 @@ export default function IntervalScreen() {
         ridesPerWeek: p.ridesPerWeek,
         style: p.style,
         terrain: LOCAL_TERRAIN,
-        jetwash: p.jetwash,
         ridesYearRound: p.ridesYearRound,
       }),
     [p]
@@ -402,19 +398,6 @@ export default function IntervalScreen() {
             <Chip on={!p.ridesYearRound} onClick={() => set({ ridesYearRound: false })}
               label="I ease off when it's grim"
               hint="Far less riding November to February" />
-            <label className="flex items-start gap-3 rounded-xl border border-slate-200 px-3.5 py-2.5">
-              <input type="checkbox" checked={p.jetwash}
-                onChange={e => set({ jetwash: e.target.checked })}
-                className="mt-0.5 w-4 h-4 accent-sky-500 shrink-0" />
-              <span>
-                <span className="block text-[14px] font-semibold text-slate-800">
-                  I jet wash after most rides
-                </span>
-                <span className="block text-[11px] text-slate-400 mt-0.5 leading-snug">
-                  Drives water and grit straight past the dust wipers
-                </span>
-              </span>
-            </label>
           </div>
         )
 
@@ -545,7 +528,7 @@ export default function IntervalScreen() {
             We start from the manufacturer's hour-based interval, then weigh each month by how hard
             it is on suspension round here. A wet January hour in the Tweed Valley costs your fork
             far more than a dry July hour on hardpack, so the interval shortens and the date moves.
-            Jet washing, uplift days and hard riding all shorten it further.
+            Uplift days and hard riding shorten it further.
           </p>
           <p className="text-[12px] text-slate-400 leading-relaxed mt-2">
             It's an estimate to plan around, not a diagnosis. If it feels harsh, sounds dry or is

@@ -117,8 +117,8 @@ export const SERVICE_PLAN = {
 export const STYLE_FACTOR = {
   casual: 1.0,
   trail:  1.0,
-  enduro: 1.12,
-  park:   1.27,
+  enduro: 1.20,
+  park:   1.40,
 }
 
 /**
@@ -146,10 +146,6 @@ export const MONTH_SEVERITY = [1.55, 1.50, 1.35, 1.20, 1.05, 1.00, 1.00, 1.05, 1
 /** Riding volume by month relative to summer, for riders who ease off in winter. */
 export const WINTER_VOLUME = [0.5, 0.5, 0.75, 1, 1, 1, 1, 1, 1, 0.9, 0.6, 0.5]
 
-/** Jet washing forces water and grit past the dust wipers. Common here, and
- *  Fox's own manual says plainly not to do it. */
-export const JETWASH_FACTOR = 1.10
-
 /**
  * The rider the published intervals are measured against.
  *
@@ -159,7 +155,7 @@ export const JETWASH_FACTOR = 1.10
  * were due at 25 hours. Normalising against this profile means a typical local
  * rider lands on the published figure and everyone else moves relative to them.
  */
-export const REFERENCE = { style: 'trail', terrain: 'centre', jetwash: false }
+export const REFERENCE = { style: 'trail', terrain: 'centre' }
 
 /**
  * A blanket penalty on top of the rider's own answers.
@@ -185,19 +181,15 @@ export const LOCAL_PENALTY = 1.0
  */
 export const MIN_FACTOR = 1.0
 
-/** Stops the extremes running away. A downhill rider who jet washes lands on
- *  1.40, so this leaves a little headroom above the worst real answer. */
+/** Stops the extremes running away. Downhill, the hardest answer available,
+ *  lands on 1.40, so this leaves a little headroom above it. */
 export const MAX_FACTOR = 1.5
 
 // ───────────────────────────────────────────────────────────────────────────
 
 /** How hard the conditions are, independent of what the rider answered. */
-function conditions({ style, terrain, jetwash }) {
-  return (
-    (STYLE_FACTOR[style] ?? 1) *
-    (TERRAIN_FACTOR[terrain] ?? 1) *
-    (jetwash ? JETWASH_FACTOR : 1)
-  )
+function conditions({ style, terrain }) {
+  return (STYLE_FACTOR[style] ?? 1) * (TERRAIN_FACTOR[terrain] ?? 1)
 }
 
 const REFERENCE_CONDITIONS = conditions(REFERENCE)
@@ -236,16 +228,16 @@ export function wearRate(profile, monthIdx) {
 }
 
 /**
- * The worst answer anyone can actually give: hardest riding style, jet
- * washing. Derived rather than hardcoded so the meter still reaches its end
- * if the factors above are ever retuned — a scale whose top nobody can reach
- * makes the hardest setting look like there is more to come.
+ * The worst answer anyone can actually give. Derived rather than hardcoded so
+ * the meter still reaches its end if the factors above are ever retuned — a
+ * scale whose top nobody can reach makes the hardest setting look like there
+ * is more to come.
  *
  * Terrain is pinned to the reference by the screen, so it cancels out here.
  */
 export const WORST_FACTOR = Math.max(
   ...Object.keys(STYLE_FACTOR).map(style =>
-    profileFactor({ style, terrain: REFERENCE.terrain, jetwash: true })
+    profileFactor({ style, terrain: REFERENCE.terrain })
   )
 )
 
@@ -364,7 +356,7 @@ function startFor(serviceKey, last, now) {
  * profile: {
  *   components: { fork: 'Fox'|'Rockshox'|'Other'|null, shock: ..., dropper: bool },
  *   lastService: { fork: { mode, when, scope }, shock: {...}, dropper: {...} },
- *   rideMinutes, ridesPerWeek, style, terrain, jetwash, ridesYearRound
+ *   rideMinutes, ridesPerWeek, style, terrain, ridesYearRound
  * }
  */
 export function estimate(profile, from = new Date()) {
@@ -426,11 +418,9 @@ export function estimate(profile, from = new Date()) {
 /**
  * What kind of rider this is, taken straight from the trails they ride.
  *
- * Deliberately not derived from the wear multiplier. Jet washing is a
- * multiplier on wear, not a personality — it should shorten the interval
- * without promoting a trail rider to a gnar dog. Mapping one name per style
- * also means every name is reachable, which thresholds on the multiplier
- * never managed.
+ * Deliberately one name per style rather than thresholds on the wear
+ * multiplier, which left some names unreachable and let other answers promote
+ * a trail rider to a gnar dog.
  */
 export const RIDER_TYPE = {
   casual: { text: 'Happy Cruiser',   tone: 'emerald' },
