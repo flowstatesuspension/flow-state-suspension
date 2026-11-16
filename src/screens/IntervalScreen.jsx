@@ -25,8 +25,11 @@ const TERRAINS = [
   { key: 'dry',     label: 'Mostly dry',     hint: 'Hardpack and gravel, fair weather only' },
 ]
 
+const blankLast = () => ({ mode: 'fresh', when: '', scope: 'full' })
+
 const DEFAULTS = {
   components: { fork: 'Fox', shock: 'Fox', dropper: false },
+  lastService: { fork: blankLast(), shock: blankLast(), dropper: blankLast() },
   rideMinutes: 120,
   ridesPerWeek: 2,
   style: 'trail',
@@ -37,11 +40,31 @@ const DEFAULTS = {
 
 // ── URL round-trip, so shared dates open on the same answers ───────────────
 
+/** "fresh" | "never" | "2026-03:full" | "2026-03:partial" */
+function encodeLast(l) {
+  if (!l || l.mode === 'fresh') return 'fresh'
+  if (l.mode === 'never') return 'never'
+  if (!l.when) return 'fresh'
+  return `${l.when}:${l.scope === 'full' ? 'full' : 'partial'}`
+}
+
+function decodeLast(v) {
+  if (!v || v === 'fresh') return blankLast()
+  if (v === 'never') return { mode: 'never', when: '', scope: 'full' }
+  const [when, scope] = v.split(':')
+  if (!/^\d{4}-\d{2}$/.test(when ?? '')) return blankLast()
+  return { mode: 'date', when, scope: scope === 'full' ? 'full' : 'partial' }
+}
+
 function encode(p) {
   const q = new URLSearchParams()
   if (p.components.fork) q.set('f', p.components.fork)
   if (p.components.shock) q.set('s', p.components.shock)
   if (p.components.dropper) q.set('d', '1')
+  for (const [part, key] of [['fork', 'lf'], ['shock', 'ls'], ['dropper', 'ld']]) {
+    const v = encodeLast(p.lastService?.[part])
+    if (v !== 'fresh') q.set(key, v)
+  }
   q.set('m', p.rideMinutes)
   q.set('r', p.ridesPerWeek)
   q.set('y', p.style)
@@ -65,6 +88,11 @@ function decode() {
       fork: brand(q.get('f')),
       shock: brand(q.get('s')),
       dropper: q.get('d') === '1',
+    },
+    lastService: {
+      fork: decodeLast(q.get('lf')),
+      shock: decodeLast(q.get('ls')),
+      dropper: decodeLast(q.get('ld')),
     },
     rideMinutes: int(q.get('m'), 30, 360, DEFAULTS.rideMinutes),
     ridesPerWeek: int(q.get('r'), 1, 14, DEFAULTS.ridesPerWeek),
@@ -125,9 +153,24 @@ function Slider({ label, value, display, min, max, step, onChange }) {
   )
 }
 
+const MODES = [
+  { key: 'fresh',   label: 'Just done' },
+  { key: 'date',    label: 'Pick when' },
+  { key: 'never',   label: 'Never / not sure' },
+]
+
+const miniBtn = on =>
+  `rounded-lg px-2 py-1.5 text-[12px] font-semibold border transition ${
+    on
+      ? 'border-sky-500 bg-sky-50 text-sky-900'
+      : 'border-slate-200 bg-white text-slate-500 active:bg-slate-50'
+  }`
+
 /** Fork/shock get a brand picker; the dropper is just on or off. */
-function ComponentRow({ label, value, onChange, brands = true }) {
+function ComponentRow({ label, value, onChange, brands = true, last, onLast, partialLabel }) {
   const on = brands ? !!value : value
+  const thisMonth = new Date().toISOString().slice(0, 7)
+
   return (
     <div className={`rounded-xl border p-3 ${on ? 'border-slate-300 bg-slate-50' : 'border-slate-200'}`}>
       <button
@@ -154,19 +197,58 @@ function ComponentRow({ label, value, onChange, brands = true }) {
       {on && brands && (
         <div className="mt-3 grid grid-cols-3 gap-1.5">
           {BRANDS.map(b => (
-            <button
-              key={b}
-              type="button"
-              onClick={() => onChange(b)}
-              className={`rounded-lg px-2 py-1.5 text-[12px] font-semibold border transition ${
-                value === b
-                  ? 'border-sky-500 bg-sky-50 text-sky-900'
-                  : 'border-slate-200 bg-white text-slate-500 active:bg-slate-50'
-              }`}
-            >
+            <button key={b} type="button" onClick={() => onChange(b)} className={miniBtn(value === b)}>
               {b === 'Rockshox' ? 'RockShox' : b}
             </button>
           ))}
+        </div>
+      )}
+
+      {on && (
+        <div className="mt-3 pt-3 border-t border-slate-200">
+          <p className="text-[11px] font-semibold text-slate-500 mb-1.5">Last serviced</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {MODES.map(m => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => onLast({ ...last, mode: m.key })}
+                className={miniBtn((last?.mode ?? 'fresh') === m.key)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {last?.mode === 'date' && (
+            <div className="mt-2 space-y-2">
+              <input
+                type="month"
+                max={thisMonth}
+                value={last.when ?? ''}
+                onChange={e => onLast({ ...last, when: e.target.value })}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[14px] text-slate-900 outline-none focus:border-sky-500"
+              />
+              {partialLabel && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onLast({ ...last, scope: 'full' })}
+                    className={miniBtn(last.scope === 'full')}
+                  >
+                    Full service
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onLast({ ...last, scope: 'partial' })}
+                    className={miniBtn(last.scope !== 'full')}
+                  >
+                    {partialLabel}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -182,6 +264,8 @@ export default function IntervalScreen() {
   const set = patch => setP(prev => ({ ...prev, ...patch }))
   const setComponent = (key, value) =>
     setP(prev => ({ ...prev, components: { ...prev.components, [key]: value } }))
+  const setLast = (key, value) =>
+    setP(prev => ({ ...prev, lastService: { ...prev.lastService, [key]: value } }))
 
   const result = useMemo(() => estimate(p), [p])
   const sev = severityLabel(result.severity)
@@ -247,17 +331,25 @@ export default function IntervalScreen() {
               label="Fork"
               value={p.components.fork}
               onChange={v => setComponent('fork', v)}
+              last={p.lastService.fork}
+              onLast={v => setLast('fork', v)}
+              partialLabel="Lowers only"
             />
             <ComponentRow
               label="Rear shock"
               value={p.components.shock}
               onChange={v => setComponent('shock', v)}
+              last={p.lastService.shock}
+              onLast={v => setLast('shock', v)}
+              partialLabel="Air can only"
             />
             <ComponentRow
               label="Dropper post"
               value={p.components.dropper}
               onChange={v => setComponent('dropper', v)}
               brands={false}
+              last={p.lastService.dropper}
+              onLast={v => setLast('dropper', v)}
             />
           </div>
         </Section>
@@ -384,22 +476,45 @@ export default function IntervalScreen() {
                 </div>
                 <div className="divide-y divide-slate-50">
                   {c.services.map(s => (
-                    <div key={s.key} className="px-4 py-3 flex items-baseline justify-between gap-3">
+                    <div
+                      key={s.key}
+                      className={`px-4 py-3 flex items-baseline justify-between gap-3 ${
+                        s.overdue ? 'bg-red-50/60' : ''
+                      }`}
+                    >
                       <div className="min-w-0">
                         <p className="text-[14px] font-semibold text-slate-800">{s.label}</p>
                         <p className="text-[11px] text-slate-400 leading-snug">{s.blurb}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-[14px] font-bold text-slate-900">
-                          {s.date ? format(s.date, 'MMM yyyy') : '—'}
-                        </p>
-                        <p className="text-[11px] text-slate-400 tabular-nums">
-                          {s.capped
-                            ? s.capMonths === 12
-                              ? 'time, not hours'
-                              : `${s.capMonths} months, not hours`
-                            : `~${s.ridingHours} hrs riding`}
-                        </p>
+                        {s.unknown ? (
+                          <>
+                            <p className="text-[14px] font-bold text-red-600">Due now</p>
+                            <p className="text-[11px] text-red-400">no record of one</p>
+                          </>
+                        ) : s.overdue ? (
+                          <>
+                            <p className="text-[14px] font-bold text-red-600">Overdue</p>
+                            <p className="text-[11px] text-red-400 tabular-nums">
+                              {s.monthsOverdue < 1
+                                ? 'due this month'
+                                : `by ~${s.monthsOverdue} month${s.monthsOverdue === 1 ? '' : 's'}`}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-[14px] font-bold text-slate-900">
+                              {s.date ? format(s.date, 'MMM yyyy') : '—'}
+                            </p>
+                            <p className="text-[11px] text-slate-400 tabular-nums">
+                              {s.capped
+                                ? s.capMonths === 12
+                                  ? 'time, not hours'
+                                  : `${s.capMonths} months, not hours`
+                                : `~${s.hoursRemaining} hrs riding away`}
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}

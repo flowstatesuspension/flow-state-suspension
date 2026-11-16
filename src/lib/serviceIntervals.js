@@ -133,19 +133,24 @@ export function wearRate(profile, monthIdx) {
  * that took, which is the number a rider can sanity-check against their own
  * Strava time.
  */
-export function projectDate(profile, thresholdHours, maxMonths, from = new Date()) {
+export function projectDate(profile, thresholdHours, maxMonths, since, now = new Date()) {
   const { hoursPerWeek, ridesYearRound } = profile
   if (!(hoursPerWeek > 0)) return null
 
-  const hardStop = new Date(from)
+  const hardStop = new Date(since)
   hardStop.setMonth(hardStop.getMonth() + maxMonths)
 
-  const d = new Date(from)
+  const d = new Date(since)
   let wear = 0
   let ridingHours = 0
+  let hoursToDate = null // riding hours put in since the service, up to today
 
-  // Five years of days is plenty; beyond that the estimate is meaningless
-  for (let i = 0; i < 365 * 5; i++) {
+  // Ten years of days — the walk can start well in the past now, so the old
+  // five-year budget could run out before reaching the threshold for someone
+  // who rides very little.
+  for (let i = 0; i < 365 * 10; i++) {
+    if (hoursToDate === null && d >= now) hoursToDate = ridingHours
+
     const m = d.getMonth()
     const volume = ridesYearRound ? 1 : WINTER_VOLUME[m]
     const dayHours = (hoursPerWeek / 7) * volume
@@ -153,15 +158,34 @@ export function projectDate(profile, thresholdHours, maxMonths, from = new Date(
     ridingHours += dayHours
     wear += dayHours * wearRate(profile, m)
 
-    if (wear >= thresholdHours) {
-      return { date: new Date(d), ridingHours: Math.round(ridingHours), capped: false }
-    }
-    if (d >= hardStop) {
-      return { date: new Date(hardStop), ridingHours: Math.round(ridingHours), capped: true }
+    const done = wear >= thresholdHours
+    const timedOut = d >= hardStop
+    if (done || timedOut) {
+      const date = timedOut && !done ? new Date(hardStop) : new Date(d)
+      const alreadyDone = hoursToDate ?? ridingHours
+      return {
+        date,
+        ridingHours: Math.round(ridingHours),
+        hoursSinceService: Math.round(alreadyDone),
+        // What the rider has left to ride before it's due. With no past
+        // service date this equals the full interval; with one, it's the bit
+        // that hasn't been used up yet — which is the number worth showing.
+        hoursRemaining: Math.max(0, Math.round(ridingHours - alreadyDone)),
+        capped: timedOut && !done,
+        overdue: date < now,
+        monthsOverdue: date < now ? monthsBetween(date, now) : 0,
+      }
     }
     d.setDate(d.getDate() + 1)
   }
   return null
+}
+
+function monthsBetween(a, b) {
+  return Math.max(
+    0,
+    (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth())
+  )
 }
 
 /** Which services apply to each component, in the order they should be shown. */
@@ -180,10 +204,37 @@ const SERVICES = {
 }
 
 /**
+ * Where the clock starts for one service.
+ *
+ * 'fresh'   — just serviced, or a new bike: count from today.
+ * 'date'    — count from the month given. The answer can land in the past,
+ *             which is the point: that rider is overdue and should be told so.
+ * 'unknown' — never done, or can't remember. No honest date exists, so the
+ *             screen says it's due rather than inventing one.
+ *
+ * A lower-leg or air-can service does not reset the full-service clock, so a
+ * rider who has only ever had lowers done still has an unknown full service.
+ */
+function startFor(serviceKey, last, now) {
+  if (!last || last.mode === 'fresh') return now
+  if (last.mode === 'never') return null
+  if (!last.when) return now
+
+  if (serviceKey === 'full' && last.scope !== 'full') return null
+
+  const [y, m] = last.when.split('-').map(Number)
+  if (!y || !m) return now
+  const d = new Date(y, m - 1, 1)
+  // A date in the future is a typo, not a prediction
+  return d > now ? now : d
+}
+
+/**
  * The whole estimate.
  *
  * profile: {
  *   components: { fork: 'Fox'|'Rockshox'|'Other'|null, shock: ..., dropper: bool },
+ *   lastService: { fork: { mode, when, scope }, shock: {...}, dropper: {...} },
  *   rideMinutes, ridesPerWeek, style, terrain, jetwash, ridesYearRound
  * }
  */
@@ -196,17 +247,21 @@ export function estimate(profile, from = new Date()) {
     const brand = profile.components[part]
     if (!brand) continue
 
+    const last = profile.lastService?.[part]
+
     const services = SERVICES[part].map(s => {
       const hours =
         part === 'dropper'
           ? DROPPER_HOURS
           : BASE_HOURS[brand]?.[part]?.[s.key] ?? BASE_HOURS.Other[part][s.key]
-      return {
-        ...s,
-        hours,
-        capMonths: MAX_MONTHS[s.key],
-        ...projectDate(p, hours, MAX_MONTHS[s.key], from),
-      }
+
+      const since = startFor(s.key, last, from)
+      const base = { ...s, hours, capMonths: MAX_MONTHS[s.key], since }
+
+      // Nothing to count from — say so rather than guess a date
+      if (!since) return { ...base, unknown: true, overdue: true }
+
+      return { ...base, ...projectDate(p, hours, MAX_MONTHS[s.key], since, from) }
     })
 
     out.push({
