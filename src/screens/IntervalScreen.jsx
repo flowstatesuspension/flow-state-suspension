@@ -306,11 +306,21 @@ export default function IntervalScreen() {
     setFinished(false)
   }
 
+  /**
+   * Shares the estimator, not this visitor's answers.
+   *
+   * window.location.href carries their unit, brand, service history and
+   * riding profile in the query string. Handing a mate the tool is the point;
+   * handing them your fork's service history is not, and it is not something
+   * anyone would expect a Share button to do.
+   */
   const share = async () => {
-    const url = window.location.href
+    const url = `${window.location.origin}/intervals`
+    const title = 'MTB suspension service estimator'
+    const text = "Work out when your fork, shock or dropper is actually due — Flow State Suspension, Edinburgh."
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'My suspension service dates — Flow State Suspension', url })
+        await navigator.share({ title, text, url })
         return
       }
     } catch {
@@ -321,7 +331,7 @@ export default function IntervalScreen() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      /* clipboard blocked — the URL is in the bar either way */
+      /* clipboard blocked — nothing more we can do from here */
     }
   }
 
