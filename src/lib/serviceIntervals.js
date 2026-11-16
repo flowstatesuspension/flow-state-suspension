@@ -476,13 +476,21 @@ export function estimate(profile, from = new Date()) {
  * nothing is lost by stating them.
  */
 export const RIDER_TYPE = {
-  casual: { text: 'Happy Cruiser',   tone: 'emerald', gauge: 0 },
-  trail:  { text: 'Weekend Warrior', tone: 'sky',     gauge: 25 },
-  enduro: { text: 'Proper Sender',   tone: 'amber',   gauge: 60 },
-  park:   { text: 'Full Gnar Dog',   tone: 'red',     gauge: 100 },
+  casual: { text: 'Happy Cruiser',   eased: 'Sunshine Cruiser',      tone: 'emerald', gauge: 0 },
+  trail:  { text: 'Weekend Warrior', eased: 'Fair Weather Warrior',  tone: 'sky',     gauge: 25 },
+  enduro: { text: 'Proper Sender',   eased: 'Summer Sender',         tone: 'amber',   gauge: 60 },
+  park:   { text: 'Full Gnar Dog',   eased: 'Almost Gnar Dog',       tone: 'red',     gauge: 100 },
 }
 
-/** null until they have picked their trails — see profileFactor. */
-export function riderType(style) {
-  return RIDER_TYPE[style] ?? null
+/**
+ * null until they have picked their trails — see profileFactor.
+ *
+ * Sitting the worst of the winter out earns the softer name: you are not
+ * quite the rider the all-year answer describes, and the needle has already
+ * come back to match.
+ */
+export function riderType(style, easesOff = false) {
+  const tier = RIDER_TYPE[style]
+  if (!tier) return null
+  return { ...tier, text: easesOff ? tier.eased : tier.text }
 }

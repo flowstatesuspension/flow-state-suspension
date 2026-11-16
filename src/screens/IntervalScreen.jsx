@@ -15,6 +15,8 @@ import { estimate, riderType, gaugePosition } from '../lib/serviceIntervals'
 
 const BRANDS = ['Fox', 'Rockshox', 'Other']
 
+const WEBSITE = 'https://www.flowstatesuspension.co.uk'
+
 const UNITS = [
   { key: 'fork',    label: 'Fork',    brands: true },
   { key: 'shock',   label: 'Shock',   brands: true },
@@ -263,7 +265,7 @@ export default function IntervalScreen() {
   )
 
   const unit = result.components[0]
-  const rider = riderType(p.style)
+  const rider = riderType(p.style, !p.ridesYearRound)
 
   useEffect(() => {
     window.history.replaceState(null, '', `${window.location.pathname}?${encode(p)}`)
@@ -646,15 +648,27 @@ export default function IntervalScreen() {
             ))}
           </div>
 
-          <div className="flex gap-2 p-3 bg-slate-50 border-t border-slate-100">
+          {/* Booking gets the full width; the other two share a row beneath,
+              which keeps all three readable at phone width. */}
+          <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-2">
             <a href="/book"
-              className="flex-1 rounded-xl bg-sky-500 px-4 py-2.5 text-center text-[14px] font-bold text-white active:bg-sky-600">
+              className="block rounded-xl bg-sky-500 px-4 py-2.5 text-center text-[14px] font-bold text-white active:bg-sky-600">
               Book {unitLabel.toLowerCase() === 'dropper' ? 'a dropper service' : `a ${unitLabel.toLowerCase()} service`}
             </a>
-            <button type="button" onClick={share}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-[14px] font-semibold text-slate-700 active:bg-slate-50">
-              {copied ? 'Copied' : 'Share'}
-            </button>
+            <div className="flex gap-2">
+              <a
+                href={WEBSITE}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center text-[14px] font-semibold text-slate-700 active:bg-slate-50"
+              >
+                Tell me more
+              </a>
+              <button type="button" onClick={share}
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-[14px] font-semibold text-slate-700 active:bg-slate-50">
+                {copied ? 'Copied' : 'Share'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -677,7 +691,7 @@ export default function IntervalScreen() {
 
         <p className="text-center text-[11px] text-slate-400">
           Flow State Suspension Ltd · Edinburgh ·{' '}
-          <a href="https://www.flowstatesuspension.co.uk" className="underline">
+          <a href={WEBSITE} target="_blank" rel="noopener noreferrer" className="underline">
             flowstatesuspension.co.uk
           </a>
         </p>
