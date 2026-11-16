@@ -36,6 +36,13 @@ const MODES = [
 
 const PARTIAL_LABEL = { fork: 'Lowers only', shock: 'Air can only', dropper: 'Grease only' }
 
+/** "2h", "1h 30m", "45m" */
+function rideLength(mins) {
+  if (mins < 60) return `${mins}m`
+  const h = Math.floor(mins / 60)
+  return `${h}h${mins % 60 ? ` ${mins % 60}m` : ''}`
+}
+
 const DEFAULTS = {
   unit: 'fork',
   brand: 'Fox',
@@ -223,7 +230,11 @@ function IntervalBar({ yours, published }) {
 export default function IntervalScreen() {
   const shared = useRef(decode()).current
   const [p, setP] = useState(() => shared ?? DEFAULTS)
-  const [step, setStep] = useState(() => (shared ? STEPS.length - 1 : 0))
+  // A shared link already carries every answer, so it opens on the summary
+  // rather than dropping the reader into someone else's half-filled form.
+  const [finished, setFinished] = useState(() => !!shared)
+  const [hasFinished, setHasFinished] = useState(() => !!shared)
+  const [step, setStep] = useState(0)
   const [copied, setCopied] = useState(false)
   const monthRef = useRef(null)
   const [openPicker, setOpenPicker] = useState(false)
@@ -277,7 +288,20 @@ export default function IntervalScreen() {
   const restart = () => {
     setP(DEFAULTS)
     setStep(0)
+    setFinished(false)
+    setHasFinished(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const finish = () => {
+    setFinished(true)
+    setHasFinished(true)
+  }
+
+  /** Jump back into the stepper at one question, from the summary. */
+  const editStep = i => {
+    setStep(i)
+    setFinished(false)
   }
 
   const share = async () => {
@@ -439,6 +463,30 @@ export default function IntervalScreen() {
     }
   }
 
+  // ── What they answered, as a list that jumps back to each question ──
+  const lastServiceText = () => {
+    if (p.last.mode === 'never') return 'Never, or not sure'
+    if (p.last.mode !== 'date' || !p.last.when) return 'Just done, or brand new'
+    const [y, m] = p.last.when.split('-').map(Number)
+    const when = format(new Date(y, m - 1, 1), 'MMM yyyy')
+    const scope = p.last.scope === 'full' ? 'full service' : (PARTIAL_LABEL[p.unit] ?? '').toLowerCase()
+    return scope ? `${when} — ${scope}` : when
+  }
+
+  const summaryRows = [
+    { step: 0, label: 'Unit', value: `${p.brand === 'Rockshox' ? 'RockShox' : p.brand} ${unitLabel.toLowerCase()}` },
+    { step: 1, label: 'Last serviced', value: lastServiceText() },
+    { step: 2, label: 'Riding', value: `${rideLength(p.rideMinutes)} × ${p.ridesPerWeek} a week · ${result.hoursPerWeek.toFixed(1)} hrs` },
+    {
+      step: 3,
+      label: 'Trails',
+      value: rider
+        ? `${STYLES.find(x => x.key === p.style)?.label} — ${rider.text}`
+        : 'Not answered',
+    },
+    { step: 4, label: 'Winter', value: p.ridesYearRound ? 'Rides all year' : "Eases off when it's grim" },
+  ]
+
   return (
     <div className="min-h-full bg-slate-50">
       <div className="bg-black safe-top">
@@ -454,7 +502,43 @@ export default function IntervalScreen() {
       </div>
 
       <div className="max-w-xl mx-auto px-4 py-3 pb-8 space-y-3">
-        {/* ── Question ── */}
+        {/* ── Summary, once they have finished ── */}
+        {finished ? (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-baseline justify-between px-4 pt-3.5 pb-2">
+              <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Your answers
+              </h2>
+              <span className="text-[10px] text-slate-400">Tap any line to change it</span>
+            </div>
+            <div className="divide-y divide-slate-50 border-t border-slate-100">
+              {summaryRows.map(r => (
+                <button
+                  key={r.label}
+                  type="button"
+                  onClick={() => editStep(r.step)}
+                  className="w-full flex items-baseline justify-between gap-3 px-4 py-2.5 text-left active:bg-slate-50"
+                >
+                  <span className="text-[12px] text-slate-500 shrink-0">{r.label}</span>
+                  <span className="text-[13px] font-semibold text-slate-800 text-right">{r.value}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2.5 border-t border-slate-100 bg-slate-50">
+              <button type="button" onClick={() => editStep(0)}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-[13px] font-semibold text-slate-700 active:bg-slate-100">
+                Change answers
+              </button>
+              <div className="flex-1" />
+              <button type="button" onClick={restart}
+                className="text-[12px] font-semibold text-slate-400 px-1.5 active:text-slate-600">
+                Start again
+              </button>
+            </div>
+          </div>
+        ) : (
+
+        /* ── Question ── */
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="flex gap-1 px-4 pt-3.5">
             {STEPS.map((s, i) => (
@@ -482,16 +566,22 @@ export default function IntervalScreen() {
               Start again
             </button>
             <div className="flex-1" />
+            {hasFinished && !isLast && (
+              <button type="button" onClick={finish}
+                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-[13px] font-semibold text-slate-700 active:bg-slate-100">
+                Done
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setStep(s => Math.min(STEPS.length - 1, s + 1))}
-              disabled={isLast}
-              className="rounded-xl bg-sky-500 px-5 py-2 text-[13px] font-bold text-white disabled:opacity-40 active:bg-sky-600"
+              onClick={() => (isLast ? finish() : setStep(s => s + 1))}
+              className="rounded-xl bg-sky-500 px-5 py-2 text-[13px] font-bold text-white active:bg-sky-600"
             >
-              Next
+              {isLast ? 'Finish' : 'Next'}
             </button>
           </div>
         </div>
+        )}
 
         {/* ── Live output. Deliberately short so it shares the screen with
                the controls above — watching this move is the whole point. ── */}
