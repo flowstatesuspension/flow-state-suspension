@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
-import { estimate, severityLabel, MIN_FACTOR, WORST_FACTOR } from '../lib/serviceIntervals'
+import { estimate, riderType, MIN_FACTOR, WORST_FACTOR } from '../lib/serviceIntervals'
 
 // Public service interval estimator. Served at /intervals with no login.
 //
@@ -25,7 +25,7 @@ const STYLES = [
   { key: 'casual', label: 'Casual',    hint: 'Towpaths, fire road, the odd blue' },
   { key: 'trail',  label: 'Trail',     hint: 'Red routes, natural singletrack' },
   { key: 'enduro', label: 'Enduro',    hint: 'Steep, fast, racing or training for it' },
-  { key: 'park',   label: 'DH / Park', hint: 'Uplift days and bike park laps' },
+  { key: 'park',   label: 'Downhill',  hint: 'Uplift days and bike park laps' },
 ]
 
 const MODES = [
@@ -163,14 +163,13 @@ function WearMeter({ severity, label, tone }) {
   // Scaled to the worst answer available, not to the safety clamp, so the
   // hardest settings fill the bar completely.
   const pct = Math.min(100, Math.max(0, ((severity - MIN_FACTOR) / (WORST_FACTOR - MIN_FACTOR)) * 100))
-  // Written out in full so Tailwind's scanner emits every class.
+  // Written out in full so Tailwind's scanner emits every class — it cannot
+  // see a class name built from a variable, so any new tone needs adding here.
   const bar = {
-    emerald: 'bg-emerald-500', sky: 'bg-sky-500', amber: 'bg-amber-500',
-    orange: 'bg-orange-500', red: 'bg-red-500',
+    emerald: 'bg-emerald-500', sky: 'bg-sky-500', amber: 'bg-amber-500', red: 'bg-red-500',
   }[tone]
   const text = {
-    emerald: 'text-emerald-700', sky: 'text-sky-700', amber: 'text-amber-600',
-    orange: 'text-orange-600', red: 'text-red-600',
+    emerald: 'text-emerald-700', sky: 'text-sky-700', amber: 'text-amber-600', red: 'text-red-600',
   }[tone]
 
   return (
@@ -253,7 +252,7 @@ export default function IntervalScreen() {
   )
 
   const unit = result.components[0]
-  const sev = severityLabel(result.severity)
+  const rider = riderType(p.style)
 
   useEffect(() => {
     window.history.replaceState(null, '', `${window.location.pathname}?${encode(p)}`)
@@ -486,7 +485,7 @@ export default function IntervalScreen() {
                 {p.brand === 'Rockshox' ? 'RockShox' : p.brand}
               </span>
             </div>
-            <WearMeter severity={result.severity} label={sev.text} tone={sev.tone} />
+            <WearMeter severity={result.severity} label={rider.text} tone={rider.tone} />
           </div>
 
           <div className="divide-y divide-slate-50">

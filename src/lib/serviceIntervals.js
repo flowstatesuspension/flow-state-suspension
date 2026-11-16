@@ -406,14 +406,21 @@ export function estimate(profile, from = new Date()) {
 }
 
 /**
- * What kind of rider this profile describes. 1.0 is the manufacturer's own
- * assumption — where the page sits before anything has been answered — and
- * it climbs from there as the answers get rowdier.
+ * What kind of rider this is, taken straight from the trails they ride.
+ *
+ * Deliberately not derived from the wear multiplier. Jet washing is a
+ * multiplier on wear, not a personality — it should shorten the interval
+ * without promoting a trail rider to a gnar dog. Mapping one name per style
+ * also means every name is reachable, which thresholds on the multiplier
+ * never managed.
  */
-export function severityLabel(severity) {
-  if (severity < 1.05) return { text: 'Happy Cruiser',     tone: 'emerald' }
-  if (severity < 1.25) return { text: 'Weekend Warrior',    tone: 'sky' }
-  if (severity < 1.45) return { text: 'Proper Sender',      tone: 'amber' }
-  if (severity < 1.65) return { text: 'Certified Hooligan', tone: 'orange' }
-  return { text: 'Full Gnar Dog', tone: 'red' }
+export const RIDER_TYPE = {
+  casual: { text: 'Happy Cruiser',   tone: 'emerald' },
+  trail:  { text: 'Weekend Warrior', tone: 'sky' },
+  enduro: { text: 'Proper Sender',   tone: 'amber' },
+  park:   { text: 'Full Gnar Dog',   tone: 'red' },
+}
+
+export function riderType(style) {
+  return RIDER_TYPE[style] ?? RIDER_TYPE.trail
 }
