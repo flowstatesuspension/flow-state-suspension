@@ -28,11 +28,18 @@
 //         service, 200 hour damper service. Note the MY27 Super Deluxe
 //         doubles the air can interval to 100 hours — if that becomes common
 //         on customers' bikes it needs splitting out by model year.
+//   RS    sram.com SRAM/RockShox Service Interval Counter Mat
+//         (GEN.0000000005593 Rev H), seatpost columns: 50h lower post
+//         service, 300h basic seatpost service (Reverb AXS B1), 600h
+//         complete seatpost service (Reverb AXS A1, Stealth C1, XPLR A1,
+//         AXS B1). Older non-AXS posts sit at 200h/400h — if those keep
+//         coming in, they need splitting out by model.
 //
 // Two judgement calls that are Keith's, not the manufacturers':
-//   - Fox fork/shock show a single full service because that is all Fox
-//     publishes. If you want to offer a Fox lower-leg interval as your own
-//     recommendation, add it to the Fox rows below — it is your name on it.
+//   - FOX FORK LOWER LEG, 50 HOURS. Fox's published maintenance table shows
+//     only the 125h/yearly full service, with bath oil and wipers folded in.
+//     Keith services these for a living and puts lowers at 50 hours, which is
+//     also where RockShox put theirs. That figure is his, not Fox's.
 //   - 'Other' is a middle ground for brands we have no figures for.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -47,10 +54,9 @@
 export const SERVICE_PLAN = {
   fork: {
     Fox: [
-      { key: 'full', hours: 125, capMonths: 12 },
-      // Fox publishes no lower-leg interval. To offer one as your own
-      // recommendation, uncomment and set the number:
-      // { key: 'lowers', hours: 50, capMonths: 12 },
+      // Keith's figure — see the note above. Not from Fox's published table.
+      { key: 'lowers', hours: 50,  capMonths: 12 },
+      { key: 'full',   hours: 125, capMonths: 12 },
     ],
     Rockshox: [
       { key: 'lowers', hours: 50,  capMonths: 12 },
@@ -78,9 +84,14 @@ export const SERVICE_PLAN = {
       { key: 'mid',    hours: 125, capMonths: 24 },
       { key: 'full',   hours: 300, capMonths: 36 },
     ],
-    // RockShox publish this on support.rockshox.com rather than in a service
-    // manual, so it is softer than the fork figures above.
-    Rockshox: [{ key: 'full', hours: 200, capMonths: 24 }],
+    Rockshox: [
+      { key: 'lowers', hours: 50,  capMonths: 12, label: 'Lower post service',
+        blurb: 'Lower post off, cleaned and re-greased' },
+      { key: 'mid',    hours: 300, capMonths: 12, label: 'Basic service',
+        blurb: 'Service kit parts, internals cleaned and re-lubed' },
+      { key: 'full',   hours: 600, capMonths: 24, label: 'Complete service',
+        blurb: 'Full overhaul, internal hydraulics restored' },
+    ],
     Other: [{ key: 'full', hours: 150, capMonths: 24 }],
   },
 }
@@ -248,6 +259,7 @@ const SERVICE_META = {
   },
   dropper: {
     grease: { label: 'Grease service',       blurb: 'Quick seal clean and re-grease' },
+    lowers: { label: 'Lower post service',   blurb: 'Lower post off, cleaned and re-greased' },
     mid:    { label: 'Intermediate service', blurb: 'Seals, bushings and free play' },
     full:   { label: 'Full rebuild',         blurb: 'Stripped, rebuilt and recharged' },
   },
@@ -312,11 +324,15 @@ export function estimate(profile, from = new Date()) {
 
     const plan = SERVICE_PLAN[part][brand] ?? SERVICE_PLAN[part].Other
 
-    const services = plan.map(({ key, hours, capMonths }) => {
+    const services = plan.map(({ key, hours, capMonths, label, blurb }) => {
       const since = startFor(key, last, from)
       const base = {
         key,
         ...SERVICE_META[part][key],
+        // Brands name the equivalent service differently — Fox's dropper
+        // "intermediate" is RockShox's "basic" — so a plan entry may override.
+        ...(label ? { label } : {}),
+        ...(blurb ? { blurb } : {}),
         hours,
         // What the interval actually works out at under these conditions.
         // Wear accrues as riding hours x severity, so reaching the threshold
