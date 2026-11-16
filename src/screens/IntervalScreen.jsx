@@ -232,8 +232,8 @@ export default function IntervalScreen() {
   const [p, setP] = useState(() => shared ?? DEFAULTS)
   // A shared link already carries every answer, so it opens on the summary
   // rather than dropping the reader into someone else's half-filled form.
-  const [finished, setFinished] = useState(() => !!shared)
-  const [hasFinished, setHasFinished] = useState(() => !!shared)
+  const [finished, setFinished] = useState(() => !!shared?.style)
+  const [hasFinished, setHasFinished] = useState(() => !!shared?.style)
   const [step, setStep] = useState(0)
   const [copied, setCopied] = useState(false)
   const monthRef = useRef(null)
@@ -556,6 +556,16 @@ export default function IntervalScreen() {
             <div className="mt-3">{question()}</div>
           </div>
 
+          {isLast && !p.style && (
+            <button
+              type="button"
+              onClick={() => setStep(STEPS.findIndex(x => x.id === 'style'))}
+              className="w-full px-4 pb-3 text-left text-[11px] font-semibold text-amber-600 active:text-amber-700"
+            >
+              Pick the trails you ride to finish →
+            </button>
+          )}
+
           <div className="flex items-center gap-2 px-4 py-2.5 border-t border-slate-100 bg-slate-50">
             <button type="button" onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}
               className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-[13px] font-semibold text-slate-700 disabled:opacity-40 active:bg-slate-100">
@@ -575,7 +585,8 @@ export default function IntervalScreen() {
             <button
               type="button"
               onClick={() => (isLast ? finish() : setStep(s => s + 1))}
-              className="rounded-xl bg-sky-500 px-5 py-2 text-[13px] font-bold text-white active:bg-sky-600"
+              disabled={isLast && !p.style}
+              className="rounded-xl bg-sky-500 px-5 py-2 text-[13px] font-bold text-white disabled:opacity-40 active:bg-sky-600"
             >
               {isLast ? 'Finish' : 'Next'}
             </button>
