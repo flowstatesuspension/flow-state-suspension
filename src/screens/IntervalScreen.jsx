@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
-import { estimate, riderType, MIN_FACTOR, WORST_FACTOR } from '../lib/serviceIntervals'
+import { estimate, riderType } from '../lib/serviceIntervals'
 
 // Public service interval estimator. Served at /intervals with no login.
 //
@@ -158,10 +158,10 @@ function Slider({ label, value, display, min, max, step, onChange }) {
  * It starts empty, at the manufacturer's own interval, and fills as the
  * rider describes conditions the manufacturer did not assume.
  */
-function WearMeter({ severity, label, tone }) {
-  // Scaled to the worst answer available, not to the safety clamp, so the
-  // hardest settings fill the bar completely.
-  const pct = Math.min(100, Math.max(0, ((severity - MIN_FACTOR) / (WORST_FACTOR - MIN_FACTOR)) * 100))
+function WearMeter({ severity, label, tone, gauge }) {
+  // Position comes from the rider tier rather than the raw multiplier, so each
+  // tier sits where it was meant to sit. See RIDER_TYPE.
+  const pct = Math.min(100, Math.max(0, gauge))
   // Written out in full so Tailwind's scanner emits every class — it cannot
   // see a class name built from a variable, so any new tone needs adding here.
   const bar = {
@@ -471,7 +471,7 @@ export default function IntervalScreen() {
               </span>
             </div>
             {rider ? (
-              <WearMeter severity={result.severity} label={rider.text} tone={rider.tone} />
+              <WearMeter severity={result.severity} label={rider.text} tone={rider.tone} gauge={rider.gauge} />
             ) : (
               <p className="text-[12px] text-slate-400 leading-snug">
                 These are the manufacturer's own intervals. Tell us how you ride and we'll

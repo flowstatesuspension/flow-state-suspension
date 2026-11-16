@@ -115,7 +115,7 @@ export const SERVICE_PLAN = {
  * broken for casual riders.
  */
 export const STYLE_FACTOR = {
-  casual: 1.0,
+  casual: 0.85,
   trail:  1.0,
   enduro: 1.20,
   park:   1.40,
@@ -213,18 +213,31 @@ function seasonShape(monthIdx) {
  */
 export function profileFactor(profile) {
   // Nothing applies until the rider has said how they ride. Until then the
-  // page is showing the manufacturer's own figure and has no grounds to move
-  // it — a jet wash on its own says nothing without knowing what it is
-  // washing off.
-  if (!profile?.style) return MIN_FACTOR
+  // page is showing the manufacturer's own figure and has no grounds to move it.
+  if (!profile?.style) return 1
 
   const raw = (conditions(profile) / REFERENCE_CONDITIONS) * LOCAL_PENALTY
-  return Math.min(Math.max(raw, MIN_FACTOR), MAX_FACTOR)
+  return Math.min(raw, MAX_FACTOR)
 }
 
-/** Wear rate for one month: the rider's own factor, shaped by the season. */
+/**
+ * What we actually apply to the intervals, as opposed to what the meter
+ * shows.
+ *
+ * A gentle rider can read below 1.0 on the meter — that is a fair description
+ * of them — but the published interval is a ceiling, not a target. SRAM call
+ * theirs the maximum riding hours and Fox's is "125hrs or yearly, whichever
+ * comes first", so the page never tells anyone they can go longer than the
+ * manufacturer allows. Happy Cruiser therefore reads 0.85x and still gets the
+ * published figure.
+ */
+export function appliedFactor(profile) {
+  return Math.max(profileFactor(profile), MIN_FACTOR)
+}
+
+/** Wear rate for one month: the applied factor, shaped by the season. */
 export function wearRate(profile, monthIdx) {
-  return profileFactor(profile) * seasonShape(monthIdx)
+  return appliedFactor(profile) * seasonShape(monthIdx)
 }
 
 /**
@@ -367,7 +380,8 @@ export function estimate(profile, from = new Date()) {
   // answers "how hard are you on kit", which does not change because somebody
   // rides less in February. When they ride only shifts the date, and that is
   // handled by the seasonal shape inside projectDate.
-  const severity = profileFactor(p)
+  const severity = profileFactor(p)   // what the meter shows
+  const applied = appliedFactor(p)    // what the intervals actually use
 
   const out = []
   for (const part of ['fork', 'shock', 'dropper']) {
@@ -393,7 +407,7 @@ export function estimate(profile, from = new Date()) {
         // takes hours/severity of real riding. Shown against the published
         // figure so the cost of grit, winter and jet washing is visible
         // rather than buried in a date.
-        effectiveHours: Math.max(1, Math.round(hours / severity)),
+        effectiveHours: Math.max(1, Math.round(hours / applied)),
         capMonths,
         since,
       }
@@ -421,12 +435,17 @@ export function estimate(profile, from = new Date()) {
  * Deliberately one name per style rather than thresholds on the wear
  * multiplier, which left some names unreachable and let other answers promote
  * a trail rider to a gnar dog.
+ *
+ * `gauge` is where this tier sits on the meter, 0-100. Set per tier rather
+ * than derived, so the positions are a deliberate choice — riding style is
+ * the only thing feeding the multiplier, so the two are one-to-one and
+ * nothing is lost by stating them.
  */
 export const RIDER_TYPE = {
-  casual: { text: 'Happy Cruiser',   tone: 'emerald' },
-  trail:  { text: 'Weekend Warrior', tone: 'sky' },
-  enduro: { text: 'Proper Sender',   tone: 'amber' },
-  park:   { text: 'Full Gnar Dog',   tone: 'red' },
+  casual: { text: 'Happy Cruiser',   tone: 'emerald', gauge: 0 },
+  trail:  { text: 'Weekend Warrior', tone: 'sky',     gauge: 25 },
+  enduro: { text: 'Proper Sender',   tone: 'amber',   gauge: 60 },
+  park:   { text: 'Full Gnar Dog',   tone: 'red',     gauge: 100 },
 }
 
 /** null until they have picked their trails — see profileFactor. */
