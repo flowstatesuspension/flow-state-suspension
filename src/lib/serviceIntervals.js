@@ -144,42 +144,71 @@ export const JETWASH_FACTOR = 1.15
 export const REFERENCE = { style: 'trail', terrain: 'centre', jetwash: false }
 
 /**
- * How much harder riding here is than the conditions the published figures
- * assume. 1.0 would mean Scotland is no worse than anywhere else; Fox
- * explicitly says to come in sooner for muddy conditions, so a modest penalty
- * is fair. This is the single number to turn if the dates feel off across the
- * board — raise it and everyone's dates come in, lower it and they go out.
+ * A blanket penalty on top of the rider's own answers.
+ *
+ * Deliberately 1.0: on first load nobody has told us anything, so the page
+ * must show the published interval and nothing else. Any shortening the
+ * visitor sees should be something they described — hard riding, a jet wash —
+ * not a thumb we put on the scale before they touched it.
+ *
+ * Raise it only if you want every visitor's dates to come in regardless of
+ * their answers. The Scottish conditions still show up without it, through
+ * the month weighting on dates and through the jet wash and style factors.
  */
-export const LOCAL_PENALTY = 1.15
+export const LOCAL_PENALTY = 1.0
 
-/** Stops the extremes running away. Applied after normalising, so a park
- *  rider jet washing all winter tops out at just over twice the wear of the
- *  reference rider rather than four times. */
-export const MAX_FACTOR = 2.2
+/**
+ * The published interval is a ceiling, never a floor.
+ *
+ * SRAM's own counter mat says each interval "indicates the MAXIMUM number of
+ * riding hours" for that service, and Fox's is "125hrs or yearly, whichever
+ * comes first". So a gentle rider is held at the published figure rather than
+ * being told they can go longer than the manufacturer allows.
+ */
+export const MIN_FACTOR = 1.0
+
+/** Stops the extremes running away. A DH/park rider who jet washes lands
+ *  around 1.73, so this leaves a little headroom above the worst real answer. */
+export const MAX_FACTOR = 1.8
 
 // ───────────────────────────────────────────────────────────────────────────
 
-/** Raw, un-normalised severity for one month. */
-function rawRate({ style, terrain, jetwash }, monthIdx) {
+/** How hard the conditions are, independent of what the rider answered. */
+function conditions({ style, terrain, jetwash }) {
   return (
     (STYLE_FACTOR[style] ?? 1) *
     (TERRAIN_FACTOR[terrain] ?? 1) *
-    MONTH_SEVERITY[monthIdx] *
     (jetwash ? JETWASH_FACTOR : 1)
   )
 }
 
-/** The reference rider's average severity across the year — the divisor that
- *  puts a typical local rider on the published interval. */
-const REFERENCE_RATE =
-  MONTH_SEVERITY.reduce((sum, _, m) => sum + rawRate(REFERENCE, m), 0) / 12
+const REFERENCE_CONDITIONS = conditions(REFERENCE)
+
+const SEASON_MEAN = MONTH_SEVERITY.reduce((a, b) => a + b, 0) / 12
 
 /**
- * Severity multiplier for one month, relative to the reference rider.
- * 1.0 means "wearing at the rate the published interval assumes".
+ * The seasonal shape, averaging 1 across the year. This moves *when* in the
+ * year a service falls due — a wet January hour costs more than a dry July
+ * one — without changing the headline interval, which belongs to the rider's
+ * conditions rather than the calendar.
  */
+function seasonShape(monthIdx) {
+  return MONTH_SEVERITY[monthIdx] / SEASON_MEAN
+}
+
+/**
+ * The headline multiplier: how fast this rider wears kit relative to the
+ * conditions the published interval assumes. Exactly 1.0 for the reference
+ * rider, which is what first load shows before anything has been answered.
+ */
+export function profileFactor(profile) {
+  const raw = (conditions(profile) / REFERENCE_CONDITIONS) * LOCAL_PENALTY
+  return Math.min(Math.max(raw, MIN_FACTOR), MAX_FACTOR)
+}
+
+/** Wear rate for one month: the rider's own factor, shaped by the season. */
 export function wearRate(profile, monthIdx) {
-  return Math.min((rawRate(profile, monthIdx) / REFERENCE_RATE) * LOCAL_PENALTY, MAX_FACTOR)
+  return profileFactor(profile) * seasonShape(monthIdx)
 }
 
 /**
@@ -304,16 +333,11 @@ export function estimate(profile, from = new Date()) {
   const hoursPerWeek = (profile.rideMinutes * profile.ridesPerWeek) / 60
   const p = { ...profile, hoursPerWeek }
 
-  // Average severity across a year. Weighted by riding volume so a
-  // summer-only rider is not judged on January. Computed before the services
-  // because each one reports its interval against it.
-  let sevSum = 0, volSum = 0
-  for (let m = 0; m < 12; m++) {
-    const v = profile.ridesYearRound ? 1 : WINTER_VOLUME[m]
-    sevSum += wearRate(p, m) * v
-    volSum += v
-  }
-  const severity = sevSum / volSum
+  // The headline multiplier. Deliberately not weighted by riding volume: it
+  // answers "how hard are you on kit", which does not change because somebody
+  // rides less in February. When they ride only shifts the date, and that is
+  // handled by the seasonal shape inside projectDate.
+  const severity = profileFactor(p)
 
   const out = []
   for (const part of ['fork', 'shock', 'dropper']) {
@@ -362,13 +386,13 @@ export function estimate(profile, from = new Date()) {
 }
 
 /**
- * Plain-English read on how hard this profile is on suspension, relative to
- * the reference local rider. Centred on 1.0 so "average" means average here,
- * not average in California.
+ * Plain-English read on how hard this profile is on suspension. 1.0 is the
+ * manufacturer's own assumption, which is where the page starts before
+ * anything has been answered.
  */
 export function severityLabel(severity) {
-  if (severity < 0.85) return { text: 'Easy on kit', tone: 'emerald' }
-  if (severity < 1.25) return { text: 'About average round here', tone: 'sky' }
-  if (severity < 1.7) return { text: 'Hard on kit', tone: 'amber' }
+  if (severity < 1.05) return { text: 'Manufacturer interval', tone: 'emerald' }
+  if (severity < 1.3) return { text: 'Harder than standard', tone: 'sky' }
+  if (severity < 1.6) return { text: 'Hard on kit', tone: 'amber' }
   return { text: 'Brutal', tone: 'red' }
 }

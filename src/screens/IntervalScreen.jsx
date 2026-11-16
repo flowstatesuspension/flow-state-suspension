@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
-import { estimate, severityLabel, MAX_FACTOR } from '../lib/serviceIntervals'
+import { estimate, severityLabel, MIN_FACTOR, MAX_FACTOR } from '../lib/serviceIntervals'
 
 // Public service interval estimator. Served at /intervals with no login.
 //
@@ -156,10 +156,11 @@ function Slider({ label, value, display, min, max, step, onChange }) {
 /**
  * The wear meter. This is the thing the page exists to show — it moves on
  * every tap, so the cost of a choice is visible at the moment it is made.
- * 1.0 is the rate the published interval assumes.
+ * It starts empty, at the manufacturer's own interval, and fills as the
+ * rider describes conditions the manufacturer did not assume.
  */
 function WearMeter({ severity, label, tone }) {
-  const pct = Math.min(100, Math.max(0, ((severity - 0.6) / (MAX_FACTOR - 0.6)) * 100))
+  const pct = Math.min(100, Math.max(0, ((severity - MIN_FACTOR) / (MAX_FACTOR - MIN_FACTOR)) * 100))
   const bar = { emerald: 'bg-emerald-500', sky: 'bg-sky-500', amber: 'bg-amber-500', red: 'bg-red-500' }[tone]
   const text = { emerald: 'text-emerald-700', sky: 'text-sky-700', amber: 'text-amber-600', red: 'text-red-600' }[tone]
 
@@ -175,7 +176,7 @@ function WearMeter({ severity, label, tone }) {
         <div className={`h-full rounded-full transition-all duration-300 ${bar}`} style={{ width: `${pct}%` }} />
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-slate-400">Gentle</span>
+        <span className="text-[10px] text-slate-400">As published</span>
         <span className="text-[10px] text-slate-400">Brutal</span>
       </div>
     </div>
@@ -185,19 +186,26 @@ function WearMeter({ severity, label, tone }) {
 /** Your interval against the published one, as a bar that shrinks. */
 function IntervalBar({ yours, published }) {
   const pct = Math.min(100, Math.round((yours / published) * 100))
-  const worse = pct < 100
+  const shortened = yours < published
   return (
     <div className="mt-1.5">
       <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-300 ${worse ? 'bg-amber-500' : 'bg-emerald-500'}`}
+          className={`h-full rounded-full transition-all duration-300 ${shortened ? 'bg-amber-500' : 'bg-emerald-500'}`}
           style={{ width: `${pct}%` }}
         />
       </div>
       <p className="text-[10px] text-slate-400 mt-1 tabular-nums">
-        <strong className="text-slate-600">every ~{yours} hrs</strong> here
-        {' · '}
-        {published} hrs published
+        {shortened ? (
+          <>
+            <strong className="text-slate-600">every ~{yours} hrs</strong> here
+            {' · '}{published} hrs published
+          </>
+        ) : (
+          <>
+            <strong className="text-slate-600">every {published} hrs</strong> — the published interval
+          </>
+        )}
       </p>
     </div>
   )
