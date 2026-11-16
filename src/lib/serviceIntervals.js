@@ -242,6 +242,17 @@ export function estimate(profile, from = new Date()) {
   const hoursPerWeek = (profile.rideMinutes * profile.ridesPerWeek) / 60
   const p = { ...profile, hoursPerWeek }
 
+  // Average severity across a year. Weighted by riding volume so a
+  // summer-only rider is not judged on January. Computed before the services
+  // because each one reports its interval against it.
+  let sevSum = 0, volSum = 0
+  for (let m = 0; m < 12; m++) {
+    const v = profile.ridesYearRound ? 1 : WINTER_VOLUME[m]
+    sevSum += wearRate(p, m) * v
+    volSum += v
+  }
+  const severity = sevSum / volSum
+
   const out = []
   for (const part of ['fork', 'shock', 'dropper']) {
     const brand = profile.components[part]
@@ -256,7 +267,18 @@ export function estimate(profile, from = new Date()) {
           : BASE_HOURS[brand]?.[part]?.[s.key] ?? BASE_HOURS.Other[part][s.key]
 
       const since = startFor(s.key, last, from)
-      const base = { ...s, hours, capMonths: MAX_MONTHS[s.key], since }
+      const base = {
+        ...s,
+        hours,
+        // What the interval actually works out at under these conditions.
+        // Wear accrues as riding hours x severity, so reaching the threshold
+        // takes hours/severity of real riding. Shown against the published
+        // figure so the cost of grit, winter and jet washing is visible
+        // rather than buried in a date.
+        effectiveHours: Math.max(1, Math.round(hours / severity)),
+        capMonths: MAX_MONTHS[s.key],
+        since,
+      }
 
       // Nothing to count from — say so rather than guess a date
       if (!since) return { ...base, unknown: true, overdue: true }
@@ -272,16 +294,7 @@ export function estimate(profile, from = new Date()) {
     })
   }
 
-  // Average severity across a year, for the "conditions" readout. Weighted by
-  // riding volume so a summer-only rider is not judged on January.
-  let sevSum = 0, volSum = 0
-  for (let m = 0; m < 12; m++) {
-    const v = profile.ridesYearRound ? 1 : WINTER_VOLUME[m]
-    sevSum += wearRate(p, m) * v
-    volSum += v
-  }
-
-  return { hoursPerWeek, severity: sevSum / volSum, components: out }
+  return { hoursPerWeek, severity, components: out }
 }
 
 /**
