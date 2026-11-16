@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
-import { estimate, severityLabel, MIN_FACTOR, MAX_FACTOR } from '../lib/serviceIntervals'
+import { estimate, severityLabel, MIN_FACTOR, WORST_FACTOR } from '../lib/serviceIntervals'
 
 // Public service interval estimator. Served at /intervals with no login.
 //
@@ -160,7 +160,9 @@ function Slider({ label, value, display, min, max, step, onChange }) {
  * rider describes conditions the manufacturer did not assume.
  */
 function WearMeter({ severity, label, tone }) {
-  const pct = Math.min(100, Math.max(0, ((severity - MIN_FACTOR) / (MAX_FACTOR - MIN_FACTOR)) * 100))
+  // Scaled to the worst answer available, not to the safety clamp, so the
+  // hardest settings fill the bar completely.
+  const pct = Math.min(100, Math.max(0, ((severity - MIN_FACTOR) / (WORST_FACTOR - MIN_FACTOR)) * 100))
   // Written out in full so Tailwind's scanner emits every class.
   const bar = {
     emerald: 'bg-emerald-500', sky: 'bg-sky-500', amber: 'bg-amber-500',
@@ -183,7 +185,7 @@ function WearMeter({ severity, label, tone }) {
         <div className={`h-full rounded-full transition-all duration-300 ${bar}`} style={{ width: `${pct}%` }} />
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-slate-400">Trail Cruiser</span>
+        <span className="text-[10px] text-slate-400">Happy Cruiser</span>
         <span className="text-[10px] text-slate-400">Full Gnar Dog</span>
       </div>
     </div>

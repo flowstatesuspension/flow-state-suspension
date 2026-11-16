@@ -218,6 +218,20 @@ export function wearRate(profile, monthIdx) {
 }
 
 /**
+ * The worst answer anyone can actually give: hardest riding style, jet
+ * washing. Derived rather than hardcoded so the meter still reaches its end
+ * if the factors above are ever retuned — a scale whose top nobody can reach
+ * makes the hardest setting look like there is more to come.
+ *
+ * Terrain is pinned to the reference by the screen, so it cancels out here.
+ */
+export const WORST_FACTOR = Math.max(
+  ...Object.keys(STYLE_FACTOR).map(style =>
+    profileFactor({ style, terrain: REFERENCE.terrain, jetwash: true })
+  )
+)
+
+/**
  * Walk forward a day at a time, accumulating "wear hours" — riding hours
  * weighted by how punishing that month is. A winter hour in the Tweed Valley
  * costs the fork far more than a July hour on dry hardpack, so a flat
@@ -397,7 +411,7 @@ export function estimate(profile, from = new Date()) {
  * it climbs from there as the answers get rowdier.
  */
 export function severityLabel(severity) {
-  if (severity < 1.05) return { text: 'Trail Cruiser',      tone: 'emerald' }
+  if (severity < 1.05) return { text: 'Happy Cruiser',     tone: 'emerald' }
   if (severity < 1.25) return { text: 'Weekend Warrior',    tone: 'sky' }
   if (severity < 1.45) return { text: 'Proper Sender',      tone: 'amber' }
   if (severity < 1.65) return { text: 'Certified Hooligan', tone: 'orange' }
