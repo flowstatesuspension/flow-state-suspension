@@ -18,7 +18,7 @@ const BRANDS = ['Fox', 'Rockshox', 'Other']
 const UNITS = [
   { key: 'fork',    label: 'Fork',    brands: true },
   { key: 'shock',   label: 'Shock',   brands: true },
-  { key: 'dropper', label: 'Dropper', brands: false },
+  { key: 'dropper', label: 'Dropper', brands: true },
 ]
 
 const STYLES = [
@@ -28,21 +28,13 @@ const STYLES = [
   { key: 'park',   label: 'DH / Park', hint: 'Uplift days and bike park laps' },
 ]
 
-const TERRAINS = [
-  { key: 'local',   label: 'Local loops',   hint: 'Pentlands, peat and puddles' },
-  { key: 'centre',  label: 'Trail centres', hint: 'Glentress, Innerleithen, Tweed Valley grit' },
-  { key: 'natural', label: 'Big mountain',  hint: 'Highlands, Torridon, long natural days' },
-  { key: 'uplift',  label: 'Uplift & park', hint: 'Fort William, Innerleithen uplift' },
-  { key: 'dry',     label: 'Mostly dry',    hint: 'Hardpack and gravel, fair weather only' },
-]
-
 const MODES = [
   { key: 'fresh', label: 'Just done' },
   { key: 'date',  label: 'Pick when' },
   { key: 'never', label: 'Never / not sure' },
 ]
 
-const PARTIAL_LABEL = { fork: 'Lowers only', shock: 'Air can only', dropper: null }
+const PARTIAL_LABEL = { fork: 'Lowers only', shock: 'Air can only', dropper: 'Grease only' }
 
 const DEFAULTS = {
   unit: 'fork',
@@ -51,17 +43,21 @@ const DEFAULTS = {
   rideMinutes: 120,
   ridesPerWeek: 2,
   style: 'trail',
-  terrain: 'centre',
   jetwash: false,
   ridesYearRound: true,
 }
+
+// Asking "where do you ride" turned out to overlap almost entirely with the
+// riding style question — a DH/park answer already implies uplift laps. The
+// model still takes a terrain, so it is pinned to the local default: typical
+// Tweed Valley trail centre grit, which is what REFERENCE normalises against.
+const LOCAL_TERRAIN = 'centre'
 
 const STEPS = [
   { id: 'unit',    title: "What are we looking at?", sub: 'One unit at a time' },
   { id: 'history', title: 'When was it last done?',  sub: 'The honest answer gives the best date' },
   { id: 'volume',  title: 'How much do you ride?',   sub: 'Roughly — nobody is counting' },
   { id: 'style',   title: 'How do you ride?',        sub: 'Harder riding works the damper harder' },
-  { id: 'terrain', title: 'Where do you ride?',      sub: 'Grit is what kills seals round here' },
   { id: 'winter',  title: 'Winter and washing',      sub: 'The wet months do most of the damage' },
 ]
 
@@ -70,14 +66,13 @@ const STEPS = [
 function encode(p) {
   const q = new URLSearchParams()
   q.set('u', p.unit)
-  if (p.unit !== 'dropper') q.set('b', p.brand)
+  q.set('b', p.brand)
   if (p.last.mode === 'never') q.set('l', 'never')
   else if (p.last.mode === 'date' && p.last.when)
     q.set('l', `${p.last.when}:${p.last.scope === 'full' ? 'full' : 'partial'}`)
   q.set('m', p.rideMinutes)
   q.set('r', p.ridesPerWeek)
   q.set('y', p.style)
-  q.set('t', p.terrain)
   if (p.jetwash) q.set('w', '1')
   if (!p.ridesYearRound) q.set('o', '1')
   return q.toString()
@@ -108,7 +103,6 @@ function decode() {
     rideMinutes: int(q.get('m'), 30, 360, DEFAULTS.rideMinutes),
     ridesPerWeek: int(q.get('r'), 1, 14, DEFAULTS.ridesPerWeek),
     style: STYLES.some(s => s.key === q.get('y')) ? q.get('y') : DEFAULTS.style,
-    terrain: TERRAINS.some(t => t.key === q.get('t')) ? q.get('t') : DEFAULTS.terrain,
     jetwash: q.get('w') === '1',
     ridesYearRound: q.get('o') !== '1',
   }
@@ -228,13 +222,13 @@ export default function IntervalScreen() {
         components: {
           fork: p.unit === 'fork' ? p.brand : null,
           shock: p.unit === 'shock' ? p.brand : null,
-          dropper: p.unit === 'dropper',
+          dropper: p.unit === 'dropper' ? p.brand : null,
         },
         lastService: { [p.unit]: p.last },
         rideMinutes: p.rideMinutes,
         ridesPerWeek: p.ridesPerWeek,
         style: p.style,
-        terrain: p.terrain,
+        terrain: LOCAL_TERRAIN,
         jetwash: p.jetwash,
         ridesYearRound: p.ridesYearRound,
       }),
@@ -299,15 +293,13 @@ export default function IntervalScreen() {
                 </button>
               ))}
             </div>
-            {p.unit !== 'dropper' && (
-              <div className="grid grid-cols-3 gap-2">
-                {BRANDS.map(b => (
-                  <button key={b} type="button" onClick={() => set({ brand: b })} className={miniBtn(p.brand === b)}>
-                    {b === 'Rockshox' ? 'RockShox' : b}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="grid grid-cols-3 gap-2">
+              {BRANDS.map(b => (
+                <button key={b} type="button" onClick={() => set({ brand: b })} className={miniBtn(p.brand === b)}>
+                  {b === 'Rockshox' ? 'RockShox' : b}
+                </button>
+              ))}
+            </div>
           </div>
         )
 
@@ -379,16 +371,6 @@ export default function IntervalScreen() {
             {STYLES.map(s => (
               <Chip key={s.key} on={p.style === s.key} onClick={() => set({ style: s.key })}
                 label={s.label} hint={s.hint} />
-            ))}
-          </div>
-        )
-
-      case 'terrain':
-        return (
-          <div className="space-y-2">
-            {TERRAINS.map(t => (
-              <Chip key={t.key} on={p.terrain === t.key} onClick={() => set({ terrain: t.key })}
-                label={t.label} hint={t.hint} />
             ))}
           </div>
         )
@@ -483,11 +465,9 @@ export default function IntervalScreen() {
           <div className="px-4 py-3 border-b border-slate-100">
             <div className="flex items-baseline gap-2 mb-2.5">
               <h3 className="text-[15px] font-bold text-slate-900">{unitLabel}</h3>
-              {p.unit !== 'dropper' && (
-                <span className="text-[11px] font-semibold text-slate-400">
-                  {p.brand === 'Rockshox' ? 'RockShox' : p.brand}
-                </span>
-              )}
+              <span className="text-[11px] font-semibold text-slate-400">
+                {p.brand === 'Rockshox' ? 'RockShox' : p.brand}
+              </span>
             </div>
             <WearMeter severity={result.severity} label={sev.text} tone={sev.tone} />
           </div>

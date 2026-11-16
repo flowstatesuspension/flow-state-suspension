@@ -4,38 +4,86 @@
 // Everything Keith might want to argue with lives in this file, at the top.
 // The screen only renders what comes out of estimate().
 //
-// ── THE NUMBERS NEED SIGNING OFF ───────────────────────────────────────────
-// Manufacturer guidance is messier than it looks. Fox's own service page gives
-// 125 hours or yearly for a FULL service, and says to come in sooner for
-// uplift/park riding or muddy conditions — that part is solid. There is no
-// equally clear official figure for lower-leg intervals, and the widely quoted
-// RockShox 50h/200h pair does not appear on a RockShox page. The defaults below
-// are the usual workshop figures, not gospel. Change them to whatever you tell
-// customers in person — that is the number that should be on your website.
+// ── WHERE THESE NUMBERS COME FROM ──────────────────────────────────────────
+// Every figure below is the manufacturer's own published interval, not a
+// workshop rule of thumb. Sources:
+//
+//   Fox   service.ridefox.com/pages/bike — "your fork, shock or seat post
+//         receive a Full Factory Service every 125hrs or yearly - whichever
+//         comes first", and come in sooner for lift-accessed DH/Park or
+//         "extremely wet/muddy" conditions.
+//   Fox   tech.ridefox.com owner's manual, 2027 36mm, "Recommended Minimum
+//         Fork Maintenance": ONE interval — every 125 hours/yearly, full fork
+//         service, and it explicitly includes "bath oil and wiper
+//         replacement". Fox folds the lower-leg work into the full service
+//         and publishes no separate lower-leg figure. The widely repeated
+//         "Fox lowers every 50 hours" is shop lore, not Fox's position.
+//   Fox   tech.ridefox.com service procedures, Transfer seatpost, named in
+//         Fox's own procedure titles: 25 Hour Simple Grease Service, 125 Hour
+//         Intermediate Service, 300 Hour Full Rebuild.
+//   RS    sram.com 2021-2022 ZEB service manual: "Every 50 hours - Perform
+//         lower leg service", "Every 200 hours - Perform damper and spring
+//         service".
+//   RS    sram.com 2018-2022 Super Deluxe service manual: 50 hour air can
+//         service, 200 hour damper service. Note the MY27 Super Deluxe
+//         doubles the air can interval to 100 hours — if that becomes common
+//         on customers' bikes it needs splitting out by model year.
+//
+// Two judgement calls that are Keith's, not the manufacturers':
+//   - Fox fork/shock show a single full service because that is all Fox
+//     publishes. If you want to offer a Fox lower-leg interval as your own
+//     recommendation, add it to the Fox rows below — it is your name on it.
+//   - 'Other' is a middle ground for brands we have no figures for.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Riding hours between services, per brand. */
-export const BASE_HOURS = {
-  Fox: {
-    fork:  { lowers: 50, full: 125 },
-    shock: { air: 50, full: 125 },
+/**
+ * Published service intervals, by part and brand.
+ *
+ * hours     — riding hours between services
+ * capMonths — the "or yearly" half of the rule. Seals harden and oil degrades
+ *             on the shelf as well as on the trail, so time can fall due
+ *             before hours do.
+ */
+export const SERVICE_PLAN = {
+  fork: {
+    Fox: [
+      { key: 'full', hours: 125, capMonths: 12 },
+      // Fox publishes no lower-leg interval. To offer one as your own
+      // recommendation, uncomment and set the number:
+      // { key: 'lowers', hours: 50, capMonths: 12 },
+    ],
+    Rockshox: [
+      { key: 'lowers', hours: 50,  capMonths: 12 },
+      { key: 'full',   hours: 200, capMonths: 24 },
+    ],
+    Other: [
+      { key: 'lowers', hours: 50,  capMonths: 12 },
+      { key: 'full',   hours: 150, capMonths: 24 },
+    ],
   },
-  Rockshox: {
-    fork:  { lowers: 50, full: 200 },
-    shock: { air: 50, full: 200 },
+  shock: {
+    Fox: [{ key: 'full', hours: 125, capMonths: 12 }],
+    Rockshox: [
+      { key: 'air',  hours: 50,  capMonths: 12 },
+      { key: 'full', hours: 200, capMonths: 24 },
+    ],
+    Other: [
+      { key: 'air',  hours: 50,  capMonths: 12 },
+      { key: 'full', hours: 150, capMonths: 24 },
+    ],
   },
-  Other: {
-    fork:  { lowers: 50, full: 150 },
-    shock: { air: 50, full: 150 },
+  dropper: {
+    Fox: [
+      { key: 'grease', hours: 25,  capMonths: 12 },
+      { key: 'mid',    hours: 125, capMonths: 24 },
+      { key: 'full',   hours: 300, capMonths: 36 },
+    ],
+    // RockShox publish this on support.rockshox.com rather than in a service
+    // manual, so it is softer than the fork figures above.
+    Rockshox: [{ key: 'full', hours: 200, capMonths: 24 }],
+    Other: [{ key: 'full', hours: 150, capMonths: 24 }],
   },
 }
-
-/** Droppers are simpler — one service, and most makers also say "or yearly". */
-export const DROPPER_HOURS = 100
-
-/** Hard ceiling regardless of hours. Fox says 125h *or yearly*, whichever
- *  first; seals harden and oil degrades on the shelf as well as on the trail. */
-export const MAX_MONTHS = { lowers: 12, full: 24, air: 12, dropper: 18 }
 
 /** How hard the rider is on the kit. Heat, shaft speed, oil shear. */
 export const STYLE_FACTOR = {
@@ -188,19 +236,21 @@ function monthsBetween(a, b) {
   )
 }
 
-/** Which services apply to each component, in the order they should be shown. */
-const SERVICES = {
-  fork: [
-    { key: 'lowers', label: 'Lower leg service', blurb: 'Fresh oil, clean wipers and foam rings' },
-    { key: 'full',   label: 'Full service',      blurb: 'Damper and air spring stripped and rebuilt' },
-  ],
-  shock: [
-    { key: 'air',  label: 'Air can service', blurb: 'Air sleeve off, seals and lube renewed' },
-    { key: 'full', label: 'Full service',    blurb: 'Damper rebuilt, nitrogen recharged' },
-  ],
-  dropper: [
-    { key: 'dropper', label: 'Dropper service', blurb: 'Seals, lube and free play checked' },
-  ],
+/** What each service is called and what it covers, per part. */
+const SERVICE_META = {
+  fork: {
+    lowers: { label: 'Lower leg service', blurb: 'Fresh bath oil, clean wipers and foam rings' },
+    full:   { label: 'Full service',      blurb: 'Damper and air spring rebuilt, bath oil and wipers renewed' },
+  },
+  shock: {
+    air:  { label: 'Air can service', blurb: 'Air sleeve off, seals and lube renewed' },
+    full: { label: 'Full service',    blurb: 'Damper rebuilt, seals and oil renewed' },
+  },
+  dropper: {
+    grease: { label: 'Grease service',       blurb: 'Quick seal clean and re-grease' },
+    mid:    { label: 'Intermediate service', blurb: 'Seals, bushings and free play' },
+    full:   { label: 'Full rebuild',         blurb: 'Stripped, rebuilt and recharged' },
+  },
 }
 
 /**
@@ -260,15 +310,13 @@ export function estimate(profile, from = new Date()) {
 
     const last = profile.lastService?.[part]
 
-    const services = SERVICES[part].map(s => {
-      const hours =
-        part === 'dropper'
-          ? DROPPER_HOURS
-          : BASE_HOURS[brand]?.[part]?.[s.key] ?? BASE_HOURS.Other[part][s.key]
+    const plan = SERVICE_PLAN[part][brand] ?? SERVICE_PLAN[part].Other
 
-      const since = startFor(s.key, last, from)
+    const services = plan.map(({ key, hours, capMonths }) => {
+      const since = startFor(key, last, from)
       const base = {
-        ...s,
+        key,
+        ...SERVICE_META[part][key],
         hours,
         // What the interval actually works out at under these conditions.
         // Wear accrues as riding hours x severity, so reaching the threshold
@@ -276,19 +324,19 @@ export function estimate(profile, from = new Date()) {
         // figure so the cost of grit, winter and jet washing is visible
         // rather than buried in a date.
         effectiveHours: Math.max(1, Math.round(hours / severity)),
-        capMonths: MAX_MONTHS[s.key],
+        capMonths,
         since,
       }
 
       // Nothing to count from — say so rather than guess a date
       if (!since) return { ...base, unknown: true, overdue: true }
 
-      return { ...base, ...projectDate(p, hours, MAX_MONTHS[s.key], since, from) }
+      return { ...base, ...projectDate(p, hours, capMonths, since, from) }
     })
 
     out.push({
       part,
-      brand: part === 'dropper' ? null : brand,
+      brand,
       label: part === 'fork' ? 'Fork' : part === 'shock' ? 'Rear shock' : 'Dropper post',
       services,
     })
