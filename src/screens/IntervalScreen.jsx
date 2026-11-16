@@ -42,7 +42,9 @@ const DEFAULTS = {
   last: { mode: 'fresh', when: '', scope: 'full' },
   rideMinutes: 120,
   ridesPerWeek: 2,
-  style: 'trail',
+  // Nothing pre-selected: until they say how they ride, the page has no
+  // grounds to move off the manufacturer's own figure.
+  style: null,
   jetwash: false,
   ridesYearRound: true,
 }
@@ -72,7 +74,7 @@ function encode(p) {
     q.set('l', `${p.last.when}:${p.last.scope === 'full' ? 'full' : 'partial'}`)
   q.set('m', p.rideMinutes)
   q.set('r', p.ridesPerWeek)
-  q.set('y', p.style)
+  if (p.style) q.set('y', p.style)
   if (p.jetwash) q.set('w', '1')
   if (!p.ridesYearRound) q.set('o', '1')
   return q.toString()
@@ -102,7 +104,7 @@ function decode() {
     last,
     rideMinutes: int(q.get('m'), 30, 360, DEFAULTS.rideMinutes),
     ridesPerWeek: int(q.get('r'), 1, 14, DEFAULTS.ridesPerWeek),
-    style: STYLES.some(s => s.key === q.get('y')) ? q.get('y') : DEFAULTS.style,
+    style: STYLES.some(s => s.key === q.get('y')) ? q.get('y') : null,
     jetwash: q.get('w') === '1',
     ridesYearRound: q.get('o') !== '1',
   }
@@ -485,7 +487,14 @@ export default function IntervalScreen() {
                 {p.brand === 'Rockshox' ? 'RockShox' : p.brand}
               </span>
             </div>
-            <WearMeter severity={result.severity} label={rider.text} tone={rider.tone} />
+            {rider ? (
+              <WearMeter severity={result.severity} label={rider.text} tone={rider.tone} />
+            ) : (
+              <p className="text-[12px] text-slate-400 leading-snug">
+                These are the manufacturer's own intervals. Tell us how you ride and we'll
+                show what that does to them.
+              </p>
+            )}
           </div>
 
           <div className="divide-y divide-slate-50">

@@ -102,12 +102,23 @@ export const SERVICE_PLAN = {
   },
 }
 
-/** How hard the rider is on the kit. Heat, shaft speed, oil shear. */
+/**
+ * How hard the rider is on the kit. Heat, shaft speed, oil shear.
+ *
+ * Tuned so the worst anyone can reach — downhill with a jet wash — lands on
+ * 1.40. Values are relative to trail, which is the reference, so only the
+ * ratios matter.
+ *
+ * Casual sits level with trail rather than below it. Anything under 1.0 gets
+ * swallowed by MIN_FACTOR anyway, so a lower number had no effect of its own
+ * and only cancelled out the jet wash — which made the jet wash tickbox look
+ * broken for casual riders.
+ */
 export const STYLE_FACTOR = {
-  casual: 0.85,
+  casual: 1.0,
   trail:  1.0,
-  enduro: 1.25,
-  park:   1.5,
+  enduro: 1.12,
+  park:   1.27,
 }
 
 /**
@@ -135,8 +146,9 @@ export const MONTH_SEVERITY = [1.55, 1.50, 1.35, 1.20, 1.05, 1.00, 1.00, 1.05, 1
 /** Riding volume by month relative to summer, for riders who ease off in winter. */
 export const WINTER_VOLUME = [0.5, 0.5, 0.75, 1, 1, 1, 1, 1, 1, 0.9, 0.6, 0.5]
 
-/** Jet washing forces water and grit past the dust wipers. Common here. */
-export const JETWASH_FACTOR = 1.15
+/** Jet washing forces water and grit past the dust wipers. Common here, and
+ *  Fox's own manual says plainly not to do it. */
+export const JETWASH_FACTOR = 1.10
 
 /**
  * The rider the published intervals are measured against.
@@ -173,9 +185,9 @@ export const LOCAL_PENALTY = 1.0
  */
 export const MIN_FACTOR = 1.0
 
-/** Stops the extremes running away. A DH/park rider who jet washes lands
- *  around 1.73, so this leaves a little headroom above the worst real answer. */
-export const MAX_FACTOR = 1.8
+/** Stops the extremes running away. A downhill rider who jet washes lands on
+ *  1.40, so this leaves a little headroom above the worst real answer. */
+export const MAX_FACTOR = 1.5
 
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -208,6 +220,12 @@ function seasonShape(monthIdx) {
  * rider, which is what first load shows before anything has been answered.
  */
 export function profileFactor(profile) {
+  // Nothing applies until the rider has said how they ride. Until then the
+  // page is showing the manufacturer's own figure and has no grounds to move
+  // it — a jet wash on its own says nothing without knowing what it is
+  // washing off.
+  if (!profile?.style) return MIN_FACTOR
+
   const raw = (conditions(profile) / REFERENCE_CONDITIONS) * LOCAL_PENALTY
   return Math.min(Math.max(raw, MIN_FACTOR), MAX_FACTOR)
 }
@@ -421,6 +439,7 @@ export const RIDER_TYPE = {
   park:   { text: 'Full Gnar Dog',   tone: 'red' },
 }
 
+/** null until they have picked their trails — see profileFactor. */
 export function riderType(style) {
-  return RIDER_TYPE[style] ?? RIDER_TYPE.trail
+  return RIDER_TYPE[style] ?? null
 }
