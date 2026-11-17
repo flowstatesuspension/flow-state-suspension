@@ -275,9 +275,9 @@ export default function BookingScreen() {
 
   return (
     <div className="min-h-full bg-slate-50">
-      <PublicHeader title="Book a Service" width="max-w-md" pad="px-5" />
+      <PublicHeader title="Book a Service" />
 
-      <form onSubmit={handleSubmit} className="max-w-md mx-auto px-5 py-6 space-y-6">
+      <form onSubmit={handleSubmit} className="max-w-xl mx-auto px-4 py-6 space-y-6">
 
         <section className="space-y-4">
           <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Your details</h2>

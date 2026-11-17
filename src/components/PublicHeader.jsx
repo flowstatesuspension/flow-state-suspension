@@ -11,13 +11,13 @@
  * and the foot of the wordmark on the bottom of "Service". The source PNG is
  * cropped tight to the artwork, with no transparent margin to allow for.
  *
- * width and pad take the page's own content box, so the logo lines up with
- * whatever sits under it — the two pages don't use the same gutter.
+ * max-w-xl and px-4 are the content box both pages use, so the logo lines up
+ * with whatever sits under it. Keep them in step if either page's width moves.
  */
-export default function PublicHeader({ title, width = 'max-w-xl', pad = 'px-4' }) {
+export default function PublicHeader({ title }) {
   return (
     <div className="bg-black safe-top">
-      <div className={`${width} ${pad} mx-auto pt-3 pb-3 flex items-center gap-3`}>
+      <div className="max-w-xl mx-auto px-4 pt-3 pb-3 flex items-center gap-3">
         <img src="/logo.png" alt="" className="h-12 w-auto shrink-0" />
         <div>
           <h1 className="text-white font-bold text-base leading-none tracking-tight">{title}</h1>
