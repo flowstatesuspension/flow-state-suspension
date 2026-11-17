@@ -271,8 +271,6 @@ export default function IntervalScreen() {
 
   const unit = result.components[0]
   const rider = riderType(p.style, !p.ridesYearRound)
-  // Nothing to count from yet, so there is no honest date to show.
-  const needsHistory = !!unit?.services.some(s => s.pending)
 
   useEffect(() => {
     window.history.replaceState(null, '', `${window.location.pathname}?${encode(p)}`)
@@ -635,15 +633,6 @@ export default function IntervalScreen() {
                 These are the manufacturer's own intervals. Tell us how you ride and we'll
                 show what that does to them.
               </p>
-            )}
-            {needsHistory && (
-              <button
-                type="button"
-                onClick={() => editStep(1)}
-                className="mt-2.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-[11px] font-semibold text-slate-500 active:bg-slate-100"
-              >
-                Dates appear once you say when it was last serviced →
-              </button>
             )}
           </div>
 
