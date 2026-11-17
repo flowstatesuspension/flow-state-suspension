@@ -75,6 +75,79 @@ function HBar({ value, max, color }) {
 }
 
 /**
+ * The two public pages' visits over time, on one pair of lines.
+ *
+ * Small on purpose — it answers "is anyone finding these pages, and is that
+ * going up or down", which is a shape rather than a table of numbers. The
+ * funnels underneath carry the precise figures.
+ *
+ * Separate from LineChart above, which is built around twelve months of a
+ * calendar year and could not be bent to an arbitrary run of days.
+ */
+function TrafficChart({ labels, series }) {
+  const H = 116
+  const padT = 10, padB = 16, padL = 2, padR = 2
+  const wrapRef = useRef(null)
+  const [W, setW] = useState(300)
+
+  useLayoutEffect(() => {
+    function measure() { if (wrapRef.current) setW(wrapRef.current.clientWidth || 300) }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (wrapRef.current) ro.observe(wrapRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const n = labels.length
+  if (!n) return null
+
+  const cW = W - padL - padR
+  const cH = H - padT - padB
+  // Headroom so the busiest day is not drawn flat against the top edge, and a
+  // floor of 1 so an empty week is a flat line along the bottom rather than a
+  // divide by zero.
+  const peak = Math.max(1, ...series.flatMap(sr => sr.values))
+  const maxVal = peak * 1.15
+
+  const toX = i => (n === 1 ? padL + cW / 2 : padL + (i / (n - 1)) * cW)
+  const toY = v => padT + cH - (v / maxVal) * cH
+
+  return (
+    <div ref={wrapRef}>
+      <svg width={W} height={H} className="block">
+        {/* One gridline at the peak, labelled, rather than a full grid */}
+        <line x1={padL} y1={toY(peak)} x2={W - padR} y2={toY(peak)}
+          stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" />
+        <text x={padL + 2} y={toY(peak) - 3} fontSize="9" fill="#94a3b8">{peak}</text>
+
+        {series.map(sr => (
+          <g key={sr.name}>
+            <polyline
+              fill="none"
+              stroke={sr.color}
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              points={sr.values.map((v, i) => `${toX(i)},${toY(v)}`).join(' ')}
+            />
+            {/* The last point gets a dot — it is the one anyone looks for */}
+            <circle cx={toX(n - 1)} cy={toY(sr.values[n - 1])} r="3" fill={sr.color} />
+          </g>
+        ))}
+
+        <text x={padL} y={H - 4} fontSize="9" fill="#94a3b8">{labels[0]}</text>
+        {n > 2 && (
+          <text x={W / 2} y={H - 4} fontSize="9" fill="#94a3b8" textAnchor="middle">
+            {labels[Math.floor((n - 1) / 2)]}
+          </text>
+        )}
+        <text x={W - padR} y={H - 4} fontSize="9" fill="#94a3b8" textAnchor="end">{labels[n - 1]}</text>
+      </svg>
+    </div>
+  )
+}
+
+/**
  * One public page's funnel.
  *
  * Every row is people, not taps — a visit that hits Book three times is one
@@ -1177,7 +1250,7 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     async function fetchTraffic() {
       const { data, error } = await supabase
         .from('page_events')
-        .select('app, event, detail, session_id')
+        .select('app, event, session_id, detail, created_at')
         .gte('created_at', since)
         // A ceiling so one bad week can never pull a huge payload into the
         // phone. Well above anything this site will produce; if it is ever hit
@@ -1212,7 +1285,46 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
 
     const visits = app => new Set(traffic.filter(e => e.app === app).map(e => e.session_id)).size
 
+    // ── Visits over time ──
+    // Ninety days of daily points is unreadable at this size and mostly noise
+    // at this volume, so the long window goes weekly.
+    const DAY = 86400000
+    const days = { '7d': 7, '30d': 30, '90d': 90 }[trafficPeriod]
+    const weekly = days > 30
+    const span = weekly ? 7 : 1
+    const buckets = Math.ceil(days / span)
+
+    // End of today, so an event from an hour ago lands in the last bucket
+    // rather than one beyond the end of the chart.
+    const end = new Date()
+    end.setHours(23, 59, 59, 999)
+
+    // A Set per bucket per page: a visit that fires six events is one visit,
+    // the same rule the funnels use.
+    const seen = { intervals: Array.from({ length: buckets }, () => new Set()),
+                   book:      Array.from({ length: buckets }, () => new Set()) }
+
+    for (const e of traffic) {
+      if (!seen[e.app] || !e.created_at) continue
+      const back = Math.floor((end - new Date(e.created_at)) / DAY)
+      if (back < 0 || back >= days) continue
+      seen[e.app][buckets - 1 - Math.floor(back / span)].add(e.session_id)
+    }
+
+    const labelAt = i =>
+      format(new Date(end.getTime() - (buckets - 1 - i) * span * DAY), 'd MMM')
+
+    const chart = {
+      labels: Array.from({ length: buckets }, (_, i) => labelAt(i)),
+      series: [
+        { name: 'Estimator', color: '#38bdf8', values: seen.intervals.map(b => b.size) },
+        { name: 'Booking',   color: '#34d399', values: seen.book.map(b => b.size) },
+      ],
+      weekly,
+    }
+
     return {
+      chart,
       intervals: {
         visits: visits('intervals'),
         steps: [
@@ -1234,7 +1346,10 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
         ],
       },
     }
-  }, [traffic])
+    // trafficPeriod as well as traffic: the bucketing reads it directly, and
+    // relying on the refetch to change traffic first would be a trap for
+    // whoever edits the fetch next.
+  }, [traffic, trafficPeriod])
 
   // ── Service time data ────────────────────────────────────────────────────────
   const [serviceTimeByModel, setServiceTimeByModel] = useState([])
@@ -1994,6 +2109,22 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
             <p className="text-xs text-slate-400 py-2">No visits recorded in this period.</p>
           ) : (
             <>
+              <div className="bg-white rounded-xl border border-slate-200 px-3 pt-2.5 pb-1 mb-2">
+                <div className="flex items-center gap-3 mb-1">
+                  {trafficStats.chart.series.map(sr => (
+                    <span key={sr.name} className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sr.color }} />
+                      <span className="text-[10px] font-semibold text-slate-500">{sr.name}</span>
+                    </span>
+                  ))}
+                  <span className="flex-1" />
+                  <span className="text-[10px] text-slate-400">
+                    visits per {trafficStats.chart.weekly ? 'week' : 'day'}
+                  </span>
+                </div>
+                <TrafficChart labels={trafficStats.chart.labels} series={trafficStats.chart.series} />
+              </div>
+
               <div className="space-y-2">
                 <TrafficFunnel
                   title="Service Interval Estimator"
