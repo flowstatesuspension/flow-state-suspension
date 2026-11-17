@@ -155,26 +155,52 @@ function Chip({ on, onClick, label, hint }) {
   )
 }
 
+/**
+ * Is this a touch device?
+ *
+ * (pointer: coarse) rather than a width check or the user agent: it asks the
+ * question that actually matters — is the primary input a finger — so a
+ * narrow desktop window keeps the grid and an iPad gets the OS picker. It
+ * listens for changes because a tablet gains a fine pointer the moment a
+ * trackpad case is attached.
+ */
+function useCoarsePointer() {
+  const query = '(pointer: coarse)'
+  const [coarse, setCoarse] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia?.(query).matches === true
+  )
+  useEffect(() => {
+    const mq = window.matchMedia?.(query)
+    if (!mq) return
+    const onChange = e => setCoarse(e.matches)
+    mq.addEventListener?.('change', onChange)
+    return () => mq.removeEventListener?.('change', onChange)
+  }, [])
+  return coarse
+}
+
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /**
- * Month picker, drawn in the page rather than handed to the browser.
+ * Month picker. The OS one on a phone, our own on a desktop.
  *
- * This replaced <input type="month">. That input looks right, but the popup
- * belongs to the browser: Chromium was drawing it in the corner of the screen
- * instead of under the field, and where a native popup lands is not something
- * the page gets a say in. showPicker() made it worse rather than better — it
- * needs a live user gesture, throws without one, and still leaves the
- * positioning to the browser.
+ * <input type="month"> is the right control on a touch device: iOS and
+ * Android draw it as a sheet, it is the picker people already know, and the
+ * OS places it. On a desktop it is the wrong one — the popup belongs to the
+ * browser, and Chromium was drawing it in the corner of the screen rather
+ * than under the field, which is not something the page gets a say in.
+ * showPicker() made that worse rather than better: it needs a live user
+ * gesture, throws without one, and still leaves the positioning to Chromium.
  *
- * Only a month and a year are ever needed here, so twelve cells and a pair of
- * year arrows do the entire job. It sits where it is put, looks the same on a
- * phone as on a desktop, and matches the rest of the page.
+ * So desktop gets twelve cells and a pair of year arrows, which is the whole
+ * job here anyway, and sits where it is put.
  *
- * value and onChange speak 'YYYY-MM', exactly as the input did, so nothing
- * downstream of this had to change.
+ * Both halves speak 'YYYY-MM' through value and onChange, exactly as the bare
+ * input did, so nothing downstream of this knows the difference.
  */
 function MonthPicker({ value, open, onOpenChange, onChange }) {
+  const coarse = useCoarsePointer()
+  const nativeRef = useRef(null)
   const now = new Date()
   const nowYear = now.getFullYear()
   const nowMonth = now.getMonth() // 0-11
@@ -183,6 +209,36 @@ function MonthPicker({ value, open, onOpenChange, onChange }) {
 
   // Follow the value if it changes from outside — a shared link, or Start again
   useEffect(() => { if (vy) setYear(vy) }, [vy])
+
+  // Nothing can have been serviced in a month that has not happened
+  const maxMonth = `${nowYear}-${String(nowMonth + 1).padStart(2, '0')}`
+
+  // On a touch device "Pick when" opens the OS sheet directly, which is what
+  // it did before the desktop grid existed. The call is still inside the
+  // browser's activation window from that tap. If it throws — an older
+  // browser, or the gesture has expired — the field is on screen to tap.
+  useEffect(() => {
+    if (!coarse || !open) return
+    onOpenChange(false)
+    try {
+      nativeRef.current?.showPicker?.()
+    } catch {
+      /* no picker to open programmatically — the field itself still works */
+    }
+  }, [coarse, open, onOpenChange])
+
+  if (coarse) {
+    return (
+      <input
+        ref={nativeRef}
+        type="month"
+        max={maxMonth}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[14px] text-slate-900 outline-none focus:border-sky-500"
+      />
+    )
+  }
 
   // Far enough back for anything still worth servicing, and no further
   const earliest = nowYear - 12
