@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { estimate, riderType, gaugePosition } from '../lib/serviceIntervals'
+import PublicHeader from '../components/PublicHeader'
 
 // Public service interval estimator. Served at /intervals with no login.
 //
@@ -511,22 +512,7 @@ export default function IntervalScreen() {
 
   return (
     <div className="min-h-full bg-slate-50">
-      <div className="bg-black safe-top">
-        <div className="max-w-xl mx-auto px-4 pt-3 pb-3 flex items-center gap-3">
-          <img src="/logo.png" alt="" className="h-9 w-auto shrink-0" />
-          <div>
-            <h1 className="text-white font-bold text-base leading-none tracking-tight">
-              Service Interval Estimator
-            </h1>
-            <p className="text-slate-400 text-[11px] mt-1 leading-tight">
-              Flow State Suspension · Edinburgh
-              {/* Own line rather than a sixth item on the one above: at phone
-                  width that ran on and broke mid-list. */}
-              <span className="block text-slate-500">Service · Repair · Tuning · Sales</span>
-            </p>
-          </div>
-        </div>
-      </div>
+      <PublicHeader title="Service Interval Estimator" />
 
       <div className="max-w-xl mx-auto px-4 py-3 pb-8 space-y-3">
         {/* ── Summary, once they have finished ── */}

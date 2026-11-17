@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { format, parseISO, addDays, addMonths, subMonths, startOfMonth } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import MonthGrid from '../components/MonthGrid'
+import PublicHeader from '../components/PublicHeader'
 import { BOOKING_HORIZON_DAYS } from '../lib/booking'
 import { DEFAULT_BRANDS, PUBLIC_BRAND_EXCLUDE, WORKSHOP_ADDRESS, WORKSHOP_DIRECTIONS } from '../constants'
 
@@ -274,15 +275,7 @@ export default function BookingScreen() {
 
   return (
     <div className="min-h-full bg-slate-50">
-      <div className="bg-black">
-        <div className="max-w-md mx-auto px-5 py-6 flex items-center gap-3">
-          <img src="/logo.png" alt="" className="h-11 w-auto shrink-0" />
-          <div>
-            <h1 className="text-white font-bold text-[17px] leading-tight tracking-tight">Flow State Suspension Ltd</h1>
-            <p className="text-slate-400 text-xs mt-1">Book a Service</p>
-          </div>
-        </div>
-      </div>
+      <PublicHeader title="Book a Service" width="max-w-md" pad="px-5" />
 
       <form onSubmit={handleSubmit} className="max-w-md mx-auto px-5 py-6 space-y-6">
 
