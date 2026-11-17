@@ -69,7 +69,7 @@ const LOCAL_TERRAIN = 'centre'
 
 const STEPS = [
   { id: 'unit',    title: "What are we looking at?", sub: 'One unit at a time' },
-  { id: 'history', title: 'When was it last done?',  sub: 'The honest answer gives the best date' },
+  { id: 'history', title: 'When was it last done?',  sub: 'Approximately when was the last service' },
   { id: 'volume',  title: 'How much do you ride?',   sub: 'Roughly — nobody is counting' },
   { id: 'style',   title: 'How do you ride?',        sub: 'Harder riding works the damper harder' },
   { id: 'winter',  title: 'Riding through winter',   sub: 'The wet months do most of the damage' },
