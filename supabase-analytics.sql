@@ -41,6 +41,13 @@ drop policy if exists "authenticated can read page events" on public.page_events
 create policy "authenticated can read page events"
   on public.page_events for select to authenticated using (true);
 
+-- And clearing it, which is what Settings - Data & Backup - Reset Web Traffic
+-- does. Only the signed-in app: a visitor still cannot remove anything,
+-- including their own events.
+drop policy if exists "authenticated can clear page events" on public.page_events;
+create policy "authenticated can clear page events"
+  on public.page_events for delete to authenticated using (true);
+
 -- Housekeeping. Nothing here is worth keeping for years, and the analytics
 -- screen never looks back further than 90 days. Run this occasionally, or put
 -- it on a schedule if pg_cron is ever enabled.

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { STATUS_ORDER } from '../constants'
 
@@ -260,6 +260,49 @@ function StatusEditor({ statusConfig, statusLabels, onChange }) {
 export default function SettingsScreen({ jobs, customers, settings, updateSettings }) {
   const [exporting, setExporting] = useState(null)
 
+  // ── Web traffic reset ───────────────────────────────────────────────────────
+  // Counting visits is useful; the rows left over from testing it are not. One
+  // tap arms, the second deletes — this empties the table for good and there
+  // is no undo, so it does not go on a single tap.
+  const [events, setEvents] = useState(null)   // null = not counted yet
+  const [armed, setArmed] = useState(false)
+  const [clearing, setClearing] = useState(false)
+  const [cleared, setCleared] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    supabase
+      .from('page_events')
+      .select('id', { count: 'exact', head: true })
+      .then(({ count, error }) => { if (!cancelled) setEvents(error ? null : (count ?? 0)) })
+    return () => { cancelled = true }
+  }, [cleared])
+
+  // Never leave it armed. Walking away from a primed delete button and coming
+  // back to it later is how the wrong thing gets tapped.
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(false), 6000)
+    return () => clearTimeout(t)
+  }, [armed])
+
+  async function resetTraffic() {
+    setClearing(true)
+    // PostgREST refuses an unfiltered delete, so this names every row the only
+    // way it can. id is a bigint identity, so it starts at 1.
+    const { error } = await supabase.from('page_events').delete().gte('id', 0)
+    setClearing(false)
+    setArmed(false)
+    if (error) {
+      // Almost always the missing delete policy — supabase-analytics.sql has
+      // been run, but before that policy was added to it.
+      window.alert(`Could not clear: ${error.message}\n\nRe-run supabase-analytics.sql in the SQL editor.`)
+      return
+    }
+    setCleared(true)
+    setTimeout(() => setCleared(false), 2500)
+  }
+
   function patch(key, value) { updateSettings({ [key]: value }) }
 
   function exportJobs() {
@@ -377,6 +420,31 @@ export default function SettingsScreen({ jobs, customers, settings, updateSettin
             </div>
             {exporting === 'customers' ? <span className="text-xs text-green-600 font-medium">Downloading…</span>
               : <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>}
+          </button>
+          <button
+            onClick={() => (armed ? resetTraffic() : setArmed(true))}
+            disabled={clearing || events === 0 || events === null}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 text-left border-t border-slate-50 disabled:opacity-50 ${
+              armed ? 'bg-red-50 active:bg-red-100' : 'active:bg-slate-50'
+            }`}
+          >
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${armed ? 'text-red-600' : 'text-slate-800'}`}>
+                {armed ? 'Tap again to delete — this cannot be undone' : 'Reset Web Traffic'}
+              </p>
+              <p className={`text-xs ${armed ? 'text-red-400' : 'text-slate-400'}`}>
+                {events === null
+                  ? 'Not collecting yet'
+                  : cleared
+                    ? 'Cleared'
+                    : `${events} event${events === 1 ? '' : 's'} recorded`}
+              </p>
+            </div>
+            {clearing
+              ? <span className="text-xs text-red-500 font-medium">Clearing…</span>
+              : cleared
+                ? <span className="text-xs text-green-600 font-medium">Done</span>
+                : <svg viewBox="0 0 24 24" className={`w-4 h-4 ${armed ? 'text-red-400' : 'text-slate-300'}`} fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>}
           </button>
         </Accordion>
 
