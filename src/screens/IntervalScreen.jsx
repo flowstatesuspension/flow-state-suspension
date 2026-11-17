@@ -518,7 +518,12 @@ export default function IntervalScreen() {
             <h1 className="text-white font-bold text-base leading-none tracking-tight">
               Service Interval Estimator
             </h1>
-            <p className="text-slate-400 text-[11px] mt-1">Flow State Suspension · Edinburgh</p>
+            <p className="text-slate-400 text-[11px] mt-1 leading-tight">
+              Flow State Suspension · Edinburgh
+              {/* Own line rather than a sixth item on the one above: at phone
+                  width that ran on and broke mid-list. */}
+              <span className="block text-slate-500">Service · Repair · Tuning · Sales</span>
+            </p>
           </div>
         </div>
       </div>

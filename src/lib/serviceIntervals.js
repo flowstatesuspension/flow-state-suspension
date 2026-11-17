@@ -105,20 +105,27 @@ export const SERVICE_PLAN = {
 /**
  * How hard the rider is on the kit. Heat, shaft speed, oil shear.
  *
- * Tuned so the worst anyone can reach — downhill with a jet wash — lands on
- * 1.40. Values are relative to trail, which is the reference, so only the
- * ratios matter.
+ * These are distances from trail, which is the reference. Only the distance
+ * matters: scaling all four by the same amount cancels out in profileFactor
+ * and would change nothing on screen.
  *
- * Casual sits level with trail rather than below it. Anything under 1.0 gets
- * swallowed by MIN_FACTOR anyway, so a lower number had no effect of its own
- * and only cancelled out the jet wash — which made the jet wash tickbox look
- * broken for casual riders.
+ * Downhill is the hardest answer on the page and tops out at 1.30 — what a
+ * rider gets for taking it through the winter. Easing off for the worst
+ * months pulls back from there rather than adding to it, so 1.30 is the
+ * ceiling on the whole page, not a mid-point.
+ *
+ * Enduro sits half that distance above trail, which is the proportion it had
+ * before the range was brought in (it was +0.20 against downhill's +0.40).
+ *
+ * Casual reads 0.85 on the meter and still gets the published interval:
+ * MIN_FACTOR holds it there, because the manufacturer's figure is a ceiling
+ * rather than a target.
  */
 export const STYLE_FACTOR = {
   casual: 0.85,
   trail:  1.0,
-  enduro: 1.20,
-  park:   1.40,
+  enduro: 1.15,
+  park:   1.30,
 }
 
 /**
@@ -204,8 +211,8 @@ export const LOCAL_PENALTY = 1.0
 export const MIN_FACTOR = 1.0
 
 /** Stops the extremes running away. Downhill, the hardest answer available,
- *  lands on 1.40, so this leaves a little headroom above it. */
-export const MAX_FACTOR = 1.5
+ *  lands on 1.30, so this leaves a little headroom above it. */
+export const MAX_FACTOR = 1.4
 
 // ───────────────────────────────────────────────────────────────────────────
 
