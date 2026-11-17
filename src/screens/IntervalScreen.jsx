@@ -151,6 +151,102 @@ function Chip({ on, onClick, label, hint }) {
   )
 }
 
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * Month picker, drawn in the page rather than handed to the browser.
+ *
+ * This replaced <input type="month">. That input looks right, but the popup
+ * belongs to the browser: Chromium was drawing it in the corner of the screen
+ * instead of under the field, and where a native popup lands is not something
+ * the page gets a say in. showPicker() made it worse rather than better — it
+ * needs a live user gesture, throws without one, and still leaves the
+ * positioning to the browser.
+ *
+ * Only a month and a year are ever needed here, so twelve cells and a pair of
+ * year arrows do the entire job. It sits where it is put, looks the same on a
+ * phone as on a desktop, and matches the rest of the page.
+ *
+ * value and onChange speak 'YYYY-MM', exactly as the input did, so nothing
+ * downstream of this had to change.
+ */
+function MonthPicker({ value, open, onOpenChange, onChange }) {
+  const now = new Date()
+  const nowYear = now.getFullYear()
+  const nowMonth = now.getMonth() // 0-11
+  const [vy, vm] = value ? value.split('-').map(Number) : [null, null]
+  const [year, setYear] = useState(vy || nowYear)
+
+  // Follow the value if it changes from outside — a shared link, or Start again
+  useEffect(() => { if (vy) setYear(vy) }, [vy])
+
+  // Far enough back for anything still worth servicing, and no further
+  const earliest = nowYear - 12
+
+  const arrow = ok =>
+    `w-7 h-7 rounded-lg text-[15px] font-bold leading-none ${
+      ok ? 'text-slate-600 active:bg-slate-100' : 'text-slate-200'
+    }`
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        className="w-full flex items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-[14px] active:bg-slate-50"
+      >
+        <span className={vy && vm ? 'text-slate-900' : 'text-slate-400'}>
+          {vy && vm ? format(new Date(vy, vm - 1, 1), 'MMMM yyyy') : 'Choose a month'}
+        </span>
+        <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400 shrink-0" fill="none"
+          stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round"
+            d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="mt-1.5 rounded-lg border border-slate-200 bg-white p-2">
+          <div className="flex items-center justify-between px-1 pb-1.5">
+            <button type="button" aria-label="Previous year" disabled={year <= earliest}
+              onClick={() => setYear(y => y - 1)} className={arrow(year > earliest)}>‹</button>
+            <span className="text-[13px] font-bold text-slate-800 tabular-nums">{year}</span>
+            <button type="button" aria-label="Next year" disabled={year >= nowYear}
+              onClick={() => setYear(y => y + 1)} className={arrow(year < nowYear)}>›</button>
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            {MONTH_ABBR.map((label, i) => {
+              // Nothing can have been serviced in a month that hasn't happened
+              const future = year === nowYear && i > nowMonth
+              const on = vy === year && vm === i + 1
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  disabled={future}
+                  onClick={() => {
+                    onChange(`${year}-${String(i + 1).padStart(2, '0')}`)
+                    onOpenChange(false)
+                  }}
+                  className={`rounded-lg py-2 text-[12px] font-semibold transition ${
+                    on
+                      ? 'bg-sky-500 text-white'
+                      : future
+                        ? 'text-slate-300'
+                        : 'text-slate-600 active:bg-slate-100'
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Slider({ label, value, display, min, max, step, onChange }) {
   return (
     <label className="block">
@@ -245,8 +341,7 @@ export default function IntervalScreen() {
   const [hasFinished, setHasFinished] = useState(() => !!shared?.style)
   const [step, setStep] = useState(0)
   const [copied, setCopied] = useState(false)
-  const monthRef = useRef(null)
-  const [openPicker, setOpenPicker] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   // Counting visits. Six events, no cookies, nothing identifying — see
   // src/lib/analytics.js. 'engaged' separates someone who actually used the
@@ -284,22 +379,6 @@ export default function IntervalScreen() {
   useEffect(() => {
     window.history.replaceState(null, '', `${window.location.pathname}?${encode(p)}`)
   }, [p])
-
-  // "Pick when" should land the visitor in the date picker, not in front of an
-  // empty field reading dashes. The input only exists once the mode is set, so
-  // the picker is opened here, after that render — still inside the browser's
-  // user-activation window from the tap. showPicker is unsupported on older
-  // browsers and throws if the gesture has expired, in which case the field is
-  // on screen to tap anyway.
-  useEffect(() => {
-    if (!openPicker) return
-    setOpenPicker(false)
-    try {
-      monthRef.current?.showPicker?.()
-    } catch {
-      /* no picker available — the field itself is still there */
-    }
-  }, [openPicker])
 
   const restart = () => {
     setP(DEFAULTS)
@@ -357,7 +436,6 @@ export default function IntervalScreen() {
   // asked on as well as the finish — reaching the end by the progress bar
   // should not get round it either.
   const blocked = !p.style && (current.id === 'style' || isLast)
-  const thisMonth = new Date().toISOString().slice(0, 7)
   const unitLabel = UNITS.find(u => u.key === p.unit)?.label ?? ''
 
   const question = () => {
@@ -400,14 +478,12 @@ export default function IntervalScreen() {
                   key={m.key}
                   type="button"
                   onClick={() => {
-                    // Seed the month so the field never shows as empty dashes;
-                    // a blank value already behaved as "this month" anyway.
-                    if (m.key === 'date') {
-                      setLast({ mode: 'date', when: p.last.when || thisMonth })
-                      setOpenPicker(true)
-                    } else {
-                      setLast({ mode: m.key })
-                    }
+                    // "Pick when" lands straight in the grid rather than in
+                    // front of an empty field. The month is deliberately NOT
+                    // seeded to today: that is the same silent assumption as
+                    // "Just done", and it belongs to the visitor to make.
+                    setLast({ mode: m.key })
+                    setPickerOpen(m.key === 'date')
                   }}
                   className={miniBtn(p.last.mode === m.key)}
                 >
@@ -417,14 +493,11 @@ export default function IntervalScreen() {
             </div>
             {p.last.mode === 'date' && (
               <div className="space-y-2">
-                <input
-                  ref={monthRef}
-                  type="month"
-                  max={thisMonth}
+                <MonthPicker
                   value={p.last.when}
-                  onChange={e => setLast({ when: e.target.value })}
-                  onClick={() => { try { monthRef.current?.showPicker?.() } catch { /* ignore */ } }}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[14px] text-slate-900 outline-none focus:border-sky-500"
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  onChange={when => setLast({ when })}
                 />
                 {PARTIAL_LABEL[p.unit] && (
                   <div className="grid grid-cols-2 gap-2">
@@ -499,7 +572,8 @@ export default function IntervalScreen() {
   const lastServiceText = () => {
     if (!p.last.mode) return 'Not answered'
     if (p.last.mode === 'never') return 'Never, or not sure'
-    if (p.last.mode !== 'date' || !p.last.when) return 'Just done, or brand new'
+    if (p.last.mode === 'fresh') return 'Just done, or brand new'
+    if (!p.last.when) return 'No month picked yet'
     const [y, m] = p.last.when.split('-').map(Number)
     const when = format(new Date(y, m - 1, 1), 'MMM yyyy')
     const scope = p.last.scope === 'full' ? 'full service' : (PARTIAL_LABEL[p.unit] ?? '').toLowerCase()

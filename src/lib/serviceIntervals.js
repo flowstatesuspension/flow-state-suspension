@@ -384,9 +384,10 @@ const PENDING = Symbol('pending')
 /**
  * Where the clock starts for one service.
  *
- * unanswered — nothing said yet. Returns PENDING. This used to fall through
- *              to 'fresh', which put a confident due month on screen before
- *              the rider had told us anything at all.
+ * unanswered — nothing said yet, or "pick when" chosen without a month to go
+ *              with it. Returns PENDING. This used to fall through to
+ *              'fresh', which put a confident due month on screen before the
+ *              rider had told us anything at all.
  * 'fresh'    — just serviced, or a new bike: count from today.
  * 'date'     — count from the month given. The answer can land in the past,
  *              which is the point: that rider is overdue and should be told so.
@@ -400,7 +401,8 @@ function startFor(serviceKey, last, now) {
   if (!last?.mode) return PENDING
   if (last.mode === 'fresh') return now
   if (last.mode === 'never') return null
-  if (!last.when) return now
+  // 'date' with nothing picked yet is still an unanswered question
+  if (!last.when) return PENDING
 
   if (serviceKey === 'full' && last.scope !== 'full') return null
 
