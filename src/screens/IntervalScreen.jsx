@@ -49,7 +49,9 @@ function rideLength(mins) {
 const DEFAULTS = {
   unit: 'fork',
   brand: 'Fox',
-  last: { mode: 'fresh', when: '', scope: 'full' },
+  // No mode: nothing answered. A due date needs something real to count from,
+  // so until this is set the output shows intervals and no dates.
+  last: { mode: null, when: '', scope: 'full' },
   rideMinutes: 120,
   ridesPerWeek: 2,
   // Nothing pre-selected: until they say how they ride, the page has no
@@ -78,7 +80,8 @@ function encode(p) {
   const q = new URLSearchParams()
   q.set('u', p.unit)
   q.set('b', p.brand)
-  if (p.last.mode === 'never') q.set('l', 'never')
+  if (p.last.mode === 'fresh') q.set('l', 'fresh')
+  else if (p.last.mode === 'never') q.set('l', 'never')
   else if (p.last.mode === 'date' && p.last.when)
     q.set('l', `${p.last.when}:${p.last.scope === 'full' ? 'full' : 'partial'}`)
   q.set('m', p.rideMinutes)
@@ -98,8 +101,10 @@ function decode() {
     return Number.isFinite(n) && n >= lo && n <= hi ? n : dflt
   }
   const l = q.get('l')
-  let last = { mode: 'fresh', when: '', scope: 'full' }
-  if (l === 'never') last = { mode: 'never', when: '', scope: 'full' }
+  // Unanswered unless the link says otherwise — the same rule as a cold load.
+  let last = { mode: null, when: '', scope: 'full' }
+  if (l === 'fresh') last = { mode: 'fresh', when: '', scope: 'full' }
+  else if (l === 'never') last = { mode: 'never', when: '', scope: 'full' }
   else if (l) {
     const [when, scope] = l.split(':')
     if (/^\d{4}-\d{2}$/.test(when ?? ''))
@@ -268,6 +273,9 @@ export default function IntervalScreen() {
 
   const unit = result.components[0]
   const rider = riderType(p.style, !p.ridesYearRound)
+  // Nothing to count from yet, so there is nothing to show or export.
+  const needsHistory = !!unit?.services.some(s => s.pending)
+  const hasDates = !!unit?.services.some(s => !s.pending)
 
   useEffect(() => {
     window.history.replaceState(null, '', `${window.location.pathname}?${encode(p)}`)
@@ -341,7 +349,7 @@ export default function IntervalScreen() {
 
   /** Hands the dates to their own calendar — nothing is stored our side. */
   const addToCalendar = () => {
-    if (!unit) return
+    if (!unit || !hasDates) return
     const ics = buildIcs({
       unitLabel: unit.label,
       brand: brandLabel,
@@ -500,6 +508,7 @@ export default function IntervalScreen() {
 
   // ── What they answered, as a list that jumps back to each question ──
   const lastServiceText = () => {
+    if (!p.last.mode) return 'Not answered'
     if (p.last.mode === 'never') return 'Never, or not sure'
     if (p.last.mode !== 'date' || !p.last.when) return 'Just done, or brand new'
     const [y, m] = p.last.when.split('-').map(Number)
@@ -647,6 +656,15 @@ export default function IntervalScreen() {
                 show what that does to them.
               </p>
             )}
+            {needsHistory && (
+              <button
+                type="button"
+                onClick={() => editStep(1)}
+                className="mt-2.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-[11px] font-semibold text-slate-500 active:bg-slate-100"
+              >
+                Dates appear once you say when it was last serviced →
+              </button>
+            )}
           </div>
 
           <div className="divide-y divide-slate-50">
@@ -654,7 +672,11 @@ export default function IntervalScreen() {
               <div key={s.key} className={`px-4 py-3 ${s.overdue ? 'bg-red-50/60' : ''}`}>
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="text-[14px] font-semibold text-slate-800">{s.label}</p>
-                  {s.unknown ? (
+                  {s.pending ? (
+                    /* Nothing said about the last service, so no date here
+                       could be honest. The interval below still is. */
+                    <p className="text-[14px] font-bold text-slate-300 shrink-0">—</p>
+                  ) : s.unknown ? (
                     <p className="text-[14px] font-bold text-red-600 shrink-0">Due now</p>
                   ) : s.overdue ? (
                     <p className="text-[14px] font-bold text-red-600 shrink-0">
@@ -687,7 +709,8 @@ export default function IntervalScreen() {
             <button
               type="button"
               onClick={addToCalendar}
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-[14px] font-semibold text-slate-700 active:bg-slate-50"
+              disabled={!hasDates}
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-[14px] font-semibold text-slate-700 active:bg-slate-50 disabled:opacity-40"
             >
               {saved ? 'Calendar file saved' : 'Add these dates to my calendar'}
             </button>

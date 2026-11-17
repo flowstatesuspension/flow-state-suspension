@@ -93,7 +93,9 @@ export function buildIcs({ unitLabel, brand, services, bookingUrl, now = new Dat
   for (const s of services) {
     const dueNow = s.unknown || s.overdue
     const start = dueNow ? now : s.date
-    if (!start) continue
+    // A service with no last-service answer behind it has no date, so there
+    // is nothing to put in anyone's calendar. Skipped rather than guessed.
+    if (s.pending || !start) continue
 
     const label = `${brand} ${unitLabel.toLowerCase()} — ${s.label.toLowerCase()}`
     const summary = dueNow ? `${label} (due now)` : `${label} due`

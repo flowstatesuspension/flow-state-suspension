@@ -371,20 +371,27 @@ const SERVICE_META = {
   },
 }
 
+/** Not answered yet — deliberately distinct from 'never', which IS an answer. */
+const PENDING = Symbol('pending')
+
 /**
  * Where the clock starts for one service.
  *
- * 'fresh'   — just serviced, or a new bike: count from today.
- * 'date'    — count from the month given. The answer can land in the past,
- *             which is the point: that rider is overdue and should be told so.
- * 'unknown' — never done, or can't remember. No honest date exists, so the
- *             screen says it's due rather than inventing one.
+ * unanswered — nothing said yet. Returns PENDING. This used to fall through
+ *              to 'fresh', which put a confident due month on screen before
+ *              the rider had told us anything at all.
+ * 'fresh'    — just serviced, or a new bike: count from today.
+ * 'date'     — count from the month given. The answer can land in the past,
+ *              which is the point: that rider is overdue and should be told so.
+ * 'never'    — never done, or can't remember. No honest date exists, so the
+ *              screen says it's due rather than inventing one.
  *
  * A lower-leg or air-can service does not reset the full-service clock, so a
  * rider who has only ever had lowers done still has an unknown full service.
  */
 function startFor(serviceKey, last, now) {
-  if (!last || last.mode === 'fresh') return now
+  if (!last?.mode) return PENDING
+  if (last.mode === 'fresh') return now
   if (last.mode === 'never') return null
   if (!last.when) return now
 
@@ -427,7 +434,9 @@ export function estimate(profile, from = new Date()) {
     const plan = SERVICE_PLAN[part][brand] ?? SERVICE_PLAN[part].Other
 
     const services = plan.map(({ key, hours, capMonths, label, blurb }) => {
-      const since = startFor(key, last, from)
+      const start = startFor(key, last, from)
+      const pending = start === PENDING
+      const since = pending ? null : start
       const base = {
         key,
         ...SERVICE_META[part][key],
@@ -445,6 +454,11 @@ export function estimate(profile, from = new Date()) {
         capMonths,
         since,
       }
+
+      // Not asked yet. The published interval still stands and is still
+      // worth showing — it is the manufacturer's, not ours — but a date needs
+      // something real to count from, so it stays blank until there is one.
+      if (pending) return { ...base, pending: true }
 
       // Nothing to count from — say so rather than guess a date
       if (!since) return { ...base, unknown: true, overdue: true }
