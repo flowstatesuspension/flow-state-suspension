@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { estimate, riderType, gaugePosition } from '../lib/serviceIntervals'
+import { buildIcs, downloadIcs } from '../lib/calendar'
 
 // Public service interval estimator. Served at /intervals with no login.
 //
@@ -238,6 +239,7 @@ export default function IntervalScreen() {
   const [hasFinished, setHasFinished] = useState(() => !!shared?.style)
   const [step, setStep] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [saved, setSaved] = useState(false)
   const monthRef = useRef(null)
   const [openPicker, setOpenPicker] = useState(false)
 
@@ -333,6 +335,23 @@ export default function IntervalScreen() {
     } catch {
       /* clipboard blocked — nothing more we can do from here */
     }
+  }
+
+  const brandLabel = p.brand === 'Rockshox' ? 'RockShox' : p.brand
+
+  /** Hands the dates to their own calendar — nothing is stored our side. */
+  const addToCalendar = () => {
+    if (!unit) return
+    const ics = buildIcs({
+      unitLabel: unit.label,
+      brand: brandLabel,
+      services: unit.services,
+      bookingUrl: `${window.location.origin}/book`,
+    })
+    const slug = `${brandLabel}-${unit.label}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    downloadIcs(`flow-state-${slug}-service.ics`, ics)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
   }
 
   const current = STEPS[step]
@@ -658,13 +677,20 @@ export default function IntervalScreen() {
             ))}
           </div>
 
-          {/* Booking gets the full width; the other two share a row beneath,
-              which keeps all three readable at phone width. */}
+          {/* Booking leads, the calendar export gets its own row for the
+              longer label, and the two lighter actions share the last. */}
           <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-2">
             <a href="/book"
               className="block rounded-xl bg-sky-500 px-4 py-2.5 text-center text-[14px] font-bold text-white active:bg-sky-600">
               Book {unitLabel.toLowerCase() === 'dropper' ? 'a dropper service' : `a ${unitLabel.toLowerCase()} service`}
             </a>
+            <button
+              type="button"
+              onClick={addToCalendar}
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-[14px] font-semibold text-slate-700 active:bg-slate-50"
+            >
+              {saved ? 'Calendar file saved' : 'Add these dates to my calendar'}
+            </button>
             <div className="flex gap-2">
               <a
                 href={WEBSITE}
