@@ -18,6 +18,10 @@ import { track, trackOnce } from '../lib/analytics'
 const BRANDS = ['Fox', 'Rockshox', 'Other']
 
 const WEBSITE = 'https://www.flowstatesuspension.co.uk'
+// The "Pricing and more" button lands on the pricing section rather than the
+// top of the page. www. rather than the bare domain only to skip a redirect —
+// the site sends you there anyway, fragment intact.
+const PRICING = `${WEBSITE}/#pricing`
 
 const UNITS = [
   { key: 'fork',    label: 'Fork',    brands: true },
@@ -752,7 +756,7 @@ export default function IntervalScreen() {
             </a>
             <div className="flex gap-2">
               <a
-                href={WEBSITE}
+                href={PRICING}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => track('intervals', 'website', p.unit)}
