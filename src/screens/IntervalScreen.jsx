@@ -213,30 +213,53 @@ function MonthPicker({ value, open, onOpenChange, onChange }) {
   // Nothing can have been serviced in a month that has not happened
   const maxMonth = `${nowYear}-${String(nowMonth + 1).padStart(2, '0')}`
 
-  // On a touch device "Pick when" opens the OS sheet directly, which is what
-  // it did before the desktop grid existed. The call is still inside the
-  // browser's activation window from that tap. If it throws — an older
-  // browser, or the gesture has expired — the field is on screen to tap.
+  const label = vy && vm ? format(new Date(vy, vm - 1, 1), 'MMMM yyyy') : 'Choose a month'
+
+  // Best effort at opening the sheet straight from "Pick when". iOS does not
+  // reliably honour showPicker() here: the input does not exist at the moment
+  // of the tap, so by the time this runs after the render Safari may have
+  // decided the gesture is spent. focus() is tried as well because it opens
+  // the wheel on some versions. Neither is relied on — the control below is a
+  // real month input the whole way across, so a tap on it always works, and
+  // it now says "Choose a month" rather than sitting there blank.
   useEffect(() => {
     if (!coarse || !open) return
     onOpenChange(false)
     try {
-      nativeRef.current?.showPicker?.()
+      if (nativeRef.current?.showPicker) nativeRef.current.showPicker()
+      else nativeRef.current?.focus()
     } catch {
-      /* no picker to open programmatically — the field itself still works */
+      /* nothing to open programmatically — the field itself still works */
     }
   }, [coarse, open, onOpenChange])
 
   if (coarse) {
+    // The month input is laid over the top of our own styling, fully
+    // transparent. A tap lands on the real input, so the OS opens its own
+    // picker with no scripting involved — and the text underneath is ours, so
+    // an unset month reads "Choose a month" instead of an empty box. iOS
+    // draws no placeholder of its own for type=month, which is what made the
+    // field look broken.
     return (
-      <input
-        ref={nativeRef}
-        type="month"
-        max={maxMonth}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[14px] text-slate-900 outline-none focus:border-sky-500"
-      />
+      <div className="relative">
+        <div className="w-full flex items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-[14px]">
+          <span className={vy && vm ? 'text-slate-900' : 'text-slate-400'}>{label}</span>
+          <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400 shrink-0" fill="none"
+            stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round"
+              d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+        </div>
+        <input
+          ref={nativeRef}
+          type="month"
+          max={maxMonth}
+          value={value}
+          aria-label="Month of last service"
+          onChange={e => onChange(e.target.value)}
+          className="absolute inset-0 w-full h-full opacity-0 appearance-none"
+        />
+      </div>
     )
   }
 
@@ -255,9 +278,7 @@ function MonthPicker({ value, open, onOpenChange, onChange }) {
         onClick={() => onOpenChange(!open)}
         className="w-full flex items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-[14px] active:bg-slate-50"
       >
-        <span className={vy && vm ? 'text-slate-900' : 'text-slate-400'}>
-          {vy && vm ? format(new Date(vy, vm - 1, 1), 'MMMM yyyy') : 'Choose a month'}
-        </span>
+        <span className={vy && vm ? 'text-slate-900' : 'text-slate-400'}>{label}</span>
         <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400 shrink-0" fill="none"
           stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round"
