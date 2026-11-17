@@ -3,6 +3,7 @@ import { format, parseISO, addDays, addMonths, subMonths, startOfMonth } from 'd
 import { supabase } from '../lib/supabase'
 import MonthGrid from '../components/MonthGrid'
 import PublicHeader from '../components/PublicHeader'
+import { trackOnce } from '../lib/analytics'
 import { BOOKING_HORIZON_DAYS } from '../lib/booking'
 import { DEFAULT_BRANDS, PUBLIC_BRAND_EXCLUDE, WORKSHOP_ADDRESS, WORKSHOP_DIRECTIONS } from '../constants'
 
@@ -37,6 +38,8 @@ const inputCls =
   'outline-none placeholder-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20'
 
 export default function BookingScreen() {
+  useEffect(() => { trackOnce('book', 'view') }, [])
+
   const [closures, setClosures] = useState(null) // null = loading
   const [month, setMonth] = useState(startOfMonth(new Date()))
   const [form, setForm] = useState({ name: '', phone: '', email: '', slot_date: '', notes: '', delivery_method: 'dropoff', return_address: '' })
@@ -120,8 +123,14 @@ export default function BookingScreen() {
     catalogue.filter(c => c.brand === brand && c.model).map(c => c.model)
   )].sort((a, b) => a.localeCompare(b))
 
-  function setField(k, v) { setForm(f => ({ ...f, [k]: v })) }
-  function setItem(i, k, v) { setItems(us => us.map((u, n) => (n === i ? { ...u, [k]: v } : u))) }
+  // Counting visits. Three events, no cookies, nothing identifying — see
+  // src/lib/analytics.js. 'started' is the first field anyone touches, which
+  // is what separates a form abandoned at the sight of it from one abandoned
+  // part way through.
+  function started() { trackOnce('book', 'started') }
+
+  function setField(k, v) { started(); setForm(f => ({ ...f, [k]: v })) }
+  function setItem(i, k, v) { started(); setItems(us => us.map((u, n) => (n === i ? { ...u, [k]: v } : u))) }
   function addItem() { setItems(us => [...us, blankItem()]) }
   function removeItem(i) { setItems(us => us.filter((_, n) => n !== i)) }
 
@@ -169,6 +178,9 @@ export default function BookingScreen() {
         p_return_address: payload.return_address,
       })
       if (err) throw err
+      // Detail is how it's coming in, not who sent it — the booking row
+      // itself holds the customer, and this table never should.
+      trackOnce('book', 'submitted', posting ? 'post' : 'dropoff')
       setDone({ date: form.slot_date, name: form.name.trim(), posting, jobNumber: issuedNumber ?? null })
     } catch (err) {
       // The slot check lives in a database policy, so a day filling up between

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { estimate, riderType, gaugePosition } from '../lib/serviceIntervals'
 import PublicHeader from '../components/PublicHeader'
+import { track, trackOnce } from '../lib/analytics'
 
 // Public service interval estimator. Served at /intervals with no login.
 //
@@ -247,8 +248,15 @@ export default function IntervalScreen() {
   const monthRef = useRef(null)
   const [openPicker, setOpenPicker] = useState(false)
 
-  const set = patch => setP(prev => ({ ...prev, ...patch }))
-  const setLast = patch => setP(prev => ({ ...prev, last: { ...prev.last, ...patch } }))
+  // Counting visits. Six events, no cookies, nothing identifying — see
+  // src/lib/analytics.js. 'engaged' separates someone who actually used the
+  // thing from someone who opened it and left, which is the one distinction
+  // worth having.
+  useEffect(() => { trackOnce('intervals', 'view') }, [])
+  const engaged = () => trackOnce('intervals', 'engaged')
+
+  const set = patch => { engaged(); setP(prev => ({ ...prev, ...patch })) }
+  const setLast = patch => { engaged(); setP(prev => ({ ...prev, last: { ...prev.last, ...patch } })) }
 
   // The model still takes the whole-bike shape; this page just drives one
   // slot of it at a time.
@@ -302,6 +310,7 @@ export default function IntervalScreen() {
   }
 
   const finish = () => {
+    trackOnce('intervals', 'finished', p.unit)
     setFinished(true)
     setHasFinished(true)
   }
@@ -321,6 +330,7 @@ export default function IntervalScreen() {
    * anyone would expect a Share button to do.
    */
   const share = async () => {
+    track('intervals', 'share', p.unit)
     const url = `${window.location.origin}/intervals`
     const title = 'MTB suspension service estimator'
     const text = "Work out when your fork, shock or dropper is actually due — Flow State Suspension, Edinburgh."
@@ -597,7 +607,7 @@ export default function IntervalScreen() {
             )}
             <button
               type="button"
-              onClick={() => (isLast ? finish() : setStep(s => s + 1))}
+              onClick={() => { engaged(); isLast ? finish() : setStep(s => s + 1) }}
               disabled={blocked}
               className="rounded-xl bg-sky-500 px-5 py-2 text-[13px] font-bold text-white disabled:opacity-40 active:bg-sky-600"
             >
@@ -662,6 +672,7 @@ export default function IntervalScreen() {
           {/* Booking leads; the two lighter actions share the row below. */}
           <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-2">
             <a href="/book"
+              onClick={() => track('intervals', 'book', p.unit)}
               className="block rounded-xl bg-sky-500 px-4 py-2.5 text-center text-[14px] font-bold text-white active:bg-sky-600">
               Book {unitLabel.toLowerCase() === 'dropper' ? 'a dropper service' : `a ${unitLabel.toLowerCase()} service`}
             </a>
@@ -670,6 +681,7 @@ export default function IntervalScreen() {
                 href={WEBSITE}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => track('intervals', 'website', p.unit)}
                 className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center text-[14px] font-semibold text-slate-700 active:bg-slate-50"
               >
                 Pricing and more

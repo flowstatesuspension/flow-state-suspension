@@ -38,6 +38,7 @@ const NAV_SECTIONS = [
   { label: 'Service Time', id: 'section-service-time' },
   { label: 'Jobs',         id: 'section-jobs' },
   { label: 'Customers',    id: 'section-customers' },
+  { label: 'Web Traffic',  id: 'section-traffic' },
   { label: 'Brands',       id: 'section-brands' },
   { label: 'Stock Pred.',  id: 'section-stock' },
 ]
@@ -69,6 +70,53 @@ function HBar({ value, max, color }) {
   return (
     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
       <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+    </div>
+  )
+}
+
+/**
+ * One public page's funnel.
+ *
+ * Every row is people, not taps — a visit that hits Book three times is one
+ * person who wanted to book. Bars are drawn against the first step rather
+ * than against each other, so the drop-off between any two rows is the gap
+ * between the bars.
+ */
+function TrafficFunnel({ title, path, visits, steps, color, footer }) {
+  const top = steps[0]?.value || 0
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-bold text-slate-900 truncate">{title}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{path}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-xl font-bold text-slate-900 leading-none">{visits}</p>
+          <p className="text-[10px] text-slate-400 mt-1">visits</p>
+        </div>
+      </div>
+      <div className="px-4 py-3 space-y-2.5">
+        {steps.map(st => (
+          <div key={st.label}>
+            <div className="flex items-baseline justify-between gap-3 mb-1">
+              <span className="text-[11px] text-slate-600">{st.label}</span>
+              <span className="text-[11px] font-bold text-slate-800 shrink-0">
+                {st.value}
+                <span className="font-medium text-slate-400">
+                  {' · '}{top > 0 ? Math.round((st.value / top) * 100) : 0}%
+                </span>
+              </span>
+            </div>
+            <HBar value={st.value} max={top} color={color} />
+          </div>
+        ))}
+      </div>
+      {footer && (
+        <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50">
+          <p className="text-[10px] text-slate-500">{footer}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -1115,6 +1163,79 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
   // ── Stock predictor period ────────────────────────────────────────────────────
   const [stockPeriod, setStockPeriod] = useState('4w') // '1w' | '4w' | '3m'
 
+  // ── Public page traffic ──────────────────────────────────────────────────────
+  // Counted by the two public pages. See src/lib/analytics.js for what is and
+  // is not recorded, and supabase-analytics.sql for the table.
+  const [trafficPeriod, setTrafficPeriod] = useState('30d') // '7d' | '30d' | '90d'
+  const [traffic, setTraffic] = useState(null)              // null = loading
+  const [trafficMissing, setTrafficMissing] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const days = { '7d': 7, '30d': 30, '90d': 90 }[trafficPeriod]
+    const since = new Date(Date.now() - days * 86400000).toISOString()
+    async function fetchTraffic() {
+      const { data, error } = await supabase
+        .from('page_events')
+        .select('app, event, detail, session_id')
+        .gte('created_at', since)
+        // A ceiling so one bad week can never pull a huge payload into the
+        // phone. Well above anything this site will produce; if it is ever hit
+        // the counts below under-report and this needs moving server side.
+        .limit(20000)
+      if (cancelled) return
+      // The table isn't there — supabase-analytics.sql hasn't been run yet,
+      // which is worth saying out loud rather than showing a confident zero.
+      // PostgREST answers with its own schema-cache code rather than
+      // Postgres's 42P01, and which one you get depends on whether the cache
+      // has been reloaded, so both are checked.
+      setTrafficMissing(error?.code === 'PGRST205' || error?.code === '42P01')
+      setTraffic(error ? [] : (data ?? []))
+    }
+    fetchTraffic()
+    return () => { cancelled = true }
+  }, [trafficPeriod])
+
+  // Every step is counted in people, not taps: one visit that taps Book three
+  // times is one person who wanted to book.
+  const trafficStats = useMemo(() => {
+    if (!traffic) return null
+    const people = (app, event) =>
+      new Set(traffic.filter(e => e.app === app && e.event === event).map(e => e.session_id)).size
+
+    const units = {}
+    for (const e of traffic) {
+      if (e.app === 'intervals' && e.event === 'finished' && e.detail) {
+        units[e.detail] = (units[e.detail] || 0) + 1
+      }
+    }
+
+    const visits = app => new Set(traffic.filter(e => e.app === app).map(e => e.session_id)).size
+
+    return {
+      intervals: {
+        visits: visits('intervals'),
+        steps: [
+          { label: 'Opened it',        value: people('intervals', 'view') },
+          { label: 'Started answering', value: people('intervals', 'engaged') },
+          { label: 'Got an estimate',   value: people('intervals', 'finished') },
+          { label: 'Tapped Book',       value: people('intervals', 'book') },
+        ],
+        website: people('intervals', 'website'),
+        shared: people('intervals', 'share'),
+        units,
+      },
+      book: {
+        visits: visits('book'),
+        steps: [
+          { label: 'Opened it',          value: people('book', 'view') },
+          { label: 'Started filling in', value: people('book', 'started') },
+          { label: 'Sent a request',     value: people('book', 'submitted') },
+        ],
+      },
+    }
+  }, [traffic])
+
   // ── Service time data ────────────────────────────────────────────────────────
   const [serviceTimeByModel, setServiceTimeByModel] = useState([])
 
@@ -1307,6 +1428,40 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
     else txt += `Turnaround is stable or improving across your historical record. `
     if (maxTurnaround > avgTurnaround * 2) txt += `A large spread between fastest and slowest jobs suggests some outliers — investigate what's causing the longest jobs.`
     return txt
+  }
+
+  function trafficInsight() {
+    if (!trafficStats) return ''
+    const { intervals: iv, book: bk } = trafficStats
+    const rate = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0)
+    const window = { '7d': 'week', '30d': '30 days', '90d': '90 days' }[trafficPeriod]
+    const parts = []
+
+    if (iv.visits) {
+      parts.push(
+        `The estimator had ${iv.visits} visit${iv.visits === 1 ? '' : 's'} in the last ${window}. ` +
+        `${rate(iv.steps[2].value, iv.steps[0].value)}% got far enough to see an estimate` +
+        (iv.steps[3].value
+          ? `, and ${iv.steps[3].value} went on to tap Book.`
+          : `, though nobody has tapped Book from it yet.`)
+      )
+    }
+    if (bk.visits) {
+      parts.push(
+        `The booking page had ${bk.visits}, and ${bk.steps[2].value} ` +
+        `request${bk.steps[2].value === 1 ? '' : 's'} came out of ${
+          bk.steps[1].value} who started filling it in — ${
+          rate(bk.steps[2].value, bk.steps[0].value)}% of everyone who opened it.`
+      )
+    }
+    const top = Object.entries(iv.units).sort((a, b) => b[1] - a[1])[0]
+    if (top) parts.push(`Most estimates run are for a ${top[0]}.`)
+
+    // Said plainly because it is easy to misread: nothing is stored on the
+    // visitor's device, so a reload is a new visit and nothing joins a trip
+    // from the estimator through to the booking page.
+    parts.push('A visit is one page load — the same person on two days counts twice.')
+    return parts.join(' ')
   }
 
   function customerInsight() {
@@ -1809,6 +1964,65 @@ export default function AnalyticsScreen({ jobs: jobs_raw, customers, settings })
             </div>
           )}
           <Insight text={customerInsight()} />
+        </Section>
+
+        {/* ── PUBLIC PAGE TRAFFIC ── */}
+        <Section title="Web Traffic" id="section-traffic">
+          <div className="flex gap-1.5 mb-2">
+            {[['7d', '7 days'], ['30d', '30 days'], ['90d', '90 days']].map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setTrafficPeriod(k)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition ${
+                  trafficPeriod === k
+                    ? 'border-sky-500 bg-sky-50 text-sky-700'
+                    : 'border-slate-200 bg-white text-slate-500'
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {trafficMissing ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <p className="text-xs text-amber-800 leading-relaxed">
+                Not collecting yet. Run <b>supabase-analytics.sql</b> once in the Supabase SQL
+                editor to create the table, and visits will start appearing here.
+              </p>
+            </div>
+          ) : !trafficStats ? (
+            <p className="text-xs text-slate-400 py-2">Loading…</p>
+          ) : trafficStats.intervals.visits + trafficStats.book.visits === 0 ? (
+            <p className="text-xs text-slate-400 py-2">No visits recorded in this period.</p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <TrafficFunnel
+                  title="Service Interval Estimator"
+                  path="/intervals"
+                  color="#38bdf8"
+                  visits={trafficStats.intervals.visits}
+                  steps={trafficStats.intervals.steps}
+                  footer={(() => {
+                    const units = Object.entries(trafficStats.intervals.units)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([u, n]) => `${u[0].toUpperCase()}${u.slice(1)} ${n}`)
+                    const extras = []
+                    if (units.length) extras.push(`Estimates run: ${units.join(' · ')}`)
+                    if (trafficStats.intervals.website) extras.push(`${trafficStats.intervals.website} to the website`)
+                    if (trafficStats.intervals.shared) extras.push(`${trafficStats.intervals.shared} shared it`)
+                    return extras.length ? extras.join('   ·   ') : null
+                  })()}
+                />
+                <TrafficFunnel
+                  title="Booking Page"
+                  path="/book"
+                  color="#34d399"
+                  visits={trafficStats.book.visits}
+                  steps={trafficStats.book.steps}
+                />
+              </div>
+              <Insight text={trafficInsight()} />
+            </>
+          )}
         </Section>
 
         {/* ── BRANDS ── */}
